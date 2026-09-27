@@ -2,7 +2,7 @@
   "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
-    "includes": ["**", "!design", "!**/routeTree.gen.ts", "!.mcp.json"]
+    "includes": ["**", "!design", "!**/routeTree.gen.ts", "!.mcp.json", "!vinaya.config.json"]
   },
   "formatter": {
     "enabled": true,

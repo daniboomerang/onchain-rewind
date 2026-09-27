@@ -1,5 +1,7 @@
 {
-  "principals": ["daniboomerang"],
+  "principals": [
+    "daniboomerang"
+  ],
   "rings": {
     "ring1_forgeWriteInterception": true,
     "ring2_asyncAudits": true
@@ -59,8 +61,7 @@
       ".agents/skills/vinaya-tranche-archivist/SKILL.md",
       ".claude/commands/vinaya.md",
       ".claude/settings.json",
-      ".mcp.json",
-      ".gemini/commands/vinaya.toml"
+      ".mcp.json"
     ],
     "blocks": [
       {
@@ -85,6 +86,19 @@
       }
     ],
     "labels": [],
-    "agents": ["claude", "gemini", "skills"]
+    "agents": [
+      "claude",
+      "skills"
+    ]
+  },
+  "logs": {
+    "url": "https://vinaya-log-server.estevez-dani.workers.dev/v1/repos/daniboomerang/onchain-rewind/events",
+    "headers": {
+      "authorization": "Bearer ${VINAYA_LOG_TOKEN}"
+    }
+  },
+  "dispatch": {
+    "agent": "claude",
+    "requireWorkerIsolation": false
   }
 }
