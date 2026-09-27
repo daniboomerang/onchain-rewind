@@ -41,7 +41,7 @@ No WebGL. No signing, swaps or sends. No accounts or backend database. No person
 
 ## 3. Design input
 
-Everything is in [`design/`](design/): `DESIGN.md` (tokens, components, motion per screen, layout), `tokens.css`, reference components, `types.ts` (the `RewindFacts` contract), `fixtures.ts`, `renderShareImage.ts`, `Playground.tsx`, assets (wordmark, favicon, OG image, title cards), and the reference sheets in `design/reference/`.
+Everything is in [`design/`](design/): `DESIGN.md` (tokens, components, motion per screen, layout), `tokens.css`, reference components, `types.ts`, `fixtures.ts`, `renderShareImage.ts`, `Playground.tsx`, assets (wordmark, favicon, OG image, title cards), and the reference sheets in `design/reference/`. `types.ts` has been ported: [`src/engine/types.ts`](src/engine/types.ts) is the live `RewindFacts` contract, not `design/types.ts`.
 
 The reference code **typechecks under strict TypeScript** and was verified running in a scratch Vite app. Port it into `src/` and adapt it. Don't import from `design/`. Known issues are in [`design/KNOWN-ISSUES.md`](design/KNOWN-ISSUES.md).
 
