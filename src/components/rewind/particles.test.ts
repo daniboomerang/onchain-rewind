@@ -1,0 +1,164 @@
+import { expect, test } from "vitest";
+import { revealMs } from "./motion";
+import {
+  ALPHA_STEPS,
+  alphaIndex,
+  alphaTable,
+  easeInOut,
+  easeOut,
+  MOBILE_BREAKPOINT,
+  PARTICLE_CAP,
+  type Point,
+  parseRgb,
+  particleCap,
+  placeAt,
+  RING_RADIUS,
+  reseedParticle,
+  ringRadius,
+  spawnParticle,
+} from "./particles";
+
+/**
+ * The reveal itself is a canvas and a rAF loop, and happy-dom has no 2D context — its phases are
+ * proven in a browser. What is provable here is the maths underneath: the caps, the easing, where a
+ * particle sits at a given moment, and the colour and alpha the loop paints it with.
+ */
+
+const point = (): Point => ({ x: 0, y: 0 });
+
+test("one particle per transaction, capped lower on a phone than on a desktop", () => {
+  expect(particleCap(MOBILE_BREAKPOINT - 1)).toBe(PARTICLE_CAP.mobile);
+  expect(particleCap(MOBILE_BREAKPOINT)).toBe(PARTICLE_CAP.desktop);
+  expect(particleCap(1440)).toBe(PARTICLE_CAP.desktop);
+  expect(PARTICLE_CAP.mobile).toBeLessThan(PARTICLE_CAP.desktop);
+});
+
+test("the ring is tighter on a phone", () => {
+  expect(ringRadius(MOBILE_BREAKPOINT - 1)).toBe(RING_RADIUS.mobile);
+  expect(ringRadius(MOBILE_BREAKPOINT)).toBe(RING_RADIUS.desktop);
+});
+
+test("both easings run 0 → 1 without leaving the range, and clamp outside it", () => {
+  for (const ease of [easeOut, easeInOut]) {
+    expect(ease(0)).toBe(0);
+    expect(ease(1)).toBe(1);
+    expect(ease(-1)).toBe(0);
+    expect(ease(2)).toBe(1);
+    let previous = 0;
+    for (let i = 1; i <= 20; i++) {
+      const v = ease(i / 20);
+      expect(v).toBeGreaterThanOrEqual(previous);
+      expect(v).toBeLessThanOrEqual(1);
+      previous = v;
+    }
+  }
+});
+
+test("easeOut leads its input and easeInOut sits on the diagonal at the midpoint", () => {
+  expect(easeOut(0.25)).toBeGreaterThan(0.25);
+  expect(easeInOut(0.5)).toBeCloseTo(0.5, 2);
+});
+
+test("a particle drifts from its own spawn point until the scatter ends", () => {
+  const p = spawnParticle(false, 0, 800, 600);
+  p.x0 = 100;
+  p.y0 = 200;
+  p.vx = 0.01;
+  p.vy = -0.02;
+  const out = point();
+  placeAt(p, 0, 200, 400, 300, out);
+  expect(out).toEqual({ x: 100, y: 200 });
+  placeAt(p, revealMs.scatter / 2, 200, 400, 300, out);
+  expect(out.x).toBeCloseTo(100 + 0.01 * (revealMs.scatter / 2), 6);
+  expect(out.y).toBeCloseTo(200 - 0.02 * (revealMs.scatter / 2), 6);
+});
+
+test("once its flight is over, a particle sits its own band off the ring", () => {
+  const p = spawnParticle(false, 0, 800, 600);
+  p.band = 7;
+  const out = point();
+  placeAt(p, revealMs.scatter + p.travel, 200, 400, 300, out);
+  expect(Math.hypot(out.x - 400, out.y - 300)).toBeCloseTo(207, 6);
+});
+
+test("a particle born mid-scatter still drifts for its full scatter, then flies", () => {
+  const p = spawnParticle(false, revealMs.scatter * 2, 800, 600);
+  const out = point();
+  // Its own birth is later than the scatter, so the gather starts from the birth instead.
+  placeAt(p, revealMs.scatter * 2, 200, 400, 300, out);
+  expect(out).toEqual({ x: p.x0, y: p.y0 });
+  placeAt(p, revealMs.scatter * 2 + p.travel, 200, 400, 300, out);
+  expect(Math.hypot(out.x - 400, out.y - 300)).toBeCloseTo(200 + p.band, 6);
+});
+
+test("placeAt writes into the point it is given and allocates nothing", () => {
+  const p = spawnParticle(true, 0, 800, 600);
+  const out = point();
+  placeAt(p, 1000, 200, 400, 300, out);
+  const first = { ...out };
+  placeAt(p, 2000, 200, 400, 300, out);
+  expect(out).not.toEqual(first);
+});
+
+test("dust spawns inside the field, dimmer than a real transaction and in the base tone", () => {
+  for (let i = 0; i < 50; i++) {
+    const p = spawnParticle(true, 0, 800, 600);
+    expect(p.dust).toBe(true);
+    expect(p.tone).toBe(0);
+    expect(p.alpha).toBeLessThan(0.3);
+    expect(p.x0).toBeGreaterThanOrEqual(0);
+    expect(p.x0).toBeLessThanOrEqual(800);
+    expect(p.y0).toBeGreaterThanOrEqual(0);
+    expect(p.y0).toBeLessThanOrEqual(600);
+    expect(p.travel).toBeGreaterThanOrEqual(revealMs.travelMin);
+    expect(p.travel).toBeLessThanOrEqual(revealMs.travelMax);
+  }
+});
+
+test("a claimed dust particle keeps its place in the field but stops being dust", () => {
+  const p = spawnParticle(true, 40, 800, 600);
+  const { x0, y0, angle, band } = p;
+  reseedParticle(p, false, p.born);
+  expect(p).toMatchObject({ x0, y0, angle, band, dust: false, born: 40 });
+  expect(p.alpha).toBeGreaterThanOrEqual(0.3);
+  expect(p.hasBurst).toBe(false);
+  expect(p.hasTrail).toBe(false);
+});
+
+test("most real particles take the base tone, a few the accents", () => {
+  const tones = Array.from({ length: 3000 }, () => spawnParticle(false, 0, 800, 600).tone);
+  expect(tones.filter((t) => t === 0).length).toBeGreaterThan(2400);
+  expect(tones.filter((t) => t === 1).length).toBeGreaterThan(0);
+  expect(tones.filter((t) => t === 2).length).toBeGreaterThan(0);
+});
+
+test("a colour token is read as the r,g,b triplet canvas rgba() needs", () => {
+  expect(parseRgb("#00a3f5")).toBe("0,163,245");
+  expect(parseRgb(" 00A3F5 ")).toBe("0,163,245");
+  expect(parseRgb("#ffffff")).toBe("255,255,255");
+  expect(parseRgb("rgb(1, 2, 3)")).toBe("1,2,3");
+  expect(parseRgb("rgba(255 157 28 / 0.5)")).toBe("255,157,28");
+});
+
+test("an unreadable colour is refused rather than guessed", () => {
+  expect(parseRgb("")).toBeNull();
+  expect(parseRgb("#fff")).toBeNull();
+  expect(parseRgb("oklch(0.7 0.1 200)")).toBeNull();
+  expect(parseRgb("var(--fg)")).toBeNull();
+});
+
+test("every alpha the loop can ask for has a prebuilt string waiting", () => {
+  const table = alphaTable("0,163,245");
+  expect(table).toHaveLength(ALPHA_STEPS + 1);
+  expect(table[alphaIndex(0)]).toBe("rgba(0,163,245,0)");
+  expect(table[alphaIndex(1)]).toBe("rgba(0,163,245,1)");
+  for (const alpha of [-1, 0, 0.003, 0.5, 0.999, 1, 2]) {
+    expect(table[alphaIndex(alpha)]).toBeTypeOf("string");
+  }
+});
+
+test("alphaIndex clamps to the table it indexes", () => {
+  expect(alphaIndex(-5)).toBe(0);
+  expect(alphaIndex(5)).toBe(ALPHA_STEPS);
+  expect(alphaIndex(0.5)).toBe(ALPHA_STEPS / 2);
+});

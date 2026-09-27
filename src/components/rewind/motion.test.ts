@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { enterItem, enterItemReduced } from "./motion";
+import { duration, enterItem, enterItemReduced, revealMs } from "./motion";
 
 /**
  * The server renders a card's hidden state before it can know whether the viewer asked for reduced
@@ -19,4 +19,29 @@ test("both entrance variants end at y 0, so nothing is left offset", () => {
 test("the reduced variant snaps y rather than moving it", () => {
   const { transition } = enterItemReduced.show as { transition: { y?: { duration?: number } } };
   expect(transition.y?.duration).toBe(0);
+});
+
+/**
+ * The reveal's rAF loop measures in milliseconds while `duration` is in seconds for Motion, so every
+ * phase a token covers must read back as that token's millisecond twin — otherwise the canvas and
+ * the CSS the reveal fades with drift apart.
+ */
+test("the reveal's phase timings mirror the duration tokens they come from", () => {
+  expect(revealMs.minReveal).toBe(duration.reveal * 1000);
+  expect(revealMs.fail).toBe(duration.slow * 1000);
+  expect(revealMs.travelMin).toBe(duration.grow * 1000);
+  expect(revealMs.countRoll).toBe(duration.base * 1000);
+  expect(revealMs.reducedFade).toBe(duration.base * 1000);
+});
+
+test("the reveal never finishes before its minimum, and every phase has a length", () => {
+  expect(revealMs.minReveal).toBe(3200);
+  for (const [phase, ms] of Object.entries(revealMs)) {
+    expect(ms, phase).toBeGreaterThan(0);
+  }
+  expect(revealMs.travelMax).toBeGreaterThan(revealMs.travelMin);
+});
+
+test("the live region is announced no more than once a second", () => {
+  expect(revealMs.announce).toBeGreaterThanOrEqual(1000);
 });
