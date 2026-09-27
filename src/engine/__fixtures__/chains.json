@@ -1,0 +1,664 @@
+{
+  "data": [
+    {
+      "type": "chains",
+      "id": "0g",
+      "attributes": {
+        "name": "0G Mainnet",
+        "icon": {
+          "url": "https://chain-icons.s3.us-east-1.amazonaws.com/0g.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "abstract",
+      "attributes": {
+        "name": "Abstract",
+        "icon": {
+          "url": "https://chain-icons.s3.us-east-1.amazonaws.com/abstract.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "ape",
+      "attributes": {
+        "name": "Ape Chain",
+        "icon": {
+          "url": "https://chain-icons.s3.us-east-1.amazonaws.com/apechain.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "arbitrum",
+      "attributes": {
+        "name": "Arbitrum",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/arbitrum.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "arc",
+      "attributes": {
+        "name": "Arc",
+        "icon": {
+          "url": "https://chain-icons.s3.us-east-1.amazonaws.com/arc.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "astar-zkevm",
+      "attributes": {
+        "name": "Astar zkEVM",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/chainlist/3776"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "aurora",
+      "attributes": {
+        "name": "Aurora",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/aurora.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "avalanche",
+      "attributes": {
+        "name": "Avalanche",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/avalanche.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "base",
+      "attributes": {
+        "name": "Base",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/chainlist/8453"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "berachain",
+      "attributes": {
+        "name": "Berachain",
+        "icon": {
+          "url": "https://chain-icons.s3.us-east-1.amazonaws.com/berra.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "binance-smart-chain",
+      "attributes": {
+        "name": "BNB Chain",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/bsc.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "blast",
+      "attributes": {
+        "name": "Blast",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/chainlist/81457"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "bob",
+      "attributes": {
+        "name": "BOB",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/bob.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "celo",
+      "attributes": {
+        "name": "Celo",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/chainlist/42220"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "cronos-zkevm",
+      "attributes": {
+        "name": "Cronos zkEVM",
+        "icon": {
+          "url": "https://chain-icons.s3.us-east-1.amazonaws.com/cronoszkevm.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "cyber",
+      "attributes": {
+        "name": "Cyber",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/cyber.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "degen",
+      "attributes": {
+        "name": "Degen Chain",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/chainlist/666666666"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "ethereum",
+      "attributes": {
+        "name": "Ethereum",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/ethereum.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "fantom",
+      "attributes": {
+        "name": "Fantom",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/fantom.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "fraxtal",
+      "attributes": {
+        "name": "Fraxtal",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/fraxtal.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "gravity-alpha",
+      "attributes": {
+        "name": "Gravity Alpha",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/gravity.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "hyperevm",
+      "attributes": {
+        "name": "HyperEVM",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/chainlist/999"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "ink",
+      "attributes": {
+        "name": "Ink",
+        "icon": {
+          "url": "https://chain-icons.s3.us-east-1.amazonaws.com/ink.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "katana",
+      "attributes": {
+        "name": "Katana",
+        "icon": {
+          "url": "https://chain-icons.s3.us-east-1.amazonaws.com/katana.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "lens",
+      "attributes": {
+        "name": "Lens",
+        "icon": {
+          "url": "https://chain-icons.s3.us-east-1.amazonaws.com/lens.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "linea",
+      "attributes": {
+        "name": "Linea",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/chainlist/59144"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "lisk",
+      "attributes": {
+        "name": "Lisk",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/lisk.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "manta-pacific",
+      "attributes": {
+        "name": "Manta Pacific",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/manta.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "mantle",
+      "attributes": {
+        "name": "Mantle",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/mantle.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "megaeth",
+      "attributes": {
+        "name": "MegaETH",
+        "icon": {
+          "url": "https://chain-icons.s3.us-east-1.amazonaws.com/megaeth.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "metis-andromeda",
+      "attributes": {
+        "name": "Metis Andromeda",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/metis.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "mode",
+      "attributes": {
+        "name": "Mode",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/mode.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "monad",
+      "attributes": {
+        "name": "Monad",
+        "icon": {
+          "url": "https://chain-icons.s3.us-east-1.amazonaws.com/monad.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "okbchain",
+      "attributes": {
+        "name": "X Layer",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/okx.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "opbnb",
+      "attributes": {
+        "name": "opBNB",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/opBNB.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "optimism",
+      "attributes": {
+        "name": "Optimism",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/optimism.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "plasma",
+      "attributes": {
+        "name": "Plasma",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/plasma.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "polygon",
+      "attributes": {
+        "name": "Polygon",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/polygon.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "polygon-zkevm",
+      "attributes": {
+        "name": "Polygon zkEVM",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/chainlist/1101"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "polynomial",
+      "attributes": {
+        "name": "Polynomial",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/polynomial.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "rari",
+      "attributes": {
+        "name": "Rari",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/chainlist/1380012617"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "re-al",
+      "attributes": {
+        "name": "re.al",
+        "icon": {
+          "url": "https://chain-icons.s3.us-east-1.amazonaws.com/real.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "redstone",
+      "attributes": {
+        "name": "Redstone",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/redstone.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "robinhood",
+      "attributes": {
+        "name": "Robinhood",
+        "icon": {
+          "url": "https://chain-icons.s3.us-east-1.amazonaws.com/robinhood.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "ronin",
+      "attributes": {
+        "name": "Ronin",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/chainlist/2020"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "scroll",
+      "attributes": {
+        "name": "Scroll",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/scroll.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "sei",
+      "attributes": {
+        "name": "Sei",
+        "icon": {
+          "url": "https://protocol-icons.s3.amazonaws.com/icons/sei.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "solana",
+      "attributes": {
+        "name": "Solana",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/solana.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "somnia",
+      "attributes": {
+        "name": "Somnia",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/somnia.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "soneium",
+      "attributes": {
+        "name": "Soneium",
+        "icon": {
+          "url": "https://chain-icons.s3.us-east-1.amazonaws.com/soneium.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "sonic",
+      "attributes": {
+        "name": "Sonic",
+        "icon": {
+          "url": "https://chain-icons.s3.us-east-1.amazonaws.com/sonic_s.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "swellchain",
+      "attributes": {
+        "name": "Swellchain",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/swellchain.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "taiko",
+      "attributes": {
+        "name": "Taiko",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/taiko.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "tempo",
+      "attributes": {
+        "name": "Tempo",
+        "icon": {
+          "url": "https://chain-icons.s3.us-east-1.amazonaws.com/tempo.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "tomochain",
+      "attributes": {
+        "name": "Viction",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/viction.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "tron",
+      "attributes": {
+        "name": "Tron",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/tron.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "unichain",
+      "attributes": {
+        "name": "Unichain",
+        "icon": {
+          "url": "https://chain-icons.s3.us-east-1.amazonaws.com/unichain.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "wonder",
+      "attributes": {
+        "name": "Wonder",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/chainlist/9637"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "world",
+      "attributes": {
+        "name": "World Chain",
+        "icon": {
+          "url": "https://protocol-icons.s3.amazonaws.com/worldchain.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "xdai",
+      "attributes": {
+        "name": "Gnosis Chain",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/xdai.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "xinfin-xdc",
+      "attributes": {
+        "name": "XDC",
+        "icon": {
+          "url": "https://chain-icons.s3.us-east-1.amazonaws.com/xdc.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "zero",
+      "attributes": {
+        "name": "ZERϴ",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/chainlist/543210"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "zkcandy",
+      "attributes": {
+        "name": "ZKcandy",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/zkcandy.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "zklink-nova",
+      "attributes": {
+        "name": "ZkLink Nova",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/zklink.png"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "zksync-era",
+      "attributes": {
+        "name": "ZKsync Era",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/chainlist/324"
+        }
+      }
+    },
+    {
+      "type": "chains",
+      "id": "zora",
+      "attributes": {
+        "name": "Zora",
+        "icon": {
+          "url": "https://chain-icons.s3.amazonaws.com/zora"
+        }
+      }
+    }
+  ]
+}
