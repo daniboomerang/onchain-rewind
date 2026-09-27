@@ -1,6 +1,7 @@
 #!/usr/bin/env sh
+
 # >>> vinaya:managed:pre-commit >>>
 # Vinaya commit-time gate. Runs the deterministic checks over your staged
 # diff before the commit lands.
-VINAYA_HOST=hook npx --yes @attalabs/vinaya@0.33.0 check --all --diff-only --local --skip-full || exit 1
+VINAYA_HOST=hook npx --yes @attalabs/vinaya@0.34.0 check --all --diff-only --local --skip-full || exit 1
 # <<< vinaya:managed:pre-commit <<<
