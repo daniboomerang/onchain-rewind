@@ -1,0 +1,18 @@
+{
+  "data": {
+    "type": "fungibles",
+    "id": "eth",
+    "attributes": {
+      "name": "Ethereum",
+      "symbol": "ETH",
+      "icon": {
+        "url": "https://cdn.zerion.io/eth.png"
+      },
+      "market_data": {
+        "changes": {
+          "percent_365d": -32.769575478149726
+        }
+      }
+    }
+  }
+}

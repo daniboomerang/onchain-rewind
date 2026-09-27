@@ -18,7 +18,10 @@ Zerion's own web app runs on TanStack Start, which is why this repo uses it too.
 ## Server functions (`src/server/`)
 - Anything that needs `ZERION_API_KEY`, or that resolves ENS, is a server function created with `createServerFn`. Validate input at the boundary: addresses must be `0x` + 40 hex characters, and ENS names must end in `.eth`.
 - Keep server functions thin: parse input, call `zerionFetch`, trim the response, return a typed result. Logic belongs in `src/engine/`.
-- Name files `*.functions.ts`. Keep the client-safe types they return in a separate `*.types.ts`.
+- Name files `*.functions.ts`, grouped by resource (`wallets`, `chains`, `fungibles`). Keep the client-safe types they return in a separate `*.types.ts`, or — for the trimmed Zerion shapes the engine also reads — in `src/engine/zerion.ts` (ADR-0003).
+- Each `*.functions.ts` exports the handler's body as a plain `read…` function beside the server function itself. The server function is one line around it, and the tests call the `read…` function: `createServerFn`'s own handler needs the Start server runtime, which Vitest doesn't have.
+- **Return, never throw.** A server function returns the client's `ZerionResult<T>` (or, for ENS, `EnsResult`), including for input it refuses. Validation happens before the call goes out.
+- ENS is not Zerion, so it lives in `src/server/ens/`, not `src/server/zerion/`.
 
 ## Env
 - `ZERION_API_KEY` in `.env.local` (gitignored), documented in `.env.example`. It's read via `process.env` only on the server.

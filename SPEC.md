@@ -72,10 +72,10 @@ Base URL `https://api.zerion.io`. Auth is HTTP Basic, with the API key as the us
 | `wallet.address` | input, or ENS resolution | Zerion does **not** resolve ENS. Resolve on the server with viem `getEnsAddress` on mainnet. Demo wallets store their resolved address. |
 | `wallet.name` | input | The ENS name if the user typed one, otherwise missing. |
 | `txCount` | `GET /v1/wallets/{a}/transactions/` | Count of non-trash transactions in the window (below). |
-| `firstTx`, `daysOnchain` | transactions | **Verify first:** does the transactions endpoint support ascending order? If yes, fetch the oldest transaction (lifetime). If not, use the oldest transaction within the window and change card 1's kicker to "Your year started on". Record the decision here. |
+| `firstTx`, `daysOnchain` | transactions | **Verified:** the endpoint has no ordering parameter at all — Zerion returns transactions newest-first only. (`sort` exists on positions, NFT collections and the fungibles list; the transactions endpoint takes `page` and `filter[…]` and nothing else.) So `firstTx` is the **oldest transaction within the window**, `daysOnchain` is counted from it, and card 1's kicker reads "Your year started on". |
 | `chains[]`, `chainCount` | transactions + `GET /v1/chains/` | Group transactions by chain id. Share is a percentage of `txCount`. Names and icons come from `/v1/chains/`, cached for 24h. |
-| `topToken` | transactions + `GET /v1/fungibles/{id}` | Most frequent fungible across `trade` operations. Fall back to transfers if there are no trades. `timesTraded` counts those transactions. `changePct`: the fungible's price change over the window, from its chart or market data. Label the copy to match whichever source is used. |
-| `balance` | `GET /v1/wallets/{a}/charts/{period}` | Year period. `series` becomes daily points, `high`/`low` are max/min points of the series, `current` is the last value, and `changePct` compares first and last. |
+| `topToken` | transactions + `GET /v1/fungibles/{id}` | Most frequent fungible across `trade` operations. Fall back to transfers if there are no trades. `timesTraded` counts those transactions. `changePct`: **verified** — `data.attributes.market_data.changes.percent_365d`, the fungible's price change over the last year in percent (market data, not the price chart), so the copy reads "past year". It is nullable: when Zerion has no yearly change, `topToken` is left out and card 3 hides rather than showing a made-up number. |
+| `balance` | `GET /v1/wallets/{a}/charts/year` | **Verified:** the period is the `year` value of the `chart_period` enum — one point per day over the last 365 days (366 points, `begin_at` and `end_at` exactly a year apart). `points` are `[unix seconds, value]` tuples, oldest first, counting simple token and native-coin balances. `series` becomes daily points, `high`/`low` are max/min points of the series, `current` is the last value, and `changePct` compares first and last. |
 
 **Window:** the last 365 days (`filter[min_mined_at]`). **Cap:** page size 100, at most 20 pages (2,000 transactions). If the cap is hit, the counter and share card say "2,000+".
 
@@ -137,11 +137,11 @@ Settled, so the Planner doesn't stop to ask:
 - **ENS:** resolved on the server with viem on mainnet through its default public transport. If resolution fails, show the invalid state and suggest pasting an address. Demo wallets store their resolved address, so they never depend on ENS at runtime.
 - **Window:** the last 365 days, capped at 2,000 transactions.
 
-Open, to verify during the Zerion server work (research, not a Principal decision; record the answers in §5):
+Open, to verify during the Zerion server work (research, not a Principal decision; record the answers in §5): none left. All four are answered, against the OpenAPI spec at <https://developers.zerion.io> (`openapi: 3.0.3`, `info.version: 1.0.0`) and a live response for `vitalik.eth`:
 1. ~~The exact Basic-auth header format.~~ **Answered:** `Authorization: Basic base64(KEY + ":")` — the key is the username, the password is empty. Recorded in §5.
-2. The enum value of the year chart period.
-3. Whether transactions can be fetched oldest-first. This decides the lifetime versus in-window `firstTx`.
-4. Where the fungible's yearly price change comes from (market data field or price chart).
+2. ~~The enum value of the year chart period.~~ **Answered:** `year` — `GET /v1/wallets/{address}/charts/year`, one point per day over the last 365 days. Recorded in §5.
+3. ~~Whether transactions can be fetched oldest-first.~~ **Answered: no.** The transactions endpoint has no ordering parameter, so the order is newest-first and `firstTx` is the oldest transaction in the window, not the lifetime one. Card 1's kicker reads "Your year started on". Recorded in §5.
+4. ~~Where the fungible's yearly price change comes from.~~ **Answered:** market data — `data.attributes.market_data.changes.percent_365d` on `GET /v1/fungibles/{id}`, not the price chart. It is nullable, and a missing value hides card 3. Recorded in §5.
 
 Open, for the Principal: none. The plan can proceed.
 
