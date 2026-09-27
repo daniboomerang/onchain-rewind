@@ -20,6 +20,7 @@ import { Tooltip } from "../components/ui/Tooltip";
 import { type DemoWallet, WalletCombobox, type WalletStatus } from "../components/ui/WalletCombobox";
 import { type FixtureName, fixtures } from "../engine/fixtures";
 import { displayName, fmt, type RewindFacts, shortAddress } from "../engine/types";
+import { PAGE_INTERVAL_MS, pageTick } from "./-paging";
 
 export const Route = createFileRoute("/system")({ component: System });
 
@@ -340,13 +341,6 @@ function DialogDemo() {
   );
 }
 
-/**
- * A stand-in for the paging loop task 10 brings: a page of this many transactions on this cadence.
- * Neither is a motion value — they stand for the network, not for anything the reveal animates.
- */
-const PAGE_SIZE = 120;
-const PAGE_INTERVAL_MS = 350;
-
 /** Drives the reveal on its own — no story, no player — so its phases are visible one at a time. */
 function RevealDemo() {
   const [fixture, setFixture] = useState<FixtureName>("normal");
@@ -399,20 +393,15 @@ function RevealRun({ facts, fail, onPhase }: { facts: RewindFacts; fail: boolean
   const reveal = useRef<ParticleRevealHandle>(null);
 
   useEffect(() => {
-    // A failing run stops a third of the way in, so the fade-out lands mid-gather.
-    const failAt = Math.ceil(facts.txCount / 3);
     let sent = 0;
     const id = window.setInterval(() => {
-      const n = Math.min(PAGE_SIZE, facts.txCount - sent);
-      sent += n;
-      if (n > 0) reveal.current?.addTransactions(n);
-      if (fail && sent >= failAt) {
-        window.clearInterval(id);
-        reveal.current?.fail();
-      } else if (sent >= facts.txCount) {
-        window.clearInterval(id);
-        reveal.current?.complete(facts.txCount);
-      }
+      const { send, next } = pageTick(sent, facts.txCount, fail);
+      sent += send;
+      if (send > 0) reveal.current?.addTransactions(send);
+      if (next === "continue") return;
+      window.clearInterval(id);
+      if (next === "fail") reveal.current?.fail();
+      else reveal.current?.complete(facts.txCount);
     }, PAGE_INTERVAL_MS);
     return () => window.clearInterval(id);
   }, [facts, fail]);
@@ -513,22 +502,15 @@ function FlowRun({
 
   useEffect(() => {
     if (facts.txCount === 0) return;
-    // A failing run stops a third of the way in, so the fade-out lands mid-gather.
-    const failAt = Math.ceil(facts.txCount / 3);
     let sent = 0;
     const id = window.setInterval(() => {
-      if (fail && sent >= failAt) {
-        window.clearInterval(id);
-        reveal.current?.fail();
-        return;
-      }
-      const n = Math.min(PAGE_SIZE, facts.txCount - sent);
-      sent += n;
-      if (n > 0) reveal.current?.addTransactions(n);
-      if (sent >= facts.txCount) {
-        window.clearInterval(id);
-        reveal.current?.complete(facts.txCount);
-      }
+      const { send, next } = pageTick(sent, facts.txCount, fail);
+      sent += send;
+      if (send > 0) reveal.current?.addTransactions(send);
+      if (next === "continue") return;
+      window.clearInterval(id);
+      if (next === "fail") reveal.current?.fail();
+      else reveal.current?.complete(facts.txCount);
     }, PAGE_INTERVAL_MS);
     return () => {
       window.clearInterval(id);
