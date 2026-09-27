@@ -430,3 +430,74 @@ test("the timeout keeps the pages already reported and completes nothing after i
     vi.useRealTimers();
   }
 });
+
+/* ---- O4: an empty wallet, a failing API, and the retry ---- */
+
+test("an empty wallet completes with no transactions, which is a success", async () => {
+  const { onPage, onComplete, onFail, trace } = recorder();
+  const { api, calls } = fakeApi({ pages: [page([], null)] });
+
+  const { result } = renderRewind({ wallet: { address: ADDRESS }, now: NOW, api, onPage, onComplete, onFail });
+  await waitFor(() => expect(result.current.status).toBe("ready"));
+
+  expect(trace).toEqual(["page:0", "complete:0"]);
+  expect(result.current.facts?.txCount).toBe(0);
+  expect(result.current.facts?.chains).toEqual([]);
+  expect(result.current.facts?.chainCount).toBe(0);
+  expect(result.current.facts?.daysOnchain).toBe(0);
+  expect(result.current.facts?.firstTx).toBeUndefined();
+  expect(result.current.facts?.topToken).toBeUndefined();
+  expect(result.current.capped).toBe(false);
+  // No transaction named a fungible, so there is nothing to read one for.
+  expect(calls.fungibles).toEqual([]);
+});
+
+test.each(["upstream", "rate_limited", "invalid_address", "not_found"] as const)(
+  "a %s response from the transactions endpoint reports failure",
+  async (error) => {
+    const { onPage, onComplete, onFail, trace } = recorder();
+    const { api } = fakeApi({ pages: [{ ok: false, error }] });
+
+    const { result } = renderRewind({ wallet: { address: ADDRESS }, now: NOW, api, onPage, onComplete, onFail });
+    await waitFor(() => expect(result.current.status).toBe("failed"));
+
+    expect(result.current.error).toBe(error);
+    expect(trace).toEqual(["fail"]);
+    expect(result.current.facts).toBeUndefined();
+  },
+);
+
+test("a failure part-way through paging keeps the pages already reported and completes nothing", async () => {
+  const { onPage, onComplete, onFail, trace } = recorder();
+  const { api } = fakeApi({
+    pages: [page([tx("a", "2026-09-20T10:00:00Z", "ethereum")], cursor(1)), { ok: false, error: "rate_limited" }],
+  });
+
+  const { result } = renderRewind({ wallet: { address: ADDRESS }, now: NOW, api, onPage, onComplete, onFail });
+  await waitFor(() => expect(result.current.status).toBe("failed"));
+
+  expect(trace).toEqual(["page:1", "fail"]);
+  expect(result.current.error).toBe("rate_limited");
+});
+
+test("retry starts paging over, and a run that then succeeds clears the failure", async () => {
+  const { onPage, onComplete, onFail, trace } = recorder();
+  const { api, calls } = fakeApi({
+    pages: [{ ok: false, error: "rate_limited" }, page([tx("a", "2026-09-20T10:00:00Z", "ethereum")], null)],
+  });
+
+  const { result } = renderRewind({ wallet: { address: ADDRESS }, now: NOW, api, onPage, onComplete, onFail });
+  await waitFor(() => expect(result.current.status).toBe("failed"));
+  expect(calls.pages).toHaveLength(1);
+
+  act(() => {
+    result.current.retry();
+  });
+  await waitFor(() => expect(result.current.status).toBe("ready"));
+
+  // The retry asks for the first page again, with no cursor from the run that failed.
+  expect(calls.pages).toEqual([{ address: ADDRESS }, { address: ADDRESS }]);
+  expect(trace).toEqual(["fail", "page:1", "complete:1"]);
+  expect(result.current.error).toBeUndefined();
+  expect(result.current.facts?.txCount).toBe(1);
+});
