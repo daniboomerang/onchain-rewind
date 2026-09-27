@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type PointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { displayName, fmt, type RewindFacts, shortAddress } from "../../engine/types";
 import { renderShareImage, shareOrDownload } from "../../lib/renderShareImage";
@@ -28,6 +28,7 @@ type Card = { key: string; eyebrow: string; render: (index: number, total: numbe
 
 /** Plays the story: chrome, cards, navigation, pause. Card 5 (Share) doesn't auto-advance. */
 export function RewindPlayer({ facts, onReplay, onOpenSettings }: RewindPlayerProps) {
+  const reduce = useReducedMotion();
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
   const [nonce, setNonce] = useState(0); // re-keys a card when "previous" is pressed on card 1
@@ -130,6 +131,13 @@ export function RewindPlayer({ facts, onReplay, onOpenSettings }: RewindPlayerPr
   const card = cards[current] ?? cards[0];
   const showHint = !navigated && current !== last && !paused;
 
+  // Reduced motion keeps the states — the dim while paused, the pill that replaces the hint — and
+  // drops the tween between them, the same way the entrance variants snap y rather than moving it.
+  // Only the durations vary: every `initial` and `animate` value below is preference-independent,
+  // so the server's markup never depends on a media query it cannot read.
+  const fade = { duration: reduce ? 0 : duration.fast };
+  const fadeIn = { duration: reduce ? 0 : duration.base };
+
   return (
     <PlaybackContext value={{ paused }}>
       {/*
@@ -153,7 +161,7 @@ export function RewindPlayer({ facts, onReplay, onOpenSettings }: RewindPlayerPr
           // hydrates with and Motion never has to read an animation's start value off the DOM.
           initial={{ opacity: 1 }}
           animate={{ opacity: paused ? 0.85 : 1 }}
-          transition={{ duration: duration.fast }}
+          transition={fade}
         >
           {card && (
             <StoryStage id={`${card.key}-${nonce}`} direction={direction}>
@@ -184,7 +192,7 @@ export function RewindPlayer({ facts, onReplay, onOpenSettings }: RewindPlayerPr
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: duration.fast }}
+                transition={fade}
                 className="inline-flex h-9 items-center gap-2.5 whitespace-nowrap rounded-full bg-surface-raised px-4 text-[13px] font-medium"
               >
                 <span aria-hidden className="flex gap-[3px]">
@@ -199,7 +207,7 @@ export function RewindPlayer({ facts, onReplay, onOpenSettings }: RewindPlayerPr
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: duration.base }}
+                transition={fadeIn}
                 className="whitespace-nowrap text-[13px] text-fg-subtle"
               >
                 <span className="max-sm:hidden">← → or click sides to navigate · hold or Space to pause</span>
