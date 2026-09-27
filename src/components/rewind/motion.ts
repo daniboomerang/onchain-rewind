@@ -27,6 +27,11 @@ export const ease = {
 export const springCard: Transition = { type: "spring", stiffness: 260, damping: 32, mass: 1 };
 export const stagger = { children: 0.08, bars: 0.06 } as const;
 export const pressScale = 0.97;
+/**
+ * A pointer press this long, or longer, pauses the story instead of navigating — DESIGN.md §3,
+ * "Paused". Shorter presses are clicks, and a hold is never one.
+ */
+export const holdMs = 200;
 
 /** Card element entrance (eyebrow → kicker → headline → body). */
 export const enterItem: Variants = {
@@ -116,6 +121,8 @@ export const revealMs = {
   /** The ring holds still between gather and burst. */
   hold: 400,
   burst: 700,
+  /** `onBurst` fires at burst start; card 1 enters this much later, over the burst.  */
+  storyEnter: 200,
   /** `fail()` fades the particles out over this, then calls `onFailed`. */
   fail: duration.slow * 1000,
   /** A new particle fades in over this from its own birth. */
