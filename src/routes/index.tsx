@@ -9,7 +9,9 @@ import { useConnectedWallet } from "../lib/wallet-store";
 
 export const Route = createFileRoute("/")({ component: Home });
 
-function Home() {
+/** Exported for its own test: the route itself is only this component. */
+
+export function Home() {
   const { loaded, wallet, connect } = useConnectedWallet();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
