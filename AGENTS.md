@@ -29,7 +29,7 @@ Versions are pinned exactly in `package.json`: TanStack Start 1.168, TanStack Ro
   - recommended preset;
   - 2-space indent, 120 columns, double quotes;
   - organised imports and Tailwind directives parsed in CSS;
-  - `design/` and generated route trees excluded.
+  - `design/`, generated route trees and the Vinaya-managed `.mcp.json` excluded (`vinaya doctor` compares `.mcp.json` byte for byte with what Vinaya generates, so Biome must not reformat it).
 - **Import ban:** `noRestrictedImports` bans `@ariakit/react` everywhere except `src/components/ui/**`. This is a lint error, not a convention.
 - **`console.log` is a warning,** and CI treats warnings as errors. `console.warn` and `console.error` are allowed.
 - **CI** is `.github/workflows/checks.yml`, kept deliberately light. It runs on every PR and every push to `main`, with three parallel checks:

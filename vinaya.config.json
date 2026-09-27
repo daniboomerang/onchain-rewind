@@ -1,7 +1,5 @@
 {
-  "principals": [
-    "daniboomerang"
-  ],
+  "principals": ["daniboomerang"],
   "rings": {
     "ring1_forgeWriteInterception": true,
     "ring2_asyncAudits": true
@@ -87,10 +85,6 @@
       }
     ],
     "labels": [],
-    "agents": [
-      "claude",
-      "gemini",
-      "skills"
-    ]
+    "agents": ["claude", "gemini", "skills"]
   }
 }
