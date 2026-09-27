@@ -102,3 +102,32 @@ export function useTween(
     else ctrl.current.play();
   }, [paused]);
 }
+
+/**
+ * Particle-reveal phase timings, in milliseconds — DESIGN.md §3. The rAF loop measures the reveal
+ * in milliseconds, so every phase reads its length from here: the millisecond twin of a `duration`
+ * token wherever one covers the phase, and the reveal's own value where none does.
+ */
+export const revealMs = {
+  /** Particles drift at random before the gather starts. */
+  scatter: 600,
+  /** The reveal never finishes sooner than this, however fast the data arrives. */
+  minReveal: duration.reveal * 1000,
+  /** The ring holds still between gather and burst. */
+  hold: 400,
+  burst: 700,
+  /** `fail()` fades the particles out over this, then calls `onFailed`. */
+  fail: duration.slow * 1000,
+  /** A new particle fades in over this from its own birth. */
+  fadeIn: 300,
+  travelMin: duration.grow * 1000,
+  travelMax: 1400,
+  /** The counter rolls to a new total over this. */
+  countRoll: duration.base * 1000,
+  /** A page's particles are born spread across this, so they don't all appear at once. */
+  spread: 400,
+  /** Reduced motion: the static counter crossfades out over this instead of bursting. */
+  reducedFade: duration.base * 1000,
+  /** The live region announces the count at most this often. */
+  announce: 1000,
+} as const;

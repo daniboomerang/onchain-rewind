@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { ChainBar } from "../components/rewind/ChainBar";
 import { ChainIcon } from "../components/rewind/ChainIcon";
 import { EmptyState } from "../components/rewind/EmptyState";
 import { ErrorState } from "../components/rewind/ErrorState";
 import { LineChart } from "../components/rewind/LineChart";
 import { PlaybackContext } from "../components/rewind/motion";
+import { ParticleReveal, type ParticleRevealHandle } from "../components/rewind/ParticleReveal";
 import { ProgressSegments } from "../components/rewind/ProgressSegments";
 import { ShareCard } from "../components/rewind/ShareCard";
 import { StatNumber } from "../components/rewind/StatNumber";
@@ -17,7 +18,7 @@ import { IconButton } from "../components/ui/IconButton";
 import { SettingsDialog } from "../components/ui/SettingsDialog";
 import { Tooltip } from "../components/ui/Tooltip";
 import { type DemoWallet, WalletCombobox, type WalletStatus } from "../components/ui/WalletCombobox";
-import { fixtures } from "../engine/fixtures";
+import { type FixtureName, fixtures } from "../engine/fixtures";
 import { displayName, fmt, type RewindFacts, shortAddress } from "../engine/types";
 
 export const Route = createFileRoute("/system")({ component: System });
@@ -185,6 +186,10 @@ function System() {
           <ChromeDemo label="no wallet (first visit)" />
         </Section>
 
+        <Section title="ParticleReveal">
+          <RevealDemo />
+        </Section>
+
         <Section title="Full screens">
           <FullScreenDemo />
         </Section>
@@ -332,6 +337,94 @@ function DialogDemo() {
         onSubmit={() => setOpen(false)}
       />
     </Row>
+  );
+}
+
+/**
+ * A stand-in for the paging loop task 10 brings: a page of this many transactions on this cadence.
+ * Neither is a motion value — they stand for the network, not for anything the reveal animates.
+ */
+const PAGE_SIZE = 120;
+const PAGE_INTERVAL_MS = 350;
+
+/** Drives the reveal on its own — no story, no player — so its phases are visible one at a time. */
+function RevealDemo() {
+  const [fixture, setFixture] = useState<FixtureName>("normal");
+  const [run, setRun] = useState<{ id: number; fail: boolean } | null>(null);
+  const [phases, setPhases] = useState<string[]>([]);
+  const start = (fail: boolean) => {
+    setPhases([]);
+    setRun((r) => ({ id: (r?.id ?? 0) + 1, fail }));
+  };
+  return (
+    <div className="flex flex-col gap-4">
+      <Row label="fixture">
+        {(Object.keys(fixtures) as FixtureName[]).map((k) => (
+          <Button key={k} variant={k === fixture ? "primary" : "ghost"} onClick={() => setFixture(k)}>
+            {k} · {fmt.int(fixtures[k].txCount)}
+          </Button>
+        ))}
+      </Row>
+      <Row label="run">
+        <Button onClick={() => start(false)}>Gather → burst</Button>
+        <Button variant="ghost" onClick={() => start(true)}>
+          Gather → fail
+        </Button>
+      </Row>
+      <p className="text-small text-fg-muted">
+        Full screen. The callbacks are logged over the reveal. Press Esc to come back. Under reduced motion there is no
+        canvas: a static count, then a crossfade.
+      </p>
+      {run && (
+        <Overlay onClose={() => setRun(null)}>
+          <RevealRun
+            key={run.id}
+            facts={fixtures[fixture]}
+            fail={run.fail}
+            onPhase={(phase) => setPhases((p) => [...p, phase])}
+          />
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center p-6">
+            <p className="rounded-full border border-border bg-surface px-4 py-2 font-mono text-xs text-fg-muted">
+              {fixture} · {fmt.int(fixtures[fixture].txCount)} tx{phases.length > 0 ? ` · ${phases.join(" → ")}` : ""}
+            </p>
+          </div>
+        </Overlay>
+      )}
+    </div>
+  );
+}
+
+/** Feeds the reveal one page at a time, then either completes it or fails it partway through. */
+function RevealRun({ facts, fail, onPhase }: { facts: RewindFacts; fail: boolean; onPhase: (phase: string) => void }) {
+  const reveal = useRef<ParticleRevealHandle>(null);
+
+  useEffect(() => {
+    // A failing run stops a third of the way in, so the fade-out lands mid-gather.
+    const failAt = Math.ceil(facts.txCount / 3);
+    let sent = 0;
+    const id = window.setInterval(() => {
+      const n = Math.min(PAGE_SIZE, facts.txCount - sent);
+      sent += n;
+      if (n > 0) reveal.current?.addTransactions(n);
+      if (fail && sent >= failAt) {
+        window.clearInterval(id);
+        reveal.current?.fail();
+      } else if (sent >= facts.txCount) {
+        window.clearInterval(id);
+        reveal.current?.complete(facts.txCount);
+      }
+    }, PAGE_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [facts, fail]);
+
+  return (
+    <ParticleReveal
+      ref={reveal}
+      total={facts.txCount}
+      onBurst={() => onPhase("burst")}
+      onDone={() => onPhase("done")}
+      onFailed={() => onPhase("failed")}
+    />
   );
 }
 
