@@ -15,7 +15,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { WalletStatus } from "../components/ui/WalletCombobox";
 import { shortAddress } from "../engine/types";
-import { resolveEnsName } from "../server/ens/ens.functions";
 import { type DemoWalletEntry, demoWallets } from "./demo-wallets";
 import { asAddress, type ConnectedWallet } from "./wallet-store";
 
@@ -76,7 +75,14 @@ export function useWalletInput(value: string, wallets: readonly DemoWalletEntry[
 
   const query = useQuery({
     queryKey: ["ens", name],
-    queryFn: () => resolveEnsName({ data: { name: name ?? "" } }),
+    // Imported at call time, not at module scope: the ENS module's own server-side viem client
+    // keeps viem reachable from anything that imports it statically, which would put a quarter of a
+    // megabyte of it in the bundle every first visit loads — including the visits that never type a
+    // name at all.
+    queryFn: async () => {
+      const { resolveEnsName } = await import("../server/ens/ens.functions");
+      return resolveEnsName({ data: { name: name ?? "" } });
+    },
     enabled: name !== null,
     // No retries: a visitor waiting on a dialog gets the invalid state and a way forward — pasting
     // an address — faster than three backed-off attempts at a name that may not exist at all.
