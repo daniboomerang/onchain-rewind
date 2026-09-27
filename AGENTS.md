@@ -92,7 +92,7 @@ Conventions that apply to certain paths live in `.claude/rules/<topic>.md`, with
 | [`motion-and-reveal`](.claude/rules/motion-and-reveal.md) | `src/components/rewind/**` | motion tokens, PlaybackContext, ParticleReveal, reduced motion |
 | [`tanstack-start`](.claude/rules/tanstack-start.md) | `src/routes/**`, `src/server/**`, `vite.config.ts` | routing, server functions, env, SSR boundaries |
 
-Rules guide the agent, but **hard rules are enforced by tools, not prose**: the Biome import ban (Ariakit), the key-leak check in `ship-check`, typecheck, tests, and Vinaya's gates.
+Rules guide the agent, but **hard rules are enforced by tools, not prose**: the Biome import ban (Ariakit), the key-leak check in `ship-check`, typecheck, tests, and Vinaya's gates, including this repo's `onchain-rewind/vocabulary-citation` check (`vinaya/checks/`): the durable docs (`SPEC.md`, `CONTEXT.md`, `AGENTS.md`, `CLAUDE.md`, `README.md`, `docs/adr/`) never cite a task number, an Issue number or a tranche name, because the plan lives only on the forge.
 
 ## Workflow skills (on demand)
 
@@ -107,7 +107,7 @@ Canonical content is in `.claude/skills/<name>/SKILL.md`, and `.agents/skills/<n
 
 ## How to approach a task
 
-- **Plan first when the task is ambiguous or spans several files.** SPEC.md tasks 1–5 fall in this group. Explore, propose the file-by-file approach, get approval, then execute. **Execute directly** for a single, well-located fix.
+- **Plan first when the task is ambiguous or spans several files.** Most tranche tasks fall in this group. Explore, propose the file-by-file approach, get approval, then execute. **Execute directly** for a single, well-located fix.
 - **Engine work is test-first.** Write failing tests from the examples in the rule, then implement.
 - **When output is wrong, add a concrete input/output example** to the relevant rule rather than more prose.
 - Finish every task with `ship-check`.

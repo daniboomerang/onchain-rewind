@@ -6,7 +6,18 @@
     "ring1_forgeWriteInterception": true,
     "ring2_asyncAudits": true
   },
-  "checks": {},
+  "checks": {
+    "onchain-rewind/vocabulary-citation": {
+      "run": "./vinaya/checks/vocabulary-citation.ts",
+      "scope": "full",
+      "timeoutMs": 30000,
+      "env": {
+        "BASE_SHA": {
+          "optional": true
+        }
+      }
+    }
+  },
   "briefSchema": {
     "pr": {
       "sections": [
@@ -106,5 +117,8 @@
       "name": "rewind",
       "path": "."
     }
-  ]
+  ],
+  "ci": {
+    "setup": "set -euo pipefail\nnpm install -g bun@1.4.2 && bun install --frozen-lockfile --ignore-scripts"
+  }
 }
