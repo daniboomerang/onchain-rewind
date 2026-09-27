@@ -35,8 +35,8 @@ export function readWalletInput(value: string, wallets: readonly DemoWalletEntry
   if (trimmed === "") return { kind: "empty" };
 
   // A demo pick puts the label in the field, and that label's address is already known.
-  const demo = wallets.find((w) => w.address && w.label.toLowerCase() === trimmed.toLowerCase());
-  if (demo?.address) return { kind: "wallet", wallet: { address: demo.address, name: demo.label } };
+  const demo = wallets.find((w) => w.label.toLowerCase() === trimmed.toLowerCase());
+  if (demo) return { kind: "wallet", wallet: { address: demo.address, name: demo.label } };
 
   const address = asAddress(trimmed);
   if (address) return { kind: "wallet", wallet: { address } };

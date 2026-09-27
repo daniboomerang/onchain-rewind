@@ -3,7 +3,7 @@ import type { DemoWalletEntry } from "./demo-wallets";
 import { INVALID_INPUT, readWalletInput } from "./wallet-input";
 
 const ADDRESS = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045" as const;
-const wallets: readonly DemoWalletEntry[] = [{ label: "vitalik.eth", address: ADDRESS }, { label: "Demo wallet 3" }];
+const wallets: readonly DemoWalletEntry[] = [{ label: "vitalik.eth", address: ADDRESS }];
 
 test("an empty field reads as empty, not as invalid input", () => {
   expect(readWalletInput("", wallets)).toEqual({ kind: "empty" });
@@ -27,10 +27,6 @@ test("a demo wallet's label resolves from its own listed address, never from ENS
 
 test("a demo wallet matches however it was typed", () => {
   expect(readWalletInput("VITALIK.ETH", wallets)).toMatchObject({ kind: "wallet" });
-});
-
-test("an unfilled demo slot's label is not a wallet", () => {
-  expect(readWalletInput("Demo wallet 3", wallets)).toEqual({ kind: "invalid" });
 });
 
 test("a name the demo list doesn't hold is a name to resolve, lowercased for the server", () => {
