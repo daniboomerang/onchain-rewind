@@ -65,7 +65,7 @@ routes/index.tsx
 
 ## 5. Data mapping (Zerion → `RewindFacts`)
 
-Base URL `https://api.zerion.io`. Auth is HTTP Basic, with the API key as the username and an empty password. Confirm this through the Zerion MCP or docs before coding. Always send `currency=usd` and `filter[trash]=only_non_trash` where supported.
+Base URL `https://api.zerion.io`. Auth is HTTP Basic, with the API key as the username and an empty password: `Authorization: Basic base64(KEY + ":")`. Verified against the OpenAPI spec's `APIKeyBasicAuth` scheme (`type: http`, `scheme: basic`, "paste your API key … into the username field and leave the password empty") and the authentication page's own examples (`btoa(apiKey + ':')`) at <https://developers.zerion.io>. Always send `currency=usd` and `filter[trash]=only_non_trash` where supported.
 
 | `RewindFacts` field | Source | Rule |
 |---|---|---|
@@ -138,7 +138,7 @@ Settled, so the Planner doesn't stop to ask:
 - **Window:** the last 365 days, capped at 2,000 transactions.
 
 Open, to verify during the Zerion server work (research, not a Principal decision; record the answers in §5):
-1. The exact Basic-auth header format.
+1. ~~The exact Basic-auth header format.~~ **Answered:** `Authorization: Basic base64(KEY + ":")` — the key is the username, the password is empty. Recorded in §5.
 2. The enum value of the year chart period.
 3. Whether transactions can be fetched oldest-first. This decides the lifetime versus in-window `firstTx`.
 4. Where the fungible's yearly price change comes from (market data field or price chart).
