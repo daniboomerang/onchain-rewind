@@ -16,7 +16,7 @@
 - **Tranche intents:**
   - rewind-v1: Build the Rewind end to end: design system and playground, Zerion server layer, pure engine, settings and wallet, the live flow, share image and deploy (SPEC.md §8 tasks 1–6).
 
-One tranche on purpose. The six tasks form a single dependency graph with one parallel wave (tasks 2 and 3), and splitting them into several tranches would add archive and plan cycles to a one-day build.
+One tranche on purpose. The six tasks form a single dependency graph with two parallel waves (tasks 1 and 2, then tasks 3 and 4), and splitting them into several tranches would add archive and plan cycles to a one-day build.
 
 ## 1. Product
 
@@ -118,7 +118,11 @@ Each task is one PR and one GitHub Issue. The Planner cuts the Issues from this 
 | **Docs to keep coherent** | docs the task must update if it changes their subject |
 | **Agent** | the capabilities the task needs |
 
-**Dependency graph:** `1 → 2 ∥ 3 → 4 → 5 → 6`. Task 4 needs 2 (the ENS server function). Task 5 needs 2, 3 and 4. Task 6 needs 5.
+**Dependency graph:** `(1 ∥ 2) → (3 ∥ 4) → 5 → 6`, four waves.
+- Tasks 1 and 2 share no file and no type, so they run in parallel.
+- Task 3 needs 1 (`RewindFacts` in `src/engine/types.ts`) and 2 (the trimmed Zerion shapes in `src/engine/zerion.ts`, the recorded fixtures, and the §10 answer that decides `firstTx`).
+- Task 4 needs 1 (SettingsDialog and WalletCombobox) and 2 (the ENS server function). It doesn't need 3, so 3 and 4 run in parallel.
+- Task 5 needs 2, 3 and 4. Task 6 needs 5.
 
 **Shared for every task:**
 - Follow AGENTS.md and the path rules for the surface.
@@ -136,6 +140,7 @@ Bootstrap commit, before any Vinaya task: TanStack Start, Tailwind v4 tokens, fo
   - **In:**
     - Port `design/components` into `src/components/ui/` (Button, IconButton, Tooltip, WalletCombobox, SettingsDialog) and `src/components/rewind/` (the rest, plus `motion.ts`).
     - Port `design/types.ts` → `src/engine/types.ts`, `design/fixtures.ts` → `src/engine/fixtures.ts`, `design/renderShareImage.ts` → `src/lib/`.
+    - In the ported `types.ts`, correct the `TopToken.changePct` comment to "price change over the window", matching §5. The type itself doesn't change.
     - Add the `/system` route from `design/Playground.tsx`.
     - Fix KNOWN-ISSUES #1, with a test.
   - **Out:** any API call, real data, the `/` route, and the engine logic.
@@ -153,12 +158,13 @@ Bootstrap commit, before any Vinaya task: TanStack Start, Tailwind v4 tokens, fo
 
 ### 2. Zerion server layer
 - **Objective:** typed, cached, server-only access to the Zerion data the Rewind needs.
-- **Surface:** `src/server/**`, `src/engine/__fixtures__/**`, `SPEC.md` (§5 and §10 answers).
+- **Surface:** `src/server/**`, `src/engine/zerion.ts`, `src/engine/__fixtures__/**`, `SPEC.md` (§5 and §10 answers).
 - **Boundary:**
   - **In:**
     - `src/server/zerion/client.ts` (`zerionFetch`: Basic auth, LRU cache, 429 backoff, typed error mapping).
+    - `src/engine/zerion.ts`: type-only, the trimmed Zerion shapes the server functions return and the engine reads (ADR-0003: knowledge of Zerion shapes lives in `src/engine/`). The server imports these types, and the engine never imports `src/server`.
     - Server functions: transactions page, chains, fungible, balance chart, and ENS resolve (viem).
-    - Recorded, trimmed fixtures (the `record-fixture` skill).
+    - Recorded, trimmed fixtures (the `record-fixture` skill) for `vitalik.eth`, the one demo wallet §6 already names. `src/lib/demo-wallets.ts` doesn't exist until task 4.
     - Answers to the 4 open API questions in §10, written into §5.
   - **Out:** aggregation logic (task 3), and any UI.
 - **Done when:**
@@ -181,8 +187,8 @@ Bootstrap commit, before any Vinaya task: TanStack Start, Tailwind v4 tokens, fo
 
 ### 3. Rewind engine
 - **Objective:** a pure, tested engine that turns Zerion data into `RewindFacts`.
-- **Surface:** `src/engine/**` (except `types.ts` and `fixtures.ts`, which task 1 owns).
-- **Boundary:** `createState`, `accumulate` and `finalize → RewindFacts`, test-first from the examples in `.claude/rules/rewind-engine.md`. It uses the fixtures from task 2 when they exist, and minimal hand-made pages until then. **Out:** fetching, React.
+- **Surface:** `src/engine/**` (except `types.ts` and `fixtures.ts`, which task 1 owns, and `zerion.ts` and `__fixtures__/`, which task 2 owns).
+- **Boundary:** `createState`, `accumulate` and `finalize → RewindFacts`, test-first from the examples in `.claude/rules/rewind-engine.md`. It reads the trimmed shapes in `src/engine/zerion.ts` and is tested on task 2's recorded fixtures, plus hand-made pages for cases a real wallet doesn't produce (empty, capped, single chain). `firstTx` follows the strategy task 2 recorded in §5. **Out:** fetching, React, and any change to `zerion.ts`.
 - **Done when:**
   - All the required test cases in the rule pass.
   - The engine imports nothing from React, `src/server` or any I/O.
@@ -194,16 +200,17 @@ Bootstrap commit, before any Vinaya task: TanStack Start, Tailwind v4 tokens, fo
 
 ### 4. Settings and wallet
 - **Objective:** the user sets their wallet once, and it's remembered and treated as connected.
-- **Surface:** `src/routes/index.tsx`, `src/lib/demo-wallets.ts`, `src/lib/wallet-store.ts`, `src/components/rewind/**` (wiring only).
+- **Surface:** `src/routes/index.tsx`, `src/router.tsx`, `src/lib/demo-wallets.ts`, `src/lib/wallet-store.ts`, `src/components/rewind/**` (wiring only).
 - **Boundary:**
   - **In:**
     - The settings dialog wired to `localStorage`, shown on first visit and not dismissible then.
+    - The TanStack Query `QueryClientProvider` (default `staleTime` 10 minutes), added for its first consumer, ENS resolution. Task 5 only uses it.
     - ENS resolution through task 2's server function, with a resolving state.
     - Invalid-address validation.
     - `src/lib/demo-wallets.ts` with 3 wallets vetted by `vet-demo-wallet`.
-    - The gear is always visible, and a wallet change restarts the Rewind.
-  - **Out:** the paging loop and the reveal wiring (task 5).
-- **Done when:** first visit, change wallet, invalid input and ENS resolving all work in the browser (`verify-ui` steps 2 and 5), with component tests for validation and persistence.
+    - The gear is always visible, and a wallet change updates the stored wallet.
+  - **Out:** the paging loop, the reveal wiring, and restarting the Rewind on a wallet change (task 5).
+- **Done when:** first visit, change wallet, invalid input and ENS resolving all work in the browser (`verify-ui` step 2), with component tests for validation and persistence. `verify-ui` step 5 needs the story on `/`, so it's checked in task 5.
 - **Traps:**
   - `localStorage` is client-only.
   - Never invent demo wallets.
@@ -220,13 +227,15 @@ Bootstrap commit, before any Vinaya task: TanStack Start, Tailwind v4 tokens, fo
     - The `useRewind` hook (the paging loop feeds `ParticleReveal.addTransactions` and the engine).
     - `complete` / `fail`, the 12s timeout, and the 20-page cap ("2,000+").
     - The empty and error states with retry.
-    - `AbortController` cancels on a wallet change or unmount.
+    - `AbortController` cancels on a wallet change or unmount, and a wallet change restarts the Rewind.
+    - Uses task 4's `QueryClientProvider` for chains, fungible and balance calls.
   - **Out:** the share image and deploy (task 6).
 - **Done when:**
   - The whole of `verify-ui` passes on real data for all 3 demo wallets.
   - An empty wallet shows EmptyState.
   - A simulated 429 ends in ErrorState with a working retry.
   - A hook test covers cancel-on-change.
+  - Keyboard after settings (`verify-ui` step 5) passes on `/`.
 - **Traps:**
   - Don't finalize before paging ends.
   - Clean up the reveal's rAF.
@@ -237,10 +246,10 @@ Bootstrap commit, before any Vinaya task: TanStack Start, Tailwind v4 tokens, fo
 
 ### 6. Share and ship
 - **Objective:** the Rewind is live at a public URL and shareable.
-- **Surface:** `src/lib/renderShareImage.ts`, `src/components/rewind/**` (share wiring), `src/routes/__root.tsx`, `vercel.json`, `README.md`.
+- **Surface:** `src/lib/renderShareImage.ts`, `src/components/rewind/**` (share wiring), `src/routes/__root.tsx`, `vercel.json`, `vite.config.ts` (the Nitro Vercel preset only), `README.md`.
 - **Boundary:**
   - **In:**
-    - The share image from real facts (native share or download).
+    - The share image from real facts (native share or download). Task 1 already ports the wiring (`RewindPlayer` calls `renderShareImage` and `shareOrDownload`), so this is verification on real data plus any fix it needs.
     - Meta and OG tags checked.
     - Deploy to Vercel.
     - A check on a phone browser.
@@ -253,6 +262,7 @@ Bootstrap commit, before any Vinaya task: TanStack Start, Tailwind v4 tokens, fo
 - **Traps:**
   - Wait for fonts before rendering the share image.
   - The key goes only in Vercel's environment variables.
+  - `og:image` is a relative path today. Link-preview scrapers need an absolute URL.
 - **Stop if:** the Vercel project doesn't exist or isn't linked. That's a Principal action (§10).
 - **Docs to keep coherent:** `README.md`.
 - **Agent:** frontend and deploy, with browser verification.
