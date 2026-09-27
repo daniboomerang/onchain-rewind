@@ -149,6 +149,9 @@ export function RewindPlayer({ facts, onReplay, onOpenSettings }: RewindPlayerPr
       >
         <motion.div
           className="absolute inset-0"
+          // The dim layer states where it starts, so the server writes the same opacity the client
+          // hydrates with and Motion never has to read an animation's start value off the DOM.
+          initial={{ opacity: 1 }}
           animate={{ opacity: paused ? 0.85 : 1 }}
           transition={{ duration: duration.fast }}
         >
