@@ -302,7 +302,7 @@ Split into the hook and its wiring. Shared for 5a–5b:
    biome.json                 AGENTS.md
    .github/workflows/checks.yml  AGENTS.md
    ```
-7. **Single-project repo:** no `.vinaya/projects.md` is needed, so task Issues omit the `Project` field.
+7. **One registered project:** the installed config requires a `Project:` field on every task Issue and PR, so the repo registers a single project, `rewind` (path `.`), with `vinaya init product rewind --path .`. Every task Issue declares `**Project:** rewind`.
 
 ## 10. Decisions
 
