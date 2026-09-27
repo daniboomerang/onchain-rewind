@@ -5,12 +5,12 @@ import { ChainIcon } from "../components/rewind/ChainIcon";
 import { EmptyState } from "../components/rewind/EmptyState";
 import { ErrorState } from "../components/rewind/ErrorState";
 import { LineChart } from "../components/rewind/LineChart";
-import { PlaybackContext } from "../components/rewind/motion";
+import { PlaybackContext, revealMs } from "../components/rewind/motion";
 import { ParticleReveal, type ParticleRevealHandle } from "../components/rewind/ParticleReveal";
 import { ProgressSegments } from "../components/rewind/ProgressSegments";
+import { RewindPlayer } from "../components/rewind/RewindPlayer";
 import { ShareCard } from "../components/rewind/ShareCard";
 import { StatNumber } from "../components/rewind/StatNumber";
-import { StoryCard, StoryStage } from "../components/rewind/StoryCard";
 import { StoryChrome } from "../components/rewind/StoryChrome";
 import { TokenIcon } from "../components/rewind/TokenIcon";
 import { Button } from "../components/ui/Button";
@@ -20,6 +20,7 @@ import { Tooltip } from "../components/ui/Tooltip";
 import { type DemoWallet, WalletCombobox, type WalletStatus } from "../components/ui/WalletCombobox";
 import { type FixtureName, fixtures } from "../engine/fixtures";
 import { displayName, fmt, type RewindFacts, shortAddress } from "../engine/types";
+import { PAGE_INTERVAL_MS, pageTick } from "./-paging";
 
 export const Route = createFileRoute("/system")({ component: System });
 
@@ -340,13 +341,6 @@ function DialogDemo() {
   );
 }
 
-/**
- * A stand-in for the paging loop task 10 brings: a page of this many transactions on this cadence.
- * Neither is a motion value — they stand for the network, not for anything the reveal animates.
- */
-const PAGE_SIZE = 120;
-const PAGE_INTERVAL_MS = 350;
-
 /** Drives the reveal on its own — no story, no player — so its phases are visible one at a time. */
 function RevealDemo() {
   const [fixture, setFixture] = useState<FixtureName>("normal");
@@ -399,20 +393,15 @@ function RevealRun({ facts, fail, onPhase }: { facts: RewindFacts; fail: boolean
   const reveal = useRef<ParticleRevealHandle>(null);
 
   useEffect(() => {
-    // A failing run stops a third of the way in, so the fade-out lands mid-gather.
-    const failAt = Math.ceil(facts.txCount / 3);
     let sent = 0;
     const id = window.setInterval(() => {
-      const n = Math.min(PAGE_SIZE, facts.txCount - sent);
-      sent += n;
-      if (n > 0) reveal.current?.addTransactions(n);
-      if (fail && sent >= failAt) {
-        window.clearInterval(id);
-        reveal.current?.fail();
-      } else if (sent >= facts.txCount) {
-        window.clearInterval(id);
-        reveal.current?.complete(facts.txCount);
-      }
+      const { send, next } = pageTick(sent, facts.txCount, fail);
+      sent += send;
+      if (send > 0) reveal.current?.addTransactions(send);
+      if (next === "continue") return;
+      window.clearInterval(id);
+      if (next === "fail") reveal.current?.fail();
+      else reveal.current?.complete(facts.txCount);
     }, PAGE_INTERVAL_MS);
     return () => window.clearInterval(id);
   }, [facts, fail]);
@@ -428,15 +417,27 @@ function RevealRun({ facts, fail, onPhase }: { facts: RewindFacts; fail: boolean
   );
 }
 
-type Screen = "cards" | "empty" | "error" | "error-retrying";
+type Screen = "flow" | "flow-fail" | "empty" | "error" | "error-retrying";
 
+/** The whole screen, end to end: the reveal hands over to the player, or a failure ends the run. */
 function FullScreenDemo() {
+  const [fixture, setFixture] = useState<FixtureName>("normal");
   const [screen, setScreen] = useState<Screen | null>(null);
   const close = () => setScreen(null);
   return (
     <div className="flex flex-col gap-4">
+      <Row label="fixture">
+        {(Object.keys(fixtures) as FixtureName[]).map((k) => (
+          <Button key={k} variant={k === fixture ? "primary" : "ghost"} onClick={() => setFixture(k)}>
+            {k} · {fmt.int(fixtures[k].txCount)}
+          </Button>
+        ))}
+      </Row>
       <Row label="open">
-        <Button onClick={() => setScreen("cards")}>Story cards</Button>
+        <Button onClick={() => setScreen("flow")}>Reveal → story</Button>
+        <Button variant="ghost" onClick={() => setScreen("flow-fail")}>
+          Reveal → API error
+        </Button>
         <Button variant="ghost" onClick={() => setScreen("empty")}>
           Empty state
         </Button>
@@ -447,15 +448,19 @@ function FullScreenDemo() {
           Error state · retrying
         </Button>
       </Row>
-      <p className="text-small text-fg-muted">Full screen. Press Esc or the gear to come back.</p>
+      <p className="text-small text-fg-muted">
+        Full screen. Press Esc or the gear to come back. ← → move the story, a hold or Space pauses it, and the last
+        card holds instead of advancing. The empty fixture has no transactions to page, so it opens on the empty state.
+      </p>
       {screen && (
         <Overlay onClose={close}>
-          {screen === "cards" && <StoryCardDemo />}
+          {screen === "flow" && <Flow fixture={fixture} onExit={close} />}
+          {screen === "flow-fail" && <Flow fixture={fixture} fail onExit={close} />}
           {screen === "empty" && (
             <EmptyState wallet={shortAddress(fixtures.empty.wallet.address)} onChangeWallet={close} />
           )}
           {screen === "error" && (
-            <ErrorState wallet={displayName(normal.wallet)} onRetry={() => setScreen("cards")} onChangeWallet={close} />
+            <ErrorState wallet={displayName(normal.wallet)} onRetry={() => setScreen("flow")} onChangeWallet={close} />
           )}
           {screen === "error-retrying" && (
             <ErrorState wallet={displayName(normal.wallet)} retrying onRetry={close} onChangeWallet={close} />
@@ -466,83 +471,73 @@ function FullScreenDemo() {
   );
 }
 
-/** StoryCard's three layouts, moved through by StoryStage so both directions are visible. */
-function StoryCardDemo() {
-  const [index, setIndex] = useState(0);
-  const [direction, setDirection] = useState<1 | -1>(1);
-  const [paused, setPaused] = useState(false);
-  const cards = [
-    <StoryCard
-      key="origin"
-      index={1}
-      eyebrow="Origin"
-      accent="var(--color-accent-origin)"
-      kicker="It started on"
-      headline={normal.firstTx ? fmt.dateLong(normal.firstTx.date) : "—"}
-      headlineSize="lg"
-    >
-      <StatNumber value={normal.daysOnchain} label="days onchain" />
-    </StoryCard>,
-    <StoryCard
-      key="chains"
-      index={2}
-      eyebrow="Home chain"
-      accent="var(--color-accent-chain)"
-      kicker="You mostly lived on"
-      headline={normal.chains[0]?.name ?? "—"}
-      lead={`${fmt.int(normal.chainCount)} chains in all`}
-      layout="split"
-    >
-      <div className="flex flex-col gap-5">
-        {normal.chains.map((c, i) => (
-          <ChainBar
-            key={c.id}
-            name={c.name}
-            percent={c.share}
-            max={topShare}
-            index={i}
-            highlight={i === 0}
-            icon={<ChainIcon name={c.name} iconUrl={c.iconUrl} />}
-          />
-        ))}
-      </div>
-    </StoryCard>,
-    <StoryCard
-      key="share"
-      index={5}
-      eyebrow="Your year"
-      accent="var(--color-accent-share)"
-      media={normal.topToken && <TokenIcon symbol={normal.topToken.symbol} iconUrl={normal.topToken.iconUrl} />}
-      layout="center"
-    >
-      <FactsShareCard facts={normal} />
-    </StoryCard>,
-  ];
+/** A replay is a fresh run: re-keying it resets the reveal, the stage and the player together. */
+function Flow({ fixture, fail = false, onExit }: { fixture: FixtureName; fail?: boolean; onExit: () => void }) {
+  const [run, setRun] = useState(0);
+  return (
+    <FlowRun key={run} facts={fixtures[fixture]} fail={fail} onExit={onExit} onReplay={() => setRun((r) => r + 1)} />
+  );
+}
 
-  const go = (d: 1 | -1) => {
-    setDirection(d);
-    setIndex((i) => Math.min(Math.max(i + d, 0), cards.length - 1));
-  };
+/**
+ * One run: pages feed the reveal on the same cadence as the reveal demo above. `onBurst` mounts the
+ * player under the burst, `onDone` unmounts the reveal, and a failing run lands in ErrorState.
+ */
+function FlowRun({
+  facts,
+  fail,
+  onExit,
+  onReplay,
+}: {
+  facts: RewindFacts;
+  fail: boolean;
+  onExit: () => void;
+  onReplay: () => void;
+}) {
+  const reveal = useRef<ParticleRevealHandle>(null);
+  const handoff = useRef<number | null>(null);
+  // An empty wallet has no transactions to page, so there is nothing to reveal: the player opens
+  // straight onto its empty state.
+  const [stage, setStage] = useState<"reveal" | "burst" | "story" | "error">(facts.txCount === 0 ? "story" : "reveal");
+
+  useEffect(() => {
+    if (facts.txCount === 0) return;
+    let sent = 0;
+    const id = window.setInterval(() => {
+      const { send, next } = pageTick(sent, facts.txCount, fail);
+      sent += send;
+      if (send > 0) reveal.current?.addTransactions(send);
+      if (next === "continue") return;
+      window.clearInterval(id);
+      if (next === "fail") reveal.current?.fail();
+      else reveal.current?.complete(facts.txCount);
+    }, PAGE_INTERVAL_MS);
+    return () => {
+      window.clearInterval(id);
+      if (handoff.current !== null) window.clearTimeout(handoff.current);
+    };
+  }, [facts, fail]);
 
   return (
-    <PlaybackContext value={{ paused }}>
-      <div className="absolute inset-0 bg-bg text-fg">
-        <StoryStage id={index} direction={direction}>
-          {cards[index]}
-        </StoryStage>
-        <div className="absolute inset-x-0 bottom-8 z-10 flex justify-center gap-3">
-          <Button variant="ghost" onClick={() => go(-1)} disabled={index === 0}>
-            Previous
-          </Button>
-          <Button variant="ghost" onClick={() => setPaused((p) => !p)}>
-            {paused ? "Resume" : "Pause"}
-          </Button>
-          <Button variant="ghost" onClick={() => go(1)} disabled={index === cards.length - 1}>
-            Next
-          </Button>
-        </div>
-      </div>
-    </PlaybackContext>
+    <>
+      {(stage === "burst" || stage === "story") && (
+        <RewindPlayer facts={facts} onReplay={onReplay} onOpenSettings={onExit} />
+      )}
+      {(stage === "reveal" || stage === "burst") && (
+        <ParticleReveal
+          ref={reveal}
+          total={facts.txCount}
+          onBurst={() => {
+            handoff.current = window.setTimeout(() => setStage("burst"), revealMs.storyEnter);
+          }}
+          onDone={() => setStage("story")}
+          onFailed={() => setStage("error")}
+        />
+      )}
+      {stage === "error" && (
+        <ErrorState wallet={displayName(facts.wallet)} onRetry={onReplay} onChangeWallet={onExit} />
+      )}
+    </>
   );
 }
 
