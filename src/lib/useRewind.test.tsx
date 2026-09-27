@@ -501,3 +501,110 @@ test("retry starts paging over, and a run that then succeeds clears the failure"
   expect(result.current.error).toBeUndefined();
   expect(result.current.facts?.txCount).toBe(1);
 });
+
+/* ---- O5: a wallet change or an unmount cancels, silently ---- */
+
+/** A promise the test opens by hand, so a run can be caught mid-paging. */
+function gate() {
+  let open: () => void = () => {};
+  const opened = new Promise<void>((resolve) => {
+    open = resolve;
+  });
+  return { open: () => open(), opened };
+}
+
+test("a wallet change cancels the run in flight, and its late page reports nothing", async () => {
+  const { onPage, onComplete, onFail, trace } = recorder();
+  const OTHER = "0x1111111111111111111111111111111111111111" as Address;
+  const firstRun = gate();
+  const signals = new Map<string, AbortSignal>();
+
+  const api: RewindApi = {
+    transactionsPage: async (input, signal) => {
+      signals.set(input.address, signal);
+      if (input.address === ADDRESS) {
+        await firstRun.opened;
+        return page([tx("a", "2026-09-20T10:00:00Z", "ethereum")], null);
+      }
+      return page([tx("z", "2026-09-01T10:00:00Z", "base"), tx("y", "2026-08-01T10:00:00Z", "base")], null);
+    },
+    chains: async () => ({ ok: true, data: CHAINS }),
+    fungible: async () => ({ ok: true, data: ETH }),
+    balanceChart: async () => ({ ok: true, data: CHART }),
+  };
+
+  const shared = { now: NOW, api, onPage, onComplete, onFail };
+  const { result, rerender } = renderRewind({ wallet: { address: ADDRESS }, ...shared });
+  await waitFor(() => expect(signals.has(ADDRESS)).toBe(true));
+  expect(trace).toEqual([]);
+
+  rerender({ wallet: { address: OTHER }, ...shared });
+  expect(signals.get(ADDRESS)?.aborted).toBe(true);
+
+  await waitFor(() => expect(result.current.status).toBe("ready"));
+  expect(result.current.facts?.wallet.address).toBe(OTHER);
+  expect(trace).toEqual(["page:2", "complete:2"]);
+
+  // The cancelled run's page arrives late and changes neither the facts nor the trace.
+  await act(async () => {
+    firstRun.open();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  expect(trace).toEqual(["page:2", "complete:2"]);
+  expect(result.current.facts?.wallet.address).toBe(OTHER);
+});
+
+test("unmounting cancels the run: the pages already reported stand, nothing follows them", async () => {
+  const { onPage, onComplete, onFail, trace } = recorder();
+  const secondPage = gate();
+  let captured: AbortSignal | undefined;
+
+  const api: RewindApi = {
+    transactionsPage: async (input, signal) => {
+      captured = signal;
+      if (input.next === undefined) return page([tx("a", "2026-09-20T10:00:00Z", "ethereum")], cursor(1));
+      await secondPage.opened;
+      return page([tx("b", "2026-08-01T10:00:00Z", "base")], null);
+    },
+    chains: async () => ({ ok: true, data: CHAINS }),
+    fungible: async () => ({ ok: true, data: ETH }),
+    balanceChart: async () => ({ ok: true, data: CHART }),
+  };
+
+  const { unmount } = renderRewind({ wallet: { address: ADDRESS }, now: NOW, api, onPage, onComplete, onFail });
+  await waitFor(() => expect(trace).toEqual(["page:1"]));
+
+  unmount();
+  expect(captured?.aborted).toBe(true);
+
+  await act(async () => {
+    secondPage.open();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  // No second page, no completion and no failure: cancelling is silent.
+  expect(trace).toEqual(["page:1"]);
+});
+
+test("unmounting before the last page never completes, even once every read has resolved", async () => {
+  const { onPage, onComplete, onFail, trace } = recorder();
+  const lastPage = gate();
+
+  const api: RewindApi = {
+    transactionsPage: async (_input, _signal) => {
+      await lastPage.opened;
+      return page([tx("a", "2026-09-20T10:00:00Z", "ethereum")], null);
+    },
+    chains: async () => ({ ok: true, data: CHAINS }),
+    fungible: async () => ({ ok: true, data: ETH }),
+    balanceChart: async () => ({ ok: true, data: CHART }),
+  };
+
+  const { unmount } = renderRewind({ wallet: { address: ADDRESS }, now: NOW, api, onPage, onComplete, onFail });
+  unmount();
+
+  await act(async () => {
+    lastPage.open();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  expect(trace).toEqual([]);
+});
