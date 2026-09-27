@@ -24,9 +24,13 @@ import { evaluateVocabularyCitation, type VocabularyHit, type VocabularyPattern 
 const CHECK_NAME = "onchain-rewind/vocabulary-citation";
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
-// The durable docs. README.md is left out of the tranche-slug pattern only:
-// its stack badges carry names like `tailwind-v4`.
-const DOCS = ["SPEC.md", "CONTEXT.md", "AGENTS.md", "CLAUDE.md", "docs/adr"];
+// The durable docs Vinaya's own spec check doesn't read. That core check
+// (`reader-resolvable-prose`) already sweeps `SPEC.md`, `CONTEXT.md` and
+// `docs/adr/` for the same citations, so this check covers only the agent
+// instructions, to keep any line from being reported twice. README.md is left
+// out of the tranche-slug pattern only: its stack badges carry names like
+// `tailwind-v4`.
+const DOCS = ["AGENTS.md", "CLAUDE.md"];
 
 const PATTERNS: VocabularyPattern[] = [
   {
