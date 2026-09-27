@@ -465,6 +465,8 @@ describe("the recorded wallet", () => {
 
     expect(topFungible(state)?.ref.id).toBe("eth");
     expect(facts.topToken?.symbol).toBe("ETH");
+    expect(facts.topToken?.name).toBe("Ethereum");
+    expect(facts.topToken?.timesTraded).toBe(38);
     // The recording caught ETH down over the year: a real negative change.
     expect(facts.topToken?.changePct).toBe(-32.8);
   });
