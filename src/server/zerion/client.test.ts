@@ -214,3 +214,127 @@ describe("the response cache", () => {
     expect(fetchMock).toHaveBeenCalledTimes(callsBeforeOverflow + 2);
   });
 });
+
+describe("a rate-limited upstream", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("retries after 500ms, 1s and 2s, then reports rate_limited", async () => {
+    const fetchMock = mockFetch(
+      jsonResponse({}, 429),
+      jsonResponse({}, 429),
+      jsonResponse({}, 429),
+      jsonResponse({}, 429),
+    );
+
+    const pending = zerionFetch("/v1/wallets/0xabc/transactions/");
+
+    await vi.advanceTimersByTimeAsync(499);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    await vi.advanceTimersByTimeAsync(999);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    await vi.advanceTimersByTimeAsync(1999);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+
+    await expect(pending).resolves.toEqual({ ok: false, error: "rate_limited" });
+  });
+
+  it("returns the response when a retry succeeds", async () => {
+    mockFetch(jsonResponse({}, 429), jsonResponse({ data: [] }));
+
+    const pending = zerionFetch("/v1/chains/");
+    await vi.advanceTimersByTimeAsync(500);
+
+    await expect(pending).resolves.toEqual({ ok: true, data: { data: [] } });
+  });
+
+  it("stops retrying when the caller aborts during a backoff", async () => {
+    const controller = new AbortController();
+    const fetchMock = mockFetch(jsonResponse({}, 429), jsonResponse({ data: [] }));
+
+    const pending = zerionFetch("/v1/chains/", {}, { signal: controller.signal });
+    await vi.advanceTimersByTimeAsync(100);
+    controller.abort();
+
+    await expect(pending).rejects.toThrowError(expect.objectContaining({ name: "AbortError" }));
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("error mapping", () => {
+  it.each([
+    { status: 400, error: "invalid_address" },
+    { status: 422, error: "invalid_address" },
+    { status: 404, error: "not_found" },
+    { status: 401, error: "upstream" },
+    { status: 500, error: "upstream" },
+    { status: 503, error: "upstream" },
+  ])("maps $status to $error", async ({ status, error }) => {
+    mockFetch(jsonResponse({ errors: [{ title: "Upstream detail", detail: "leak me" }] }, status));
+
+    const result = await zerionFetch("/v1/wallets/not-an-address/transactions/");
+
+    expect(result).toEqual({ ok: false, error });
+  });
+
+  it("never reads a failed response's body, so no upstream message can escape", async () => {
+    const json = vi.fn(async () => ({ errors: [{ title: "Wallet address is invalid" }] }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue({ ok: false, status: 400, json } as unknown as Response),
+    );
+
+    const result = await zerionFetch("/v1/wallets/not-an-address/transactions/");
+
+    expect(json).not.toHaveBeenCalled();
+    expect(JSON.stringify(result)).toBe(JSON.stringify({ ok: false, error: "invalid_address" }));
+  });
+
+  it("maps a transport failure to upstream", async () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockRejectedValue(new TypeError("fetch failed")));
+
+    await expect(zerionFetch("/v1/chains/")).resolves.toEqual({ ok: false, error: "upstream" });
+  });
+
+  it("maps an unparseable body to upstream", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => {
+          throw new SyntaxError("Unexpected token <");
+        },
+      } as unknown as Response),
+    );
+
+    await expect(zerionFetch("/v1/chains/")).resolves.toEqual({ ok: false, error: "upstream" });
+  });
+
+  it("propagates an abort raised by fetch itself", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockRejectedValue(new DOMException("This operation was aborted", "AbortError")),
+    );
+
+    await expect(zerionFetch("/v1/chains/", {}, { signal: controller.signal })).rejects.toThrowError(
+      expect.objectContaining({ name: "AbortError" }),
+    );
+  });
+});

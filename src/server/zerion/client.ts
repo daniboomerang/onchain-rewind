@@ -18,6 +18,8 @@ const DEFAULT_TTL_MS = 10 * 60 * 1000;
 const CHAINS_TTL_MS = 24 * 60 * 60 * 1000;
 /** Enough for a year of transaction pages per wallet, a handful of wallets deep. */
 const MAX_CACHE_ENTRIES = 200;
+/** The free tier allows about ten requests a second. One 429 waits; a fourth gives up. */
+const RATE_LIMIT_BACKOFF_MS = [500, 1000, 2000] as const;
 
 /** A query-parameter value. Arrays are sent comma-separated, the way Zerion's filters expect. */
 export type ZerionParamValue = string | number | boolean | readonly string[];
@@ -51,27 +53,37 @@ export async function zerionFetch<T>(
   // Built outside the try: a missing key is a deployment fault, not an upstream failure.
   const headers = { Authorization: authorizationHeader(), Accept: "application/json" };
 
-  let response: Response;
-  try {
-    response = await fetch(url, { headers, signal: options.signal });
-  } catch (error) {
-    if (isAbortError(error)) throw error;
-    return { ok: false, error: "upstream" };
+  for (let attempt = 0; ; attempt++) {
+    let response: Response;
+    try {
+      response = await fetch(url, { headers, signal: options.signal });
+    } catch (error) {
+      if (isAbortError(error)) throw error;
+      return { ok: false, error: "upstream" };
+    }
+
+    if (response.status === 429) {
+      const backoffMs = RATE_LIMIT_BACKOFF_MS[attempt];
+      if (backoffMs === undefined) return { ok: false, error: "rate_limited" };
+      await sleep(backoffMs, options.signal);
+      continue;
+    }
+
+    // The body of a failed response is never read, so no upstream message can escape.
+    if (!response.ok) return { ok: false, error: errorForStatus(response.status) };
+
+    let data: unknown;
+    try {
+      data = await response.json();
+    } catch (error) {
+      if (isAbortError(error)) throw error;
+      return { ok: false, error: "upstream" };
+    }
+
+    // Only successes are cached: a failure must be retried, not remembered.
+    writeCache(cacheKey, data, ttlFor(url.pathname));
+    return { ok: true, data: data as T };
   }
-
-  if (!response.ok) return { ok: false, error: "upstream" };
-
-  let data: unknown;
-  try {
-    data = await response.json();
-  } catch (error) {
-    if (isAbortError(error)) throw error;
-    return { ok: false, error: "upstream" };
-  }
-
-  // Only successes are cached: a failure must be retried, not remembered.
-  writeCache(cacheKey, data, ttlFor(url.pathname));
-  return { ok: true, data: data as T };
 }
 
 /** Empty the response cache. Tests use it for isolation; nothing in the app needs it yet. */
@@ -152,6 +164,39 @@ function writeCache(key: string, value: unknown, ttlMs: number): void {
     if (leastRecentlyUsed.done) break;
     cache.delete(leastRecentlyUsed.value);
   }
+}
+
+/**
+ * Zerion's documented statuses, reduced to the four codes the UI can render. `400` and `422`
+ * both mean "malformed parameters", and on this app's paths the only parameter a user supplies
+ * is the wallet address — so they surface as `invalid_address`. `401`, `403` and every `5xx`
+ * stay `upstream`: a key problem is ours to fix, never something to explain to a visitor.
+ */
+function errorForStatus(status: number): ZerionErrorCode {
+  if (status === 400 || status === 422) return "invalid_address";
+  if (status === 404) return "not_found";
+  return "upstream";
+}
+
+/** A cancellable wait: an abort during a backoff stops the retry loop instead of outliving it. */
+function sleep(ms: number, signal: AbortSignal | undefined): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason);
+      return;
+    }
+
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal?.reason);
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 function isAbortError(error: unknown): boolean {
