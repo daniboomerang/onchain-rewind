@@ -29,7 +29,9 @@ export function ProgressSegments({
       aria-label="Story progress"
       aria-valuemin={1}
       aria-valuemax={count}
-      aria-valuenow={current + 1}
+      // `current` is -1 before the first card and `count` once the last one is done; the reported
+      // position stays inside the range it declares.
+      aria-valuenow={Math.min(Math.max(current + 1, 1), count)}
       className="flex items-center gap-1.5"
     >
       {Array.from({ length: count }, (_, i) => (
@@ -64,18 +66,23 @@ function Segment({
 }) {
   const [scope, animate] = useAnimate<HTMLDivElement>();
   const ctrl = useRef<AnimationPlaybackControls | null>(null);
+  const held = useRef(paused);
+  held.current = paused;
   const done = useRef(onComplete);
   done.current = onComplete;
 
   // Timing, not decoration: the fill runs under reduced motion too.
   useEffect(() => {
     if (state !== "filling") return;
-    ctrl.current = animate(
+    const controls = animate(
       scope.current,
       { scaleX: [0, 1] },
       { duration, ease: "linear", onComplete: () => done.current?.() },
     );
-    return () => ctrl.current?.stop();
+    ctrl.current = controls;
+    // A fill recreated mid-hold (a new duration, or a new card) must not start playing.
+    if (held.current) controls.pause();
+    return () => controls.stop();
   }, [state, duration, animate, scope]);
 
   useEffect(() => {

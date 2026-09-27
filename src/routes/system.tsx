@@ -10,6 +10,7 @@ import { ProgressSegments } from "../components/rewind/ProgressSegments";
 import { ShareCard } from "../components/rewind/ShareCard";
 import { StatNumber } from "../components/rewind/StatNumber";
 import { StoryCard, StoryStage } from "../components/rewind/StoryCard";
+import { StoryChrome } from "../components/rewind/StoryChrome";
 import { TokenIcon } from "../components/rewind/TokenIcon";
 import { Button } from "../components/ui/Button";
 import { IconButton } from "../components/ui/IconButton";
@@ -31,6 +32,13 @@ const demoWallets: DemoWallet[] = [
   { label: "Demo wallet 2" },
   { label: "Demo wallet 3" },
 ];
+
+/** A real same-origin file, so the loaded-image state of the icons is on the page too. */
+const loadedIcon = "/wordmark.svg";
+/** Decodes to bytes that are not an image: `onError` fires with no request, so no console error. */
+const brokenIcon = "data:image/png;base64,Zm9v";
+/** Refused by AvatarImage's scheme rule — it falls back without the browser leaving the page. */
+const blockedIcon = "http://example.com/icon.png";
 
 const normal = fixtures.normal;
 const topShare = normal.chains[0]?.share ?? 1;
@@ -131,11 +139,13 @@ function System() {
               ))}
             </div>
           </Replayable>
-          <Row label="icons: fallback / broken url">
+          <Row label="icons: loaded / initial / broken / blocked">
+            <TokenIcon symbol="ETH" iconUrl={loadedIcon} />
             <TokenIcon symbol="ETH" />
-            <TokenIcon symbol="PEPE" iconUrl="/missing.png" size={72} />
-            <ChainIcon name="Base" />
-            <ChainIcon name="Optimism" iconUrl="/missing.png" />
+            <TokenIcon symbol="PEPE" iconUrl={brokenIcon} size={72} />
+            <ChainIcon name="Base" iconUrl={loadedIcon} />
+            <ChainIcon name="Optimism" iconUrl={brokenIcon} />
+            <ChainIcon name="Polygon" iconUrl={blockedIcon} />
           </Row>
         </Section>
 
@@ -168,6 +178,11 @@ function System() {
 
         <Section title="SettingsDialog">
           <DialogDemo />
+        </Section>
+
+        <Section title="StoryChrome">
+          <ChromeDemo label="wallet + progress" wallet={displayName(normal.wallet)} progress />
+          <ChromeDemo label="no wallet (first visit)" />
         </Section>
 
         <Section title="Full screens">
@@ -230,6 +245,25 @@ function FactsShareCard({ facts }: { facts: RewindFacts }) {
         { value: facts.firstTx ? fmt.monthYear(facts.firstTx.date) : "—", label: "onchain since" },
       ]}
     />
+  );
+}
+
+function ChromeDemo({ label, wallet, progress }: { label: string; wallet?: string; progress?: boolean }) {
+  const [opened, setOpened] = useState(false);
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="font-mono text-xs text-fg-subtle">
+        {label}
+        {opened ? " · gear pressed" : ""}
+      </span>
+      <div className="relative h-28 overflow-hidden rounded-2xl border border-border bg-bg">
+        <StoryChrome
+          wallet={wallet}
+          onOpenSettings={() => setOpened(true)}
+          progress={progress ? <ProgressSegments count={5} current={1} /> : undefined}
+        />
+      </div>
+    </div>
   );
 }
 

@@ -120,9 +120,11 @@ export function StoryStage({
   const reduce = useReducedMotion();
   const variants: Variants = reduce
     ? {
+        // x is pinned at 0, not merely absent, so a card caught mid-slide when the preference
+        // changes still lands square instead of holding whatever offset it had reached.
         enter: { opacity: 0 },
-        center: { opacity: 1, transition: { duration: duration.base } },
-        exit: { opacity: 0, transition: { duration: duration.base } },
+        center: { opacity: 1, x: 0, transition: { duration: duration.base } },
+        exit: { opacity: 0, x: 0, transition: { duration: duration.base } },
       }
     : {
         enter: (dir: number) => ({ x: 64 * dir, opacity: 0 }),

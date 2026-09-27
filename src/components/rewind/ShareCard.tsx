@@ -16,9 +16,15 @@ export function ShareCard({ name, address, stats }: ShareCardProps) {
   const item = reduce ? enterItemReduced : enterItem;
   return (
     <motion.article
-      initial={reduce ? { opacity: 0 } : { opacity: 0, y: 16 }}
+      // `initial` is preference-independent for the same reason `enterItem`'s hidden state is:
+      // the server renders it before it can know, and `animate` ends at y 0 either way.
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: duration.slow, ease: ease.out }}
+      transition={
+        reduce
+          ? { duration: duration.base, ease: ease.inOut, y: { duration: 0 } }
+          : { duration: duration.slow, ease: ease.out }
+      }
       className="flex w-full max-w-[600px] flex-col gap-7 rounded-3xl bg-surface p-9 text-left shadow-card max-md:p-6"
     >
       <header className="flex items-baseline justify-between gap-3">
