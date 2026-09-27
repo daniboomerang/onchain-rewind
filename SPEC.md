@@ -86,7 +86,15 @@ Base URL `https://api.zerion.io`. Auth is HTTP Basic, with the API key as the us
 
 ## 6. Demo wallets
 
-`src/lib/demo-wallets.ts` holds `vitalik.eth` plus two more **real public wallets**. Before listing a wallet, check that it produces a good story (enough transactions in the last 365 days, several chains, a balance chart). Never invent names.
+`src/lib/demo-wallets.ts` holds three **real public wallets**, each stored with the address its name resolved to, so a demo pick never waits on ENS:
+
+| Name | Address |
+|---|---|
+| `vitalik.eth` | `0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045` |
+| `pranksy.eth` | `0xD387A6E4e84a6C86bd90C158C6028A58CC8Ac459` |
+| `dingaling.eth` | `0x54BE3a794282C030b15E43aE2bB182E14c409C5e` |
+
+Before listing a wallet, check that it produces a good story (enough transactions in the last 365 days, several chains, a balance chart). Never invent names.
 
 ## 7. Quality bar (definition of done for the whole build)
 
