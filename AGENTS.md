@@ -1,0 +1,122 @@
+# Onchain Rewind: agent instructions
+
+This is the canonical instruction file for every coding agent working in this repo (Codex, Claude Code, others). `CLAUDE.md` imports it. Tool-specific files only add to it and never repeat it.
+
+## What this is
+
+**Onchain Rewind: your wallet's year, played back.** A web app that reads a wallet's public onchain history from the Zerion API and plays it back as a cinematic animated story: a particle reveal, five story cards and a share card. The wallet is set once in settings and treated as the user's already-connected wallet. Every page load autoplays the Rewind.
+
+This is a portfolio demo for a Senior Product Engineer (Frontend) application at Zerion. The quality bar is production quality: craft, performance, accessibility and clean architecture all count. Read [SPEC.md](SPEC.md) before starting any task.
+
+## Stack
+
+- **TanStack Start** (React 19, Vite, file-based routing, server functions)
+- **TypeScript**, strict, with `noUncheckedIndexedAccess`
+- **Tailwind CSS v4**. Tokens live in `src/styles/tokens.css`, copied from `design/tokens.css`.
+- **Ariakit** (`@ariakit/react`) for Dialog, Combobox and Tooltip
+- **Motion** (`motion/react`) for all UI animation, and **Canvas 2D** for the particle reveal. **No WebGL.**
+- **TanStack Query** on the client
+- **Zerion API**, called only from server functions
+- **Biome 2.5** for linting and formatting (`biome.json`), **Vitest** for tests
+- Package manager: **bun**
+
+Exact versions get pinned in `package.json` by the scaffold (SPEC.md task 0). Follow the installed versions' APIs, not memory.
+
+## Tooling and CI
+
+- **Biome** (`biome.json`):
+  - recommended preset;
+  - 2-space indent, 120 columns, double quotes;
+  - organised imports and Tailwind directives parsed in CSS;
+  - `design/` and generated route trees excluded.
+- **Import ban:** `noRestrictedImports` bans `@ariakit/react` everywhere except `src/components/ui/**`. This is a lint error, not a convention.
+- **`console.log` is a warning,** and CI treats warnings as errors. `console.warn` and `console.error` are allowed.
+- **CI** is `.github/workflows/checks.yml`, kept deliberately light. It runs on every PR and every push to `main`, with three parallel checks:
+  - **Check format** (Biome)
+  - **Check lint** (Biome, warnings count as errors)
+  - **Check types** (TypeScript, from the moment `package.json` exists)
+
+  An aggregate job named `checks` passes only when all three pass. It's the one check branch protection should require.
+- **Vinaya's generated workflows** (`vinaya-*.yml`) run alongside it after install.
+- **Before pushing:** run `bun run fix`, then `bun run check`.
+
+## Layout
+
+```
+src/
+  routes/              TanStack Start file routes (__root, index = the Rewind, system = component playground)
+  server/zerion/       Zerion API client and server functions. The only place the API key is read.
+  engine/              Pure functions: Zerion responses → RewindFacts. No React, no fetch, no I/O.
+  components/ui/       Ariakit wrappers and base primitives (Button, IconButton, Dialog, Combobox, Tooltip)
+  components/rewind/   Story components (ParticleReveal, RewindPlayer, cards, ShareCard, states)
+  lib/                 Small shared utilities (formatting, share image rendering)
+  styles/              tokens.css and app.css
+design/                Handoff from Claude Design. Reference input: read it, adapt it, never import from it.
+```
+
+## Commands
+
+Fill these in when the scaffold lands. Every task must leave them green.
+
+- `bun dev`: dev server
+- `bun run check:format`: `biome format .`
+- `bun run check:lint`: `biome lint --error-on-warnings .`
+- `bun run check:types`: `tsc --noEmit`
+- `bun run check`: all three, the same as CI
+- `bun run fix`: `biome check --write .` (formats and organises imports)
+- `bun test`: Vitest
+- `bun run build`: production build
+
+## Rules
+
+1. **The API key never reaches the browser.** `ZERION_API_KEY` is read only in `src/server/`. Never prefix it with `VITE_`, never log it, never return it from a server function. `.env.local` is gitignored, and `.env.example` documents the variable.
+2. **Components read `RewindFacts` only.** Components never see raw Zerion responses. Mapping lives in `src/engine/` as pure, unit-tested functions.
+3. **No raw `@ariakit/react` imports outside `src/components/ui/`.** Feature code uses the wrappers. Ariakit composes through the `render` prop, never `asChild`.
+4. **React 19 idioms.** `ref` is a normal prop: no `forwardRef`. Use `use()` for context.
+5. **Tokens only.** No raw hex colours, font sizes or durations in components. Use the Tailwind utilities generated from `tokens.css` and the motion constants in `components/rewind/motion.ts`.
+6. **Reduced motion everywhere.** Every animated component honours `prefers-reduced-motion`, as specified in `design/DESIGN.md` §3.
+7. **Accessibility.** Focus rings on keyboard focus only, accessible names on icon buttons and chart markers, and a polite live region on the reveal counter (at most one update per second).
+8. **Never invent wallet data or ENS names.** Demo wallets are real public wallets listed in `src/lib/demo-wallets.ts`. Fixtures stay in tests and on `/system`.
+9. **Scope.** Build what SPEC.md lists, and nothing more. New ideas go in SPEC.md under "Later", never in code.
+
+## Path rules (always apply when editing matching files)
+
+Conventions that apply to certain paths live in `.claude/rules/<topic>.md`, with `paths:` frontmatter. Claude Code loads them automatically for matching files. **Other agents: read the matching rule file before editing.** A pointer exists at `.agents/skills/<topic>/SKILL.md`.
+
+| Rule | Paths | Covers |
+|---|---|---|
+| [`zerion-api`](.claude/rules/zerion-api.md) | `src/server/**` | server-only key, auth, endpoints, pagination, limits, caching |
+| [`rewind-engine`](.claude/rules/rewind-engine.md) | `src/engine/**` | mapping to `RewindFacts`, aggregation rules with examples, test-first |
+| [`design-system`](.claude/rules/design-system.md) | `src/components/**`, `src/styles/**` | tokens, typography, Ariakit wrappers, accessibility |
+| [`motion-and-reveal`](.claude/rules/motion-and-reveal.md) | `src/components/rewind/**` | motion tokens, PlaybackContext, ParticleReveal, reduced motion |
+| [`tanstack-start`](.claude/rules/tanstack-start.md) | `src/routes/**`, `src/server/**`, `vite.config.ts` | routing, server functions, env, SSR boundaries |
+
+Rules guide the agent, but **hard rules are enforced by tools, not prose**: the Biome import ban (Ariakit), the key-leak check in `ship-check`, typecheck, tests, and Vinaya's gates.
+
+## Workflow skills (on demand)
+
+Canonical content is in `.claude/skills/<name>/SKILL.md`, and `.agents/skills/<name>/SKILL.md` points to it.
+
+| Skill | Use when |
+|---|---|
+| [`verify-ui`](.claude/skills/verify-ui/SKILL.md) | after any UI change: plays the full flow in a browser and reports pass or fail per step |
+| [`vet-demo-wallet`](.claude/skills/vet-demo-wallet/SKILL.md) | choosing a demo wallet: scores a real public wallet on the Rewind criteria |
+| [`record-fixture`](.claude/skills/record-fixture/SKILL.md) | engine tests need realistic data: records a trimmed Zerion response |
+| [`ship-check`](.claude/skills/ship-check/SKILL.md) | end of every task: typecheck, lint, test, build, key-leak check, browser pass |
+
+## How to approach a task
+
+- **Plan first when the task is ambiguous or spans several files.** SPEC.md tasks 1–5 fall in this group. Explore, propose the file-by-file approach, get approval, then execute. **Execute directly** for a single, well-located fix.
+- **Engine work is test-first.** Write failing tests from the examples in the rule, then implement.
+- **When output is wrong, add a concrete input/output example** to the relevant rule rather than more prose.
+- Finish every task with `ship-check`.
+
+## Governance
+
+This repo is governed by **Vinaya**. Once it's installed, `VINAYA.md` explains the enforcement rings and roles. Work happens on branches through pull requests, never directly on `main`. Commit messages follow the format the commit-msg hook enforces.
+
+## Working agreements
+
+- Keep diffs small and scoped to one task.
+- Update SPEC.md when a decision changes. Update the relevant skill when a convention changes.
+- `design/` is the handoff. Its reference code (`components/`, `types.ts`, `fixtures.ts`, `Playground.tsx`, `renderShareImage.ts`, `reference/`, `assets/`) is read-only. Two files stay living docs: `design/DESIGN.md` (update it when a token or a component prop changes) and `design/KNOWN-ISSUES.md`.

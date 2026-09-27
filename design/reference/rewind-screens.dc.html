@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{--font-display:"Instrument Serif",Georgia,serif;--font-sans:"Geist",system-ui,sans-serif;--font-mono:"Geist Mono",ui-monospace,monospace;--color-bg:#16161a;--color-surface:#1d1d21;--color-surface-raised:#26262b;--color-surface-pressed:#2d2d31;--color-overlay:rgb(10 10 12/.72);--color-border:#2d2d31;--color-border-strong:#3a3a40;--color-fg:#ffffff;--color-fg-muted:#9c9ca3;--color-fg-subtle:#7a7a82;--color-fg-inverse:#16161a;--color-primary:#00a3f5;--color-primary-hover:#33b5f7;--color-on-primary:#16161a;--color-positive:#4fbf67;--color-negative:#ff5c5c;--color-negative-soft:rgb(255 92 92/.12);--color-notice:#ff9d1c;--color-track:rgb(255 255 255/.16);--shadow-card:inset 0 1px 0 rgb(255 255 255/.08),0 20px 60px rgb(0 0 0/.35);--shadow-dialog:inset 0 1px 0 rgb(255 255 255/.08),0 24px 80px rgb(0 0 0/.55);color-scheme:dark}
+html{background:#0e0e11}body{margin:0;background:#0e0e11;color:#ffffff;font-family:"Geist",system-ui,sans-serif;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+*{box-sizing:border-box}
+a{color:#00a3f5;text-decoration:none}a:hover{color:#33b5f7}
+</style>
+</helmet>
+<div style="display:flex;flex-direction:column;gap:120px;padding:96px;width:max-content;background:#0e0e11">
+
+<header style="display:flex;flex-direction:column;gap:12px;max-width:900px">
+  <span style="font:500 13px/1.4 var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-subtle)">Onchain Rewind · screens · pass 2 · dark</span>
+  <h1 style="margin:0;font:400 72px/1 var(--font-display)">Screens, reveal spec &amp; share image</h1>
+  <p style="margin:0;font-size:17px;line-height:1.5;color:var(--color-fg-muted)">1440×900 and 390×844. All figures are sample data. Orange pins mark the chrome on every card: ① progress segments ② wallet name ③ gear ④ navigation hint. Components and tokens are in <a href="Rewind Design System.dc.html">Rewind Design System</a>.</p>
+</header>
+
+<section style="display:flex;flex-direction:column;gap:48px">
+  <h2 style="margin:0;font:400 44px/1 var(--font-display)">1 · Settings, first visit</h2>
+  <div style="display:flex;gap:64px">
+  <div id="s01" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;gap:12px;align-items:baseline"><span style="font:600 13px var(--font-mono);color:#ff9d1c">S01</span><span style="font-size:18px;font-weight:500">Empty</span></div>
+    <div style="position:relative;flex:none;width:1440px;height:900px;overflow:hidden;background:var(--color-bg);border-radius:6px;box-shadow:0 0 0 1px #2d2d31">
+      <canvas ref="{{ cS1 }}" width="1440" height="900" style="position:absolute;inset:0;width:100%;height:100%;opacity:.5"></canvas>
+      <dc-import name="Rewind Chrome" step="{{ 0 }}" wallet="" style="position:absolute;inset:0" hint-size="1440px,900px"></dc-import>
+      <div style="position:absolute;inset:0;background:var(--color-overlay);display:grid;place-items:center">
+        <div style="display:flex;flex-direction:column;gap:24px;width:480px;padding:32px;border-radius:24px;background:var(--color-bg);box-shadow:var(--shadow-dialog)">
+          <div style="display:flex;flex-direction:column;gap:8px"><h3 style="margin:0;font:400 40px/1.05 var(--font-display)">Choose a wallet</h3><p style="margin:0;font-size:15px;line-height:1.5;color:var(--color-fg-muted)">Paste an address or ENS name. We'll remember it on this device.</p></div>
+          <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;font-weight:500;color:var(--color-fg-muted)">Wallet</span><div style="display:flex;align-items:center;height:52px;padding:0 16px;border-radius:12px;background:var(--color-bg);border:1px solid var(--color-primary);box-shadow:0 0 0 3px rgb(0 163 245/.22);font-size:16px;color:var(--color-fg-subtle)"><span style="width:1px;height:20px;background:var(--color-fg);margin-right:2px"></span>0x… or name.eth</div></div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <span style="font:500 12px/16px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-subtle);padding-bottom:6px">Demo wallets</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;height:44px;padding:0 12px;margin:0 -12px;border-radius:8px"><span style="font-size:15px;font-weight:500">vitalik.eth</span><span style="white-space:nowrap;font:13px var(--font-mono);color:var(--color-fg-muted)">0xd8dA…6045</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;height:44px;padding:0 12px;margin:0 -12px;border-radius:8px"><span style="font-size:15px;font-weight:500;color:var(--color-fg-subtle)">Demo wallet 2</span><span style="white-space:nowrap;font:13px var(--font-mono);color:var(--color-fg-subtle)">Not set</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;height:44px;padding:0 12px;margin:0 -12px;border-radius:8px"><span style="font-size:15px;font-weight:500;color:var(--color-fg-subtle)">Demo wallet 3</span><span style="white-space:nowrap;font:13px var(--font-mono);color:var(--color-fg-subtle)">Not set</span></div>
+          </div>
+          <div style="display:flex;justify-content:flex-end"><span style="display:inline-flex;align-items:center;height:44px;padding:0 20px;border-radius:999px;background:var(--color-surface-raised);color:var(--color-fg-subtle);font-size:15px;font-weight:500">Play rewind</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;max-width:1440px;font-size:15px;line-height:1.5;color:var(--color-fg-muted)"><span>No wallet saved, so the dialog opens on load and can't be dismissed: no Cancel or close button, and Esc and outside clicks are ignored. The input is focused automatically. Behind it, dim particles drift (idle scatter at 50% opacity). "Play rewind" stays disabled until the input resolves to a valid wallet.</span></div>
+  </div>
+
+  <div id="s02" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;gap:12px;align-items:baseline"><span style="font:600 13px var(--font-mono);color:#ff9d1c">S02</span><span style="font-size:18px;font-weight:500">Filled, valid</span></div>
+    <div style="position:relative;flex:none;width:1440px;height:900px;overflow:hidden;background:var(--color-bg);border-radius:6px;box-shadow:0 0 0 1px #2d2d31">
+      <canvas ref="{{ cS2 }}" width="1440" height="900" style="position:absolute;inset:0;width:100%;height:100%;opacity:.5"></canvas>
+      <dc-import name="Rewind Chrome" step="{{ 0 }}" wallet="" style="position:absolute;inset:0" hint-size="1440px,900px"></dc-import>
+      <div style="position:absolute;inset:0;background:var(--color-overlay);display:grid;place-items:center">
+        <div style="display:flex;flex-direction:column;gap:24px;width:480px;padding:32px;border-radius:24px;background:var(--color-bg);box-shadow:var(--shadow-dialog)">
+          <div style="display:flex;flex-direction:column;gap:8px"><h3 style="margin:0;font:400 40px/1.05 var(--font-display)">Choose a wallet</h3><p style="margin:0;font-size:15px;line-height:1.5;color:var(--color-fg-muted)">Paste an address or ENS name. We'll remember it on this device.</p></div>
+          <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;font-weight:500;color:var(--color-fg-muted)">Wallet</span><div style="display:flex;align-items:center;justify-content:space-between;height:52px;padding:0 16px;border-radius:12px;background:var(--color-bg);border:1px solid var(--color-border-strong);font-size:16px">vitalik.eth<span style="white-space:nowrap;font:13px var(--font-mono);color:var(--color-positive)">0xd8dA…6045 ✓</span></div></div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <span style="font:500 12px/16px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-subtle);padding-bottom:6px">Demo wallets</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;height:44px;padding:0 12px;margin:0 -12px;border-radius:8px;background:var(--color-surface)"><span style="font-size:15px;font-weight:500">vitalik.eth</span><span style="white-space:nowrap;font:13px var(--font-mono);color:var(--color-fg-muted)">0xd8dA…6045</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;height:44px;padding:0 12px;margin:0 -12px;border-radius:8px"><span style="font-size:15px;font-weight:500;color:var(--color-fg-subtle)">Demo wallet 2</span><span style="white-space:nowrap;font:13px var(--font-mono);color:var(--color-fg-subtle)">Not set</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;height:44px;padding:0 12px;margin:0 -12px;border-radius:8px"><span style="font-size:15px;font-weight:500;color:var(--color-fg-subtle)">Demo wallet 3</span><span style="white-space:nowrap;font:13px var(--font-mono);color:var(--color-fg-subtle)">Not set</span></div>
+          </div>
+          <div style="display:flex;justify-content:flex-end"><span style="display:inline-flex;align-items:center;height:44px;padding:0 20px;border-radius:999px;background:var(--color-primary);color:var(--color-on-primary);font-size:15px;font-weight:500">Play rewind</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="max-width:1440px;font-size:15px;line-height:1.5;color:var(--color-fg-muted)">An ENS name resolves after a 300ms pause in typing; a spinner shows at the right of the input while it resolves. The resolved short address then appears in positive green with a check. The matching demo wallet row is highlighted. Enter or "Play rewind" saves to localStorage, closes the dialog (150ms, ease-in) and starts the reveal.</div>
+  </div>
+
+  <div id="s03" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;gap:12px;align-items:baseline"><span style="font:600 13px var(--font-mono);color:#ff9d1c">S03</span><span style="font-size:18px;font-weight:500">Invalid</span></div>
+    <div style="position:relative;flex:none;width:1440px;height:900px;overflow:hidden;background:var(--color-bg);border-radius:6px;box-shadow:0 0 0 1px #2d2d31">
+      <canvas ref="{{ cS3 }}" width="1440" height="900" style="position:absolute;inset:0;width:100%;height:100%;opacity:.5"></canvas>
+      <dc-import name="Rewind Chrome" step="{{ 0 }}" wallet="" style="position:absolute;inset:0" hint-size="1440px,900px"></dc-import>
+      <div style="position:absolute;inset:0;background:var(--color-overlay);display:grid;place-items:center">
+        <div style="display:flex;flex-direction:column;gap:24px;width:480px;padding:32px;border-radius:24px;background:var(--color-bg);box-shadow:var(--shadow-dialog)">
+          <div style="display:flex;flex-direction:column;gap:8px"><h3 style="margin:0;font:400 40px/1.05 var(--font-display)">Choose a wallet</h3><p style="margin:0;font-size:15px;line-height:1.5;color:var(--color-fg-muted)">Paste an address or ENS name. We'll remember it on this device.</p></div>
+          <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;font-weight:500;color:var(--color-fg-muted)">Wallet</span><div style="display:flex;align-items:center;height:52px;padding:0 16px;border-radius:12px;background:var(--color-negative-soft);border:1px solid var(--color-negative);font:16px var(--font-mono)">0xd8dA6BF2</div><span style="font-size:14px;color:var(--color-negative)">That isn't a valid address or ENS name.</span></div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <span style="font:500 12px/16px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-subtle);padding-bottom:6px">Demo wallets</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;height:44px;padding:0 12px;margin:0 -12px;border-radius:8px"><span style="font-size:15px;font-weight:500">vitalik.eth</span><span style="white-space:nowrap;font:13px var(--font-mono);color:var(--color-fg-muted)">0xd8dA…6045</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;height:44px;padding:0 12px;margin:0 -12px;border-radius:8px"><span style="font-size:15px;font-weight:500;color:var(--color-fg-subtle)">Demo wallet 2</span><span style="white-space:nowrap;font:13px var(--font-mono);color:var(--color-fg-subtle)">Not set</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;height:44px;padding:0 12px;margin:0 -12px;border-radius:8px"><span style="font-size:15px;font-weight:500;color:var(--color-fg-subtle)">Demo wallet 3</span><span style="white-space:nowrap;font:13px var(--font-mono);color:var(--color-fg-subtle)">Not set</span></div>
+          </div>
+          <div style="display:flex;justify-content:flex-end"><span style="display:inline-flex;align-items:center;height:44px;padding:0 20px;border-radius:999px;background:var(--color-surface-raised);color:var(--color-fg-subtle);font-size:15px;font-weight:500">Play rewind</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="max-width:1440px;font-size:15px;line-height:1.5;color:var(--color-fg-muted)">Validate on blur or submit, never while the user is typing. The error text is linked to the input with <code style="font-family:var(--font-mono)">aria-describedby</code> and the input gets <code style="font-family:var(--font-mono)">aria-invalid</code>. No shake animation. Editing the input clears the error.</div>
+  </div>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:48px">
+  <h2 style="margin:0;font:400 44px/1 var(--font-display)">2 · Reveal</h2>
+  <div style="display:flex;gap:64px;align-items:flex-start">
+  <div id="s04" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;gap:12px;align-items:baseline"><span style="font:600 13px var(--font-mono);color:#ff9d1c">S04</span><span style="font-size:18px;font-weight:500">Frame A: scatter</span></div>
+    <div style="position:relative;flex:none;width:1440px;height:900px;overflow:hidden;background:var(--color-bg);border-radius:6px;box-shadow:0 0 0 1px #2d2d31">
+      <canvas ref="{{ cR1 }}" width="1440" height="900" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+      <dc-import name="Rewind Chrome" step="{{ 0 }}" style="position:absolute;inset:0" hint-size="1440px,900px"></dc-import>
+      <div style="position:absolute;left:0;right:0;bottom:120px;display:flex;justify-content:center"><span style="font-size:17px;color:var(--color-fg-muted)">Connecting to vitalik.eth…</span></div>
+    </div>
+    <div style="max-width:1440px;font-size:15px;line-height:1.5;color:var(--color-fg-muted)">0–600ms. The first page of transactions spawns particles at random points across the viewport. They fade in from 0 opacity and drift at 4–12px/s.</div>
+  </div>
+  <div id="s05" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;gap:12px;align-items:baseline"><span style="font:600 13px var(--font-mono);color:#ff9d1c">S05</span><span style="font-size:18px;font-weight:500">Frame B: gather</span></div>
+    <div style="position:relative;flex:none;width:1440px;height:900px;overflow:hidden;background:var(--color-bg);border-radius:6px;box-shadow:0 0 0 1px #2d2d31">
+      <canvas ref="{{ cR2 }}" width="1440" height="900" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+      <dc-import name="Rewind Chrome" step="{{ 0 }}" style="position:absolute;inset:0" hint-size="1440px,900px"></dc-import>
+      <div style="position:absolute;inset:0;display:grid;place-items:center"><div style="display:flex;flex-direction:column;align-items:center;gap:6px;transform:translateY(-10px)"><span style="font:500 40px/1.1 var(--font-sans);letter-spacing:-.02em">1,284</span><span style="font-size:15px;color:var(--color-fg-muted)">transactions</span></div></div>
+      <div style="position:absolute;left:0;right:0;bottom:120px;display:flex;justify-content:center"><span style="font-size:17px;color:var(--color-fg-muted)">Reading 1,284 transactions…</span></div>
+    </div>
+    <div style="max-width:1440px;font-size:15px;line-height:1.5;color:var(--color-fg-muted)">From 600ms until the data has finished loading. Particles move into a ring (radius 200px) that turns slowly. The count inside the ring rolls up as each page of transactions arrives.</div>
+  </div>
+  <div id="s06" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;gap:12px;align-items:baseline"><span style="font:600 13px var(--font-mono);color:#ff9d1c">S06</span><span style="font-size:18px;font-weight:500">Frame C: burst into card 1</span></div>
+    <div style="position:relative;flex:none;width:1440px;height:900px;overflow:hidden;background:var(--color-bg);border-radius:6px;box-shadow:0 0 0 1px #2d2d31">
+      <canvas ref="{{ cR3 }}" width="1440" height="900" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+      <dc-import name="Rewind Chrome" step="{{ 1 }}" fill="{{ 0 }}" style="position:absolute;inset:0;opacity:.6" hint-size="1440px,900px"></dc-import>
+      <div style="position:absolute;left:120px;right:120px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:center;gap:20px">
+        <div style="display:flex;align-items:center;gap:10px;opacity:.9"><span style="width:8px;height:8px;border-radius:999px;background:var(--color-notice)"></span><span style="font:500 12px/16px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-muted)">01 · Origin</span></div>
+        <span style="font:400 28px/1.25 var(--font-sans);color:var(--color-fg-muted);opacity:.5;transform:translateX(24px)">It started on</span>
+      </div>
+    </div>
+    <div style="max-width:1440px;font-size:15px;line-height:1.5;color:var(--color-fg-muted)">Burst lasts 700ms. The ring breaks apart and particles fly outward (ease-out) while fading. Card 1's elements start entering 200ms in; the frame shows about 400ms. The chrome fades in with them.</div>
+  </div>
+  </div>
+
+  <div id="spec" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:24px;width:4448px">
+    <div style="display:flex;flex-direction:column;gap:10px;padding:28px;background:var(--color-surface);border-radius:20px"><span style="font:600 13px var(--font-mono);color:#ff9d1c">Particles</span><span style="font-size:16px;line-height:1.6;color:var(--color-fg-muted)"><b style="color:#fff">Count:</b> one per transaction, capped at 1,500 (desktop) or 600 (mobile). Below 240 transactions, dim "dust" particles (fg at 25% opacity) are added to reach 240 total.<br><b style="color:#fff">Size:</b> radius 0.8–2.2px, scaled for screen pixel density.<br><b style="color:#fff">Color:</b> 88% fg (#fff) at 30–90% opacity, 9% primary (#00a3f5), 3% notice (#ff9d1c).</span></div>
+    <div style="display:flex;flex-direction:column;gap:10px;padding:28px;background:var(--color-surface);border-radius:20px"><span style="font:600 13px var(--font-mono);color:#ff9d1c">Gather shape</span><span style="font-size:16px;line-height:1.6;color:var(--color-fg-muted)">A ring, read as a rewind loop, centered 10px above the viewport center. Radius 200px (desktop) or 120px (mobile), band ±14px (Gaussian). It rotates at 6°/s. Each particle eases to its slot on the ring over 900–1400ms (ease-in-out), leaving a 6px trail.</span></div>
+    <div style="display:flex;flex-direction:column;gap:10px;padding:28px;background:var(--color-surface);border-radius:20px"><span style="font:600 13px var(--font-mono);color:#ff9d1c">Timing</span><span style="font-size:16px;line-height:1.6;color:var(--color-fg-muted)"><b style="color:#fff">Scatter:</b> 0–600ms.<br><b style="color:#fff">Gather:</b> waits for the data, at least 3,200ms total. After 12s the API error screen shows (S13).<br><b style="color:#fff">Hold:</b> 400ms, with the counter reading "1,284 transactions".<br><b style="color:#fff">Burst:</b> 700ms, ease-out.<br><b style="color:#fff">Card 1:</b> enters 200ms into the burst.</span></div>
+    <div style="display:flex;flex-direction:column;gap:10px;padding:28px;background:var(--color-surface);border-radius:20px"><span style="font:600 13px var(--font-mono);color:#ff9d1c">Counter</span><span style="font-size:16px;line-height:1.6;color:var(--color-fg-muted)">Before the total is known: "Reading transactions…" while the number in the ring counts up page by page (240ms per step, ease-out). Once the total is known: "Reading 1,284 transactions…". On completion: "Done" for 400ms, then the burst. Uses <code style="font-family:var(--font-mono)">aria-live="polite"</code>, updating at most once per second.</span></div>
+    <div style="display:flex;flex-direction:column;gap:10px;padding:28px;background:var(--color-surface);border-radius:20px"><span style="font:600 13px var(--font-mono);color:#ff9d1c">Reduced motion</span><span style="font-size:16px;line-height:1.6;color:var(--color-fg-muted)">No canvas. A centered static line reads "Reading 1,284 transactions…", with the number changing directly (no count-up). When loading finishes, the line crossfades into card 1 over 240ms. Cards crossfade without sliding, bars and the chart appear already complete, and numbers show their final value.</span></div>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:48px">
+  <h2 style="margin:0;font:400 44px/1 var(--font-display)">3 · Story cards</h2>
+  <div style="display:flex;gap:64px;align-items:flex-start">
+
+  <div id="s07" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;gap:12px;align-items:baseline"><span style="font:600 13px var(--font-mono);color:#ff9d1c">S07</span><span style="font-size:18px;font-weight:500">Card 1 · Origin (annotated)</span></div>
+    <div style="position:relative;flex:none;width:1440px;height:900px;overflow:hidden;background:var(--color-bg);border-radius:6px;box-shadow:0 0 0 1px #2d2d31">
+      <div style="position:absolute;left:120px;right:120px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:center;gap:20px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:8px;height:8px;border-radius:999px;background:var(--color-notice)"></span><span style="font:500 12px/16px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-muted)">01 · Origin</span></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font:400 28px/1.25 var(--font-sans);color:var(--color-fg-muted)">It started on</span><span style="font:400 128px/1 var(--font-display);letter-spacing:-.02em;white-space:nowrap">March 14, 2022</span></div>
+        <div style="display:flex;gap:64px;padding-top:24px"><div style="display:flex;flex-direction:column;gap:4px"><span style="font:500 40px/1.1 var(--font-sans);letter-spacing:-.02em;color:var(--color-notice)">1,294</span><span style="font-size:15px;color:var(--color-fg-muted)">days onchain</span></div><div style="display:flex;flex-direction:column;gap:4px"><span style="font:500 40px/1.1 var(--font-sans);letter-spacing:-.02em">Ethereum</span><span style="font-size:15px;color:var(--color-fg-muted)">first chain</span></div></div>
+      </div>
+      <dc-import name="Rewind Chrome" step="{{ 1 }}" fill="{{ 45 }}" hint="{{ true }}" annotate="{{ true }}" zones="{{ true }}" style="position:absolute;inset:0" hint-size="1440px,900px"></dc-import>
+    </div>
+    <div style="max-width:1440px;font-size:15px;line-height:1.5;color:var(--color-fg-muted)">① Progress segments: 40px from the sides, 20px from the top, 6px gaps. ② Wallet name and ③ gear: top right, 12px below the segments; the wordmark sits top left. ④ Navigation hint: centered 32px from the bottom, 13px fg-subtle text, faded out after the first navigation. Click zones are the left and right halves; the chrome sits above them and takes its own clicks. Content is 120px from each side, vertically centered.</div>
+  </div>
+
+  <div id="s08" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;gap:12px;align-items:baseline"><span style="font:600 13px var(--font-mono);color:#ff9d1c">S08</span><span style="font-size:18px;font-weight:500">Card 2 · Home chain</span></div>
+    <div style="position:relative;flex:none;width:1440px;height:900px;overflow:hidden;background:var(--color-bg);border-radius:6px;box-shadow:0 0 0 1px #2d2d31">
+      <div style="position:absolute;left:120px;right:120px;top:0;bottom:0;display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:96px;align-items:center">
+        <div style="display:flex;flex-direction:column;gap:20px">
+          <div style="display:flex;align-items:center;gap:10px"><span style="width:8px;height:8px;border-radius:999px;background:var(--color-primary)"></span><span style="font:500 12px/16px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-muted)">02 · Home chain</span></div>
+          <div style="display:flex;flex-direction:column;gap:8px"><span style="font:400 28px/1.25 var(--font-sans);color:var(--color-fg-muted)">You live on</span><span style="font:400 128px/1 var(--font-display);letter-spacing:-.02em">Base</span></div>
+          <span style="font-size:17px;color:var(--color-fg-muted)">46% of your transactions, across 6 chains.</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:22px">
+          <div style="display:grid;grid-template-columns:36px 120px minmax(0,1fr) 56px;gap:16px;align-items:center"><span style="width:36px;height:36px;border-radius:999px;background:var(--color-surface-raised);display:grid;place-items:center;font-size:12px;font-weight:600">B</span><span style="font-size:17px;font-weight:500">Base</span><div style="height:10px;border-radius:999px;background:var(--color-track);overflow:hidden"><div style="width:100%;height:100%;border-radius:999px;background:var(--color-primary)"></div></div><span style="text-align:right;font-size:17px;font-weight:500">46%</span></div>
+          <div style="display:grid;grid-template-columns:36px 120px minmax(0,1fr) 56px;gap:16px;align-items:center"><span style="width:36px;height:36px;border-radius:999px;background:var(--color-surface-raised);display:grid;place-items:center;font-size:12px;font-weight:600">E</span><span style="font-size:17px;font-weight:500">Ethereum</span><div style="height:10px;border-radius:999px;background:var(--color-track);overflow:hidden"><div style="width:59%;height:100%;border-radius:999px;background:var(--color-fg-muted)"></div></div><span style="text-align:right;font-size:17px;color:var(--color-fg-muted)">27%</span></div>
+          <div style="display:grid;grid-template-columns:36px 120px minmax(0,1fr) 56px;gap:16px;align-items:center"><span style="width:36px;height:36px;border-radius:999px;background:var(--color-surface-raised);display:grid;place-items:center;font-size:12px;font-weight:600">A</span><span style="font-size:17px;font-weight:500">Arbitrum</span><div style="height:10px;border-radius:999px;background:var(--color-track);overflow:hidden"><div style="width:30%;height:100%;border-radius:999px;background:var(--color-fg-muted)"></div></div><span style="text-align:right;font-size:17px;color:var(--color-fg-muted)">14%</span></div>
+          <div style="display:grid;grid-template-columns:36px 120px minmax(0,1fr) 56px;gap:16px;align-items:center"><span style="width:36px;height:36px;border-radius:999px;background:var(--color-surface-raised);display:grid;place-items:center;font-size:12px;font-weight:600">O</span><span style="font-size:17px;font-weight:500">Optimism</span><div style="height:10px;border-radius:999px;background:var(--color-track);overflow:hidden"><div style="width:17%;height:100%;border-radius:999px;background:var(--color-fg-muted)"></div></div><span style="text-align:right;font-size:17px;color:var(--color-fg-muted)">8%</span></div>
+          <div style="display:grid;grid-template-columns:36px 120px minmax(0,1fr) 56px;gap:16px;align-items:center"><span style="width:36px;height:36px;border-radius:999px;background:var(--color-surface-raised);display:grid;place-items:center;font-size:12px;font-weight:600">P</span><span style="font-size:17px;font-weight:500">Polygon</span><div style="height:10px;border-radius:999px;background:var(--color-track);overflow:hidden"><div style="width:11%;height:100%;border-radius:999px;background:var(--color-fg-muted)"></div></div><span style="text-align:right;font-size:17px;color:var(--color-fg-muted)">5%</span></div>
+        </div>
+      </div>
+      <dc-import name="Rewind Chrome" step="{{ 2 }}" fill="{{ 60 }}" hint="{{ true }}" annotate="{{ true }}" style="position:absolute;inset:0" hint-size="1440px,900px"></dc-import>
+    </div>
+    <div style="max-width:1440px;font-size:15px;line-height:1.5;color:var(--color-fg-muted)">Two columns in a 12-column grid (5 and 6 columns, 96px gap). Top 5 chains, sorted; bar length is relative to the top chain. Enter order: eyebrow, then kicker, then headline (80ms apart), then bars growing from 0 (900ms ease-out, 60ms apart), with percentages counting up alongside. Circles are chain icon slots.</div>
+  </div>
+
+  <div id="s09" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;gap:12px;align-items:baseline"><span style="font:600 13px var(--font-mono);color:#ff9d1c">S09</span><span style="font-size:18px;font-weight:500">Card 3 · Top token</span></div>
+    <div style="position:relative;flex:none;width:1440px;height:900px;overflow:hidden;background:var(--color-bg);border-radius:6px;box-shadow:0 0 0 1px #2d2d31">
+      <div style="position:absolute;left:120px;right:120px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:center;gap:20px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:8px;height:8px;border-radius:999px;background:var(--color-positive)"></span><span style="font:500 12px/16px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-muted)">03 · Top token</span></div>
+        <div style="display:flex;align-items:center;gap:32px">
+          <span style="width:120px;height:120px;flex:none;border-radius:999px;background:var(--color-surface-raised);display:grid;place-items:center;font-size:28px;font-weight:600">ETH</span>
+          <div style="display:flex;flex-direction:column;gap:8px"><span style="font:400 28px/1.25 var(--font-sans);color:var(--color-fg-muted)">Your top token</span><span style="font:400 128px/1 var(--font-display);letter-spacing:-.02em">Ether</span></div>
+        </div>
+        <div style="display:flex;gap:80px;padding-top:32px;align-items:flex-end">
+          <div style="display:flex;flex-direction:column;gap:4px"><span style="font:500 96px/1 var(--font-sans);letter-spacing:-.03em;color:var(--color-positive)">+38.4%</span><span style="font-size:15px;color:var(--color-fg-muted)">price change since your first trade</span></div>
+          <div style="display:flex;flex-direction:column;gap:4px"><span style="font:500 40px/1.1 var(--font-sans);letter-spacing:-.02em">214</span><span style="font-size:15px;color:var(--color-fg-muted)">times traded</span></div>
+        </div>
+      </div>
+      <dc-import name="Rewind Chrome" step="{{ 3 }}" fill="{{ 30 }}" hint="{{ true }}" annotate="{{ true }}" style="position:absolute;inset:0" hint-size="1440px,900px"></dc-import>
+    </div>
+    <div style="max-width:1440px;font-size:15px;line-height:1.5;color:var(--color-fg-muted)">The token icon (120px slot) scales in from .9 using the card spring. The % change counts up from 0 over 1200ms (ease-out) and is the card's only accent. A negative change uses negative red and a "−" sign. "Times traded" counts up at the same time.</div>
+  </div>
+
+  <div id="s10" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;gap:12px;align-items:baseline"><span style="font:600 13px var(--font-mono);color:#ff9d1c">S10</span><span style="font-size:18px;font-weight:500">Card 4 · The ride</span></div>
+    <div style="position:relative;flex:none;width:1440px;height:900px;overflow:hidden;background:var(--color-bg);border-radius:6px;box-shadow:0 0 0 1px #2d2d31">
+      <div style="position:absolute;left:120px;right:120px;top:150px;bottom:110px;display:flex;flex-direction:column;gap:32px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:32px">
+          <div style="display:flex;flex-direction:column;gap:20px">
+            <div style="display:flex;align-items:center;gap:10px"><span style="width:8px;height:8px;border-radius:999px;background:var(--color-primary)"></span><span style="font:500 12px/16px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-muted)">04 · The ride</span></div>
+            <span style="font:400 88px/1 var(--font-display);letter-spacing:-.015em">Your year, in one line</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span style="font:500 40px/1.1 var(--font-sans);letter-spacing:-.02em">$18,902</span><span style="font-size:15px;color:var(--color-positive);white-space:nowrap">+51.5% this year</span></div>
+        </div>
+        <div style="position:relative;height:380px">
+          <svg viewBox="0 0 1200 380" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible">
+            <path d="{{ c4.area }}" fill="#00a3f5" opacity=".08"></path>
+            <path d="{{ c4.line }}" fill="none" stroke="#00a3f5" stroke-width="3" stroke-linecap="round"></path>
+            <circle cx="{{ c4.hx }}" cy="{{ c4.hy }}" r="7" fill="#16161a" stroke="#00a3f5" stroke-width="3"></circle>
+            <circle cx="{{ c4.lx }}" cy="{{ c4.ly }}" r="7" fill="#16161a" stroke="#9c9ca3" stroke-width="3"></circle>
+          </svg>
+          <div style="position:absolute;left:{{ c4.hxp }};top:{{ c4.hyp }};transform:translate(-50%,calc(-100% - 18px));display:flex;flex-direction:column;gap:2px;padding:8px 12px;border-radius:8px;background:#fff;color:#16161a;white-space:nowrap"><span style="font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase">Peak · Oct 12</span><span style="font-size:15px;font-weight:600">$24,310</span></div>
+          <div style="position:absolute;left:{{ c4.lxp }};top:{{ c4.lyp }};transform:translate(20px,-50%);display:flex;flex-direction:column;gap:2px;padding:8px 12px;border-radius:8px;background:var(--color-surface-raised);white-space:nowrap"><span style="font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--color-fg-muted)">Low · May 21</span><span style="font-size:15px;font-weight:600">$9,120</span></div>
+          <div style="position:absolute;left:0;right:0;bottom:-28px;display:flex;justify-content:space-between;font-size:12px;color:var(--color-fg-subtle)"><span>Jan</span><span>Mar</span><span>May</span><span>Jul</span><span>Sep</span><span>Nov</span><span>Dec</span></div>
+        </div>
+      </div>
+      <dc-import name="Rewind Chrome" step="{{ 4 }}" fill="{{ 70 }}" hint="{{ true }}" annotate="{{ true }}" style="position:absolute;inset:0" hint-size="1440px,900px"></dc-import>
+    </div>
+    <div style="max-width:1440px;font-size:15px;line-height:1.5;color:var(--color-fg-muted)">The chart spans the full 1200px content width. The line draws in over 1600ms (ease-out, using stroke-dashoffset) and the area fades in at 8% behind it. Once drawing finishes, the peak marker and its label pop in with the card spring, then the low marker 120ms later. Markers are focusable and show a tooltip on hover or focus. The current value counts up alongside the line.</div>
+  </div>
+
+  <div id="s11" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;gap:12px;align-items:baseline"><span style="font:600 13px var(--font-mono);color:#ff9d1c">S11</span><span style="font-size:18px;font-weight:500">Card 5 · Share</span></div>
+    <div style="position:relative;flex:none;width:1440px;height:900px;overflow:hidden;background:var(--color-bg);border-radius:6px;box-shadow:0 0 0 1px #2d2d31">
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:32px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:8px;height:8px;border-radius:999px;background:var(--color-primary)"></span><span style="font:500 12px/16px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-muted)">05 · Your rewind</span></div>
+        <div style="display:flex;flex-direction:column;gap:28px;width:600px;padding:36px;border-radius:24px;background:var(--color-surface);box-shadow:var(--shadow-card)">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><span style="min-width:0;font:400 48px/1.1 var(--font-display)">vitalik.eth</span><span style="white-space:nowrap;flex:none;font:13px var(--font-mono);color:var(--color-fg-muted)">0xd8dA…6045</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px 20px">
+            <div style="display:flex;flex-direction:column;gap:2px"><span style="font:500 36px/1.1 var(--font-sans);letter-spacing:-.02em">1,284</span><span style="font-size:14px;color:var(--color-fg-muted)">transactions</span></div>
+            <div style="display:flex;flex-direction:column;gap:2px"><span style="font:500 36px/1.1 var(--font-sans);letter-spacing:-.02em">6</span><span style="font-size:14px;color:var(--color-fg-muted)">chains</span></div>
+            <div style="display:flex;flex-direction:column;gap:2px"><span style="font:500 36px/1.1 var(--font-sans);letter-spacing:-.02em">ETH</span><span style="font-size:14px;color:var(--color-fg-muted)">top token</span></div>
+            <div style="display:flex;flex-direction:column;gap:2px"><span style="font:500 36px/1.1 var(--font-sans);letter-spacing:-.02em">Mar 2022</span><span style="font-size:14px;color:var(--color-fg-muted)">onchain since</span></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding-top:16px;border-top:1px solid var(--color-border)"><span style="white-space:nowrap;font:italic 400 20px var(--font-display)">Onchain Rewind</span><span style="width:8px;height:8px;border-radius:999px;background:var(--color-primary)"></span></div>
+        </div>
+        <div style="display:flex;gap:12px"><span style="display:inline-flex;align-items:center;height:44px;padding:0 20px;border-radius:999px;border:1px solid var(--color-border-strong);font-size:15px;font-weight:500;white-space:nowrap">Share image</span><span style="display:inline-flex;align-items:center;height:44px;padding:0 20px;border-radius:999px;background:var(--color-primary);color:var(--color-on-primary);font-size:15px;font-weight:500;white-space:nowrap">Replay</span></div>
+      </div>
+      <dc-import name="Rewind Chrome" step="{{ 5 }}" fill="{{ 100 }}" hint="{{ false }}" annotate="{{ true }}" style="position:absolute;inset:0" hint-size="1440px,900px"></dc-import>
+    </div>
+    <div style="max-width:1440px;font-size:15px;line-height:1.5;color:var(--color-fg-muted)">The last card doesn't auto-advance: its segment fills, then stays full, and the navigation hint is hidden. Enter order: the card rises 16px and fades in, the four stats appear 80ms apart, then the buttons. "Share image" renders the 1200×630 PNG (S16) and shows a spinner in the button while it works. "Replay" restarts from the reveal.</div>
+  </div>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:48px">
+  <h2 style="margin:0;font:400 44px/1 var(--font-display)">4 · States</h2>
+  <div style="display:flex;gap:64px;align-items:flex-start">
+  <div id="s12" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;gap:12px;align-items:baseline"><span style="font:600 13px var(--font-mono);color:#ff9d1c">S12</span><span style="font-size:18px;font-weight:500">Empty wallet</span></div>
+    <div style="position:relative;flex:none;width:1440px;height:900px;overflow:hidden;background:var(--color-bg);border-radius:6px;box-shadow:0 0 0 1px #2d2d31">
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;text-align:center">
+        <span style="font:13px var(--font-mono);color:var(--color-fg-muted)">0x71C7…976F</span>
+        <span style="max-width:900px;font:400 88px/1 var(--font-display);letter-spacing:-.015em;text-wrap:balance">This wallet hasn't made its first move yet</span>
+        <span style="font-size:17px;color:var(--color-fg-muted)">Once it has a transaction, there's a story to tell.</span>
+        <span style="display:inline-flex;align-items:center;height:44px;padding:0 20px;margin-top:8px;border-radius:999px;border:1px solid var(--color-border-strong);font-size:15px;font-weight:500">Change wallet</span>
+      </div>
+      <dc-import name="Rewind Chrome" step="{{ 0 }}" wallet="0x71C7…976F" style="position:absolute;inset:0" hint-size="1440px,900px"></dc-import>
+    </div>
+    <div style="max-width:1440px;font-size:15px;line-height:1.5;color:var(--color-fg-muted)">Shown when the wallet has no transactions. The reveal is skipped and there are no progress segments. It crossfades in over 240ms. "Change wallet" opens Settings.</div>
+  </div>
+  <div id="s13" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;gap:12px;align-items:baseline"><span style="font:600 13px var(--font-mono);color:#ff9d1c">S13</span><span style="font-size:18px;font-weight:500">API error</span></div>
+    <div style="position:relative;flex:none;width:1440px;height:900px;overflow:hidden;background:var(--color-bg);border-radius:6px;box-shadow:0 0 0 1px #2d2d31">
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;text-align:center">
+        <span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--color-negative)"><span style="width:8px;height:8px;border-radius:999px;background:var(--color-negative)"></span>Couldn't load data</span>
+        <span style="max-width:900px;font:400 88px/1 var(--font-display);letter-spacing:-.015em;text-wrap:balance">The rewind got stuck</span>
+        <span style="max-width:560px;font-size:17px;line-height:1.5;color:var(--color-fg-muted)">The data service didn't respond. Your wallet is fine; this is on our side.</span>
+        <div style="display:flex;gap:12px;margin-top:8px"><span style="display:inline-flex;align-items:center;height:44px;padding:0 20px;border-radius:999px;border:1px solid var(--color-border-strong);font-size:15px;font-weight:500;white-space:nowrap">Change wallet</span><span style="display:inline-flex;align-items:center;height:44px;padding:0 20px;border-radius:999px;background:var(--color-primary);color:var(--color-on-primary);font-size:15px;font-weight:500;white-space:nowrap">Try again</span></div>
+      </div>
+      <dc-import name="Rewind Chrome" step="{{ 0 }}" style="position:absolute;inset:0" hint-size="1440px,900px"></dc-import>
+    </div>
+    <div style="max-width:1440px;font-size:15px;line-height:1.5;color:var(--color-fg-muted)">Shown on a network error, a 5xx response, or no data after 12s of loading. The particles fade out over 480ms and this screen crossfades in. "Try again" retries the fetch and returns to the scatter stage (S04). Focus moves to "Try again".</div>
+  </div>
+  <div id="s14" style="display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;gap:12px;align-items:baseline"><span style="font:600 13px var(--font-mono);color:#ff9d1c">S14</span><span style="font-size:18px;font-weight:500">Paused (card 3 held)</span></div>
+    <div style="position:relative;flex:none;width:1440px;height:900px;overflow:hidden;background:var(--color-bg);border-radius:6px;box-shadow:0 0 0 1px #2d2d31">
+      <div style="position:absolute;left:120px;right:120px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:center;gap:20px;opacity:.85">
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:8px;height:8px;border-radius:999px;background:var(--color-positive)"></span><span style="font:500 12px/16px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-muted)">03 · Top token</span></div>
+        <div style="display:flex;align-items:center;gap:32px">
+          <span style="width:120px;height:120px;flex:none;border-radius:999px;background:var(--color-surface-raised);display:grid;place-items:center;font-size:28px;font-weight:600">ETH</span>
+          <div style="display:flex;flex-direction:column;gap:8px"><span style="font:400 28px/1.25 var(--font-sans);color:var(--color-fg-muted)">Your top token</span><span style="font:400 128px/1 var(--font-display);letter-spacing:-.02em">Ether</span></div>
+        </div>
+        <div style="display:flex;gap:80px;padding-top:32px;align-items:flex-end">
+          <div style="display:flex;flex-direction:column;gap:4px"><span style="font:500 96px/1 var(--font-sans);letter-spacing:-.03em;color:var(--color-positive)">+24.1%</span><span style="font-size:15px;color:var(--color-fg-muted)">price change since your first trade</span></div>
+          <div style="display:flex;flex-direction:column;gap:4px"><span style="font:500 40px/1.1 var(--font-sans);letter-spacing:-.02em">138</span><span style="font-size:15px;color:var(--color-fg-muted)">times traded</span></div>
+        </div>
+      </div>
+      <div style="position:absolute;left:0;right:0;bottom:32px;display:flex;justify-content:center"><span style="display:inline-flex;align-items:center;gap:10px;height:36px;padding:0 16px;border-radius:999px;background:var(--color-surface-raised);font-size:13px;font-weight:500;white-space:nowrap"><span style="display:flex;gap:3px"><span style="width:3px;height:10px;background:#fff"></span><span style="width:3px;height:10px;background:#fff"></span></span>Paused · release or press Space to continue</span></div>
+      <dc-import name="Rewind Chrome" step="{{ 3 }}" fill="{{ 60 }}" paused="{{ true }}" style="position:absolute;inset:0" hint-size="1440px,900px"></dc-import>
+    </div>
+    <div style="max-width:1440px;font-size:15px;line-height:1.5;color:var(--color-fg-muted)">Pausing (hold the pointer 200ms or more, or press Space) changes: the current segment's fill stops and drops to 50% opacity, with a pause glyph after the segments. In-flight count-ups, bar growth and line drawing freeze exactly where they are (shown mid-count). Content dims to 85% opacity over 150ms, and a pause pill replaces the navigation hint. Everything else stays in place. Releasing resumes from the same point; a hold is never counted as a navigation click.</div>
+  </div>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:48px">
+  <h2 style="margin:0;font:400 44px/1 var(--font-display)">5 · Mobile · 390 wide</h2>
+  <div style="display:flex;gap:64px;align-items:flex-start">
+  <div id="m01" style="display:flex;flex-direction:column;gap:14px;width:390px">
+    <div style="display:flex;gap:12px;align-items:baseline"><span style="font:600 13px var(--font-mono);color:#ff9d1c">M01</span><span style="font-size:18px;font-weight:500">Card 2 · Home chain</span></div>
+    <div style="position:relative;flex:none;width:390px;height:844px;overflow:hidden;background:var(--color-bg);border-radius:6px;box-shadow:0 0 0 1px #2d2d31">
+      <div style="position:absolute;left:20px;right:20px;top:120px;bottom:80px;display:flex;flex-direction:column;justify-content:center;gap:40px">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:999px;background:var(--color-primary)"></span><span style="font:500 12px/16px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-muted)">02 · Home chain</span></div>
+          <div style="display:flex;flex-direction:column;gap:4px"><span style="font:400 20px/1.25 var(--font-sans);color:var(--color-fg-muted)">You live on</span><span style="font:400 88px/1 var(--font-display);letter-spacing:-.02em">Base</span></div>
+          <span style="font-size:15px;color:var(--color-fg-muted)">46% of your transactions, across 6 chains.</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:18px">
+          <div style="display:grid;grid-template-columns:28px 84px minmax(0,1fr) 40px;gap:10px;align-items:center"><span style="width:28px;height:28px;border-radius:999px;background:var(--color-surface-raised);display:grid;place-items:center;font-size:11px;font-weight:600">B</span><span style="font-size:15px;font-weight:500">Base</span><div style="height:8px;border-radius:999px;background:var(--color-track);overflow:hidden"><div style="width:100%;height:100%;border-radius:999px;background:var(--color-primary)"></div></div><span style="text-align:right;font-size:15px;font-weight:500">46%</span></div>
+          <div style="display:grid;grid-template-columns:28px 84px minmax(0,1fr) 40px;gap:10px;align-items:center"><span style="width:28px;height:28px;border-radius:999px;background:var(--color-surface-raised);display:grid;place-items:center;font-size:11px;font-weight:600">E</span><span style="font-size:15px;font-weight:500">Ethereum</span><div style="height:8px;border-radius:999px;background:var(--color-track);overflow:hidden"><div style="width:59%;height:100%;border-radius:999px;background:var(--color-fg-muted)"></div></div><span style="text-align:right;font-size:15px;color:var(--color-fg-muted)">27%</span></div>
+          <div style="display:grid;grid-template-columns:28px 84px minmax(0,1fr) 40px;gap:10px;align-items:center"><span style="width:28px;height:28px;border-radius:999px;background:var(--color-surface-raised);display:grid;place-items:center;font-size:11px;font-weight:600">A</span><span style="font-size:15px;font-weight:500">Arbitrum</span><div style="height:8px;border-radius:999px;background:var(--color-track);overflow:hidden"><div style="width:30%;height:100%;border-radius:999px;background:var(--color-fg-muted)"></div></div><span style="text-align:right;font-size:15px;color:var(--color-fg-muted)">14%</span></div>
+          <div style="display:grid;grid-template-columns:28px 84px minmax(0,1fr) 40px;gap:10px;align-items:center"><span style="width:28px;height:28px;border-radius:999px;background:var(--color-surface-raised);display:grid;place-items:center;font-size:11px;font-weight:600">O</span><span style="font-size:15px;font-weight:500">Optimism</span><div style="height:8px;border-radius:999px;background:var(--color-track);overflow:hidden"><div style="width:17%;height:100%;border-radius:999px;background:var(--color-fg-muted)"></div></div><span style="text-align:right;font-size:15px;color:var(--color-fg-muted)">8%</span></div>
+          <div style="display:grid;grid-template-columns:28px 84px minmax(0,1fr) 40px;gap:10px;align-items:center"><span style="width:28px;height:28px;border-radius:999px;background:var(--color-surface-raised);display:grid;place-items:center;font-size:11px;font-weight:600">P</span><span style="font-size:15px;font-weight:500">Polygon</span><div style="height:8px;border-radius:999px;background:var(--color-track);overflow:hidden"><div style="width:11%;height:100%;border-radius:999px;background:var(--color-fg-muted)"></div></div><span style="text-align:right;font-size:15px;color:var(--color-fg-muted)">5%</span></div>
+        </div>
+      </div>
+      <dc-import name="Rewind Chrome" step="{{ 2 }}" fill="{{ 60 }}" compact="{{ true }}" hint="{{ true }}" annotate="{{ false }}" style="position:absolute;inset:0" hint-size="390px,844px"></dc-import>
+    </div>
+    <div style="font-size:15px;line-height:1.5;color:var(--color-fg-muted)">The columns stack: 20px side margins, and the chrome respects the <code style="font-family:var(--font-mono)">env(safe-area-inset-*)</code> margins. The headline drops to 88px, bars to 8px tall. Tapping the left 30% goes back and the right 70% goes forward, weighted toward forward for thumbs.</div>
+  </div>
+  <div id="m02" style="display:flex;flex-direction:column;gap:14px;width:390px">
+    <div style="display:flex;gap:12px;align-items:baseline"><span style="font:600 13px var(--font-mono);color:#ff9d1c">M02</span><span style="font-size:18px;font-weight:500">Settings dialog</span></div>
+    <div style="position:relative;flex:none;width:390px;height:844px;overflow:hidden;background:var(--color-bg);border-radius:6px;box-shadow:0 0 0 1px #2d2d31">
+      <canvas ref="{{ cM2 }}" width="390" height="844" style="position:absolute;inset:0;width:100%;height:100%;opacity:.5"></canvas>
+      <dc-import name="Rewind Chrome" step="{{ 0 }}" wallet="" compact="{{ true }}" style="position:absolute;inset:0" hint-size="390px,844px"></dc-import>
+      <div style="position:absolute;inset:0;background:var(--color-overlay);display:flex;align-items:flex-end">
+        <div style="display:flex;flex-direction:column;gap:22px;width:100%;padding:12px 20px 34px;border-radius:24px 24px 0 0;background:var(--color-bg);box-shadow:var(--shadow-dialog)">
+          <div style="align-self:center;width:36px;height:4px;border-radius:999px;background:var(--color-border-strong)"></div>
+          <div style="display:flex;flex-direction:column;gap:6px"><h3 style="margin:0;font:400 34px/1.05 var(--font-display)">Choose a wallet</h3><p style="margin:0;font-size:15px;line-height:1.5;color:var(--color-fg-muted)">Paste an address or ENS name. We'll remember it on this device.</p></div>
+          <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;font-weight:500;color:var(--color-fg-muted)">Wallet</span><div style="display:flex;align-items:center;justify-content:space-between;height:52px;padding:0 16px;border-radius:12px;border:1px solid var(--color-border-strong);font-size:16px">vitalik.eth<span style="white-space:nowrap;font:13px var(--font-mono);color:var(--color-positive)">0xd8dA…6045 ✓</span></div></div>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <span style="font:500 12px/16px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-subtle);padding-bottom:6px">Demo wallets</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;height:48px;padding:0 12px;margin:0 -12px;border-radius:8px;background:var(--color-surface)"><span style="font-size:15px;font-weight:500">vitalik.eth</span><span style="white-space:nowrap;font:13px var(--font-mono);color:var(--color-fg-muted)">0xd8dA…6045</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;height:48px;padding:0 12px;margin:0 -12px"><span style="font-size:15px;font-weight:500;color:var(--color-fg-subtle)">Demo wallet 2</span><span style="white-space:nowrap;font:13px var(--font-mono);color:var(--color-fg-subtle)">Not set</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;height:48px;padding:0 12px;margin:0 -12px"><span style="font-size:15px;font-weight:500;color:var(--color-fg-subtle)">Demo wallet 3</span><span style="white-space:nowrap;font:13px var(--font-mono);color:var(--color-fg-subtle)">Not set</span></div>
+          </div>
+          <span style="display:flex;justify-content:center;align-items:center;height:52px;border-radius:999px;background:var(--color-primary);color:var(--color-on-primary);font-size:16px;font-weight:500">Play rewind</span>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:15px;line-height:1.5;color:var(--color-fg-muted)">Below 640px wide, the same Ariakit Dialog shows as a bottom sheet. It slides up from y 100% with the card spring and has a full-width primary button. Keep bottom padding at 34px or the safe-area inset, whichever is larger. When the keyboard opens, the sheet stays above it (sized with <code style="font-family:var(--font-mono)">dvh</code>).</div>
+  </div>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:48px">
+  <h2 style="margin:0;font:400 44px/1 var(--font-display)">6 · Share image · 1200×630 PNG</h2>
+  <div id="s16" style="display:flex;gap:48px;align-items:flex-start">
+    <div style="position:relative;flex:none;width:1200px;height:630px;overflow:hidden;background:#16161a;border-radius:6px;box-shadow:0 0 0 1px #2d2d31">
+      <canvas ref="{{ cSh }}" width="1200" height="630" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+      <div style="position:absolute;inset:0;padding:64px;display:flex;flex-direction:column;justify-content:space-between">
+        <span style="font-size:20px;font-weight:500">Onchain <span style="font:italic 400 25px var(--font-display)">Rewind</span></span>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:22px;color:#9c9ca3">A year onchain</span><span style="font:400 112px/1 var(--font-display);letter-spacing:-.02em">vitalik.eth</span></div>
+        <div style="display:flex;gap:56px">
+          <div style="display:flex;flex-direction:column;gap:4px"><span style="font:500 44px/1.1 var(--font-sans);letter-spacing:-.02em">1,284</span><span style="font-size:17px;color:#9c9ca3">transactions</span></div>
+          <div style="display:flex;flex-direction:column;gap:4px"><span style="font:500 44px/1.1 var(--font-sans);letter-spacing:-.02em">6</span><span style="font-size:17px;color:#9c9ca3">chains</span></div>
+          <div style="display:flex;flex-direction:column;gap:4px"><span style="font:500 44px/1.1 var(--font-sans);letter-spacing:-.02em">ETH</span><span style="font-size:17px;color:#9c9ca3">top token</span></div>
+          <div style="display:flex;flex-direction:column;gap:4px"><span style="font:500 44px/1.1 var(--font-sans);letter-spacing:-.02em">Mar 2022</span><span style="font-size:17px;color:#9c9ca3">onchain since</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;width:360px;font-size:15px;line-height:1.55;color:var(--color-fg-muted)">
+      <span><b style="color:#fff">Size:</b> 1200×630, rendered at 2× (2400×1260) and exported as PNG. Always dark, so it doesn't depend on the viewer's theme.</span>
+      <span><b style="color:#fff">Grid:</b> 64px padding. Three zones: wordmark at the top, name in the middle, stats along the bottom.</span>
+      <span><b style="color:#fff">Art:</b> the particle ring after gathering, centered at (960, 250) with radius 170px. Drawn on the same canvas as the rest of the image.</span>
+      <span><b style="color:#fff">Name:</b> 112px serif. Shrink to 72px when longer than 14 characters; show a raw address as 0xd8dA…6045.</span>
+      <span><b style="color:#fff">Rendering:</b> Canvas 2D. Wait for <code style="font-family:var(--font-mono)">document.fonts.ready</code>, then <code style="font-family:var(--font-mono)">canvas.toBlob</code>. Share with <code style="font-family:var(--font-mono)">navigator.share({ files })</code> where available, otherwise download the file.</span>
+    </div>
+  </div>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  cS1 = React.createRef(); cS2 = React.createRef(); cS3 = React.createRef();
+  cR1 = React.createRef(); cR2 = React.createRef(); cR3 = React.createRef();
+  cM2 = React.createRef(); cSh = React.createRef();
+  componentDidMount() {
+    const go = () => {
+      this.draw(this.cS1.current, 'scatter', 1); this.draw(this.cS2.current, 'scatter', 2); this.draw(this.cS3.current, 'scatter', 3);
+      this.draw(this.cR1.current, 'scatter', 4); this.draw(this.cR2.current, 'gather', 5); this.draw(this.cR3.current, 'burst', 6);
+      this.draw(this.cM2.current, 'scatter', 7, { n: 400 });
+      this.draw(this.cSh.current, 'ring', 8, { n: 700, cx: 960, cy: 250, R: 170 });
+    };
+    requestAnimationFrame(go);
+  }
+  draw(c, mode, seed, o = {}) {
+    if (!c) return;
+    const dpr = 2, w = +c.getAttribute('width'), h = +c.getAttribute('height');
+    c.width = w * dpr; c.height = h * dpr;
+    const ctx = c.getContext('2d'); ctx.scale(dpr, dpr);
+    let s = seed * 9301 + 49297;
+    const rnd = () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+    const gauss = () => (rnd() + rnd() + rnd() - 1.5) / 1.5;
+    const N = o.n ?? 900, cx = o.cx ?? w / 2, cy = o.cy ?? h / 2 - 10, R = o.R ?? 200;
+    for (let i = 0; i < N; i++) {
+      const k = rnd(), col = k < 0.88 ? '255,255,255' : k < 0.97 ? '0,163,245' : '255,157,28';
+      const a = 0.3 + rnd() * 0.6, size = 0.8 + rnd() * 1.4;
+      const sx = rnd() * w, sy = rnd() * h;
+      const ang = rnd() * Math.PI * 2, rr = R + gauss() * 14;
+      const tx = cx + Math.cos(ang) * rr, ty = cy + Math.sin(ang) * rr;
+      let x = sx, y = sy, px = x, py = y, alpha = a;
+      if (mode === 'gather') {
+        const t = i < N * 0.72 ? 1 : 0.35 + rnd() * 0.5;
+        const e = t < 1 ? t * t * (3 - 2 * t) : 1;
+        x = sx + (tx - sx) * e; y = sy + (ty - sy) * e;
+        const e2 = Math.max(0, e - 0.06); px = sx + (tx - sx) * e2; py = sy + (ty - sy) * e2;
+      } else if (mode === 'burst') {
+        const d = rr + Math.pow(rnd(), 0.6) * 620;
+        x = cx + Math.cos(ang) * d; y = cy + Math.sin(ang) * d;
+        px = cx + Math.cos(ang) * (d - 18); py = cy + Math.sin(ang) * (d - 18);
+        alpha = a * Math.max(0.08, 1 - (d - R) / 700);
+      } else if (mode === 'ring') {
+        x = tx; y = ty; px = x; py = y;
+      } else {
+        alpha = a * 0.7;
+      }
+      ctx.fillStyle = `rgba(${col},${alpha})`;
+      if (px !== x || py !== y) {
+        ctx.strokeStyle = `rgba(${col},${alpha * 0.5})`; ctx.lineWidth = size;
+        ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(x, y); ctx.stroke();
+      }
+      ctx.beginPath(); ctx.arc(x, y, size, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  chart(W, H) {
+    const v = [12480,13900,11200,9820,9120,10400,13650,15200,17800,24310,21400,18902];
+    const top = 20, bot = 20, min = Math.min(...v), max = Math.max(...v);
+    const p = v.map((y, i) => [i * W / (v.length - 1), top + (1 - (y - min) / (max - min)) * (H - top - bot)]);
+    let d = `M${p[0][0]},${p[0][1]}`;
+    for (let i = 0; i < p.length - 1; i++) {
+      const a = p[i - 1] || p[i], b = p[i], c = p[i + 1], e = p[i + 2] || c;
+      d += ` C${b[0] + (c[0] - a[0]) / 6},${b[1] + (c[1] - a[1]) / 6} ${c[0] - (e[0] - b[0]) / 6},${c[1] - (e[1] - b[1]) / 6} ${c[0]},${c[1]}`;
+    }
+    const hi = v.indexOf(max), lo = v.indexOf(min);
+    return { line: d, area: `${d} L${W},${H} L0,${H} Z`, hx: p[hi][0], hy: p[hi][1], lx: p[lo][0], ly: p[lo][1],
+      hxp: (p[hi][0] / W * 100) + '%', hyp: (p[hi][1] / H * 100) + '%', lxp: (p[lo][0] / W * 100) + '%', lyp: (p[lo][1] / H * 100) + '%' };
+  }
+  renderVals() {
+    return { cS1: this.cS1, cS2: this.cS2, cS3: this.cS3, cR1: this.cR1, cR2: this.cR2, cR3: this.cR3, cM2: this.cM2, cSh: this.cSh, c4: this.chart(1200, 380) };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+# Onchain Rewind's own light gate: format, lint and typecheck.
+# Hand-written, not Vinaya-managed. Vinaya's generated vinaya-*.yml workflows
+# run next to it after install. `checks` is the single job branch protection
+# should require: it passes only when every check below passed.
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    name: Check format (Biome)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: biomejs/setup-biome@v2
+        with:
+          version: 2.5.14
+      - run: biome format .
+
+  lint:
+    name: Check lint (Biome)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: biomejs/setup-biome@v2
+        with:
+          version: 2.5.14
+      - run: biome lint --error-on-warnings .
+
+  types:
+    name: Check types (TypeScript)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # No-op until the scaffold adds package.json (SPEC.md task 0).
+      - uses: oven-sh/setup-bun@v2
+        if: ${{ hashFiles('package.json') != '' }}
+      - run: bun install --frozen-lockfile
+        if: ${{ hashFiles('package.json') != '' }}
+      - run: bun run check:types
+        if: ${{ hashFiles('package.json') != '' }}
+
+  checks:
+    name: checks
+    runs-on: ubuntu-latest
+    needs: [format, lint, types]
+    if: always()
+    steps:
+      - run: |
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "A check failed."; exit 1
+          fi
+          echo "All checks passed."

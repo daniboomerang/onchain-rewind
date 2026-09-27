@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.output/
+.vinxi/
+.tanstack/
+.nitro/
+coverage/
+*.log
+.DS_Store
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Personal Claude Code notes
+CLAUDE.local.md

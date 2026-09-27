@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{--font-display:"Instrument Serif",Georgia,serif;--font-sans:"Geist",system-ui,sans-serif;--font-mono:"Geist Mono",ui-monospace,monospace;
+--color-bg:#16161a;--color-surface:#1d1d21;--color-surface-raised:#26262b;--color-surface-pressed:#2d2d31;--color-overlay:rgb(10 10 12/.72);--color-border:#2d2d31;--color-border-strong:#3a3a40;--color-fg:#ffffff;--color-fg-muted:#9c9ca3;--color-fg-subtle:#7a7a82;--color-fg-inverse:#16161a;--color-primary:#00a3f5;--color-primary-hover:#33b5f7;--color-primary-pressed:#008fd6;--color-on-primary:#16161a;--color-positive:#4fbf67;--color-negative:#ff5c5c;--color-negative-soft:rgb(255 92 92/.12);--color-notice:#ff9d1c;--color-track:rgb(255 255 255/.16);--shadow-card:inset 0 1px 0 rgb(255 255 255/.08),0 20px 60px rgb(0 0 0/.35);--shadow-dialog:inset 0 1px 0 rgb(255 255 255/.08),0 24px 80px rgb(0 0 0/.55);--shadow-popover:0 0 0 1px rgb(255 255 255/.06),0 12px 32px rgb(0 0 0/.45);--ring:0 0 0 2px var(--color-bg),0 0 0 4px var(--color-primary);color-scheme:dark}
+:root[data-theme="light"]{--color-bg:#ffffff;--color-surface:#f5f5f7;--color-surface-raised:#ebebee;--color-surface-pressed:#e1e1e6;--color-overlay:rgb(22 22 26/.4);--color-border:#e1e1e6;--color-border-strong:#cfcfd6;--color-fg:#16161a;--color-fg-muted:#6e6e76;--color-fg-subtle:#6e6e76;--color-fg-inverse:#ffffff;--color-primary:#2962ef;--color-primary-hover:#4375f1;--color-primary-pressed:#1f4fcc;--color-on-primary:#ffffff;--color-positive:#01a643;--color-negative:#ff4a4a;--color-negative-soft:rgb(255 74 74/.1);--color-notice:#ff9d1c;--color-track:rgb(22 22 26/.12);--shadow-card:0 1px 2px rgb(22 22 26/.06),0 12px 32px rgb(22 22 26/.08);--shadow-dialog:0 24px 64px rgb(22 22 26/.18);--shadow-popover:0 0 0 1px rgb(22 22 26/.06),0 12px 32px rgb(22 22 26/.12);color-scheme:light}
+body{margin:0;background:var(--color-bg);color:var(--color-fg);font-family:"Geist",system-ui,sans-serif;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+*{box-sizing:border-box}
+a{color:var(--color-primary);text-decoration:none}a:hover{color:var(--color-primary-hover)}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</helmet>
+<div style="max-width:1240px;margin:0 auto;padding:64px 32px 120px;display:flex;flex-direction:column;gap:88px">
+
+<header style="display:flex;flex-direction:column;gap:16px">
+  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <span style="font:500 13px/1.4 var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-subtle);white-space:nowrap">Design system · v2 · Zerion palette</span>
+    <div style="display:flex;gap:4px;padding:4px;margin-left:auto;border-radius:999px;background:var(--color-surface);border:1px solid var(--color-border)">
+      <button onClick="{{ setDark }}" style="white-space:nowrap;height:32px;padding:0 14px;border:0;border-radius:999px;background:{{ darkBg }};color:var(--color-fg);font:500 13px var(--font-sans);cursor:pointer">Dark</button>
+      <button onClick="{{ setLight }}" style="white-space:nowrap;height:32px;padding:0 14px;border:0;border-radius:999px;background:{{ lightBg }};color:var(--color-fg);font:500 13px var(--font-sans);cursor:pointer">Light</button>
+    </div>
+  </div>
+  <h1 style="margin:0;font:400 88px/1 var(--font-display);letter-spacing:-.015em">Onchain <span style="font-style:italic">Rewind</span></h1>
+  <p style="margin:0;max-width:640px;font-size:17px;line-height:1.5;color:var(--color-fg-muted);text-wrap:pretty">Colors come from the Zerion app tokens you extracted: dark is the default, light is an override. Serif display type for the story, Geist for UI and figures (always tabular). Per-card accents map onto primary, positive and notice.</p>
+</header>
+
+<section style="display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font:500 13px/1.4 var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-subtle)">01 · Color · dark / light</h2>
+  <div style="display:flex;flex-direction:column;border:1px solid var(--color-border);border-radius:20px;overflow:hidden">
+    <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr);gap:16px;padding:12px 20px;font:500 12px var(--font-sans);color:var(--color-fg-subtle);border-bottom:1px solid var(--color-border)"><span>Token</span><span>Dark</span><span>Light</span><span>Source</span></div>
+    <sc-for list="{{ colors }}" as="c" hint-placeholder-count="16">
+      <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1.4fr);gap:16px;align-items:center;padding:10px 20px;border-bottom:1px solid var(--color-border);font-size:14px">
+        <span style="font:13px var(--font-mono)">{{ c.name }}</span>
+        <span style="display:flex;align-items:center;gap:10px"><span style="width:36px;height:24px;flex:none;border-radius:6px;background:{{ c.dark }};box-shadow:inset 0 0 0 1px rgb(128 128 128/.3)"></span><span style="font:12px var(--font-mono);color:var(--color-fg-muted)">{{ c.dark }}</span></span>
+        <span style="display:flex;align-items:center;gap:10px"><span style="width:36px;height:24px;flex:none;border-radius:6px;background:{{ c.light }};box-shadow:inset 0 0 0 1px rgb(128 128 128/.3)"></span><span style="font:12px var(--font-mono);color:var(--color-fg-muted)">{{ c.light }}</span></span>
+        <span style="font-size:13px;color:var(--color-fg-muted)">{{ c.src }}</span>
+      </div>
+    </sc-for>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-size:14px;color:var(--color-fg-muted)">
+    <span>Card accents:</span>
+    <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:999px;background:var(--color-notice)"></span>01 Origin · notice</span>
+    <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:999px;background:var(--color-primary)"></span>02 Home chain · primary</span>
+    <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:999px;background:var(--color-positive)"></span>03 Top token · positive</span>
+    <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:999px;background:var(--color-primary)"></span>04 The ride · primary</span>
+    <span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:999px;background:var(--color-primary)"></span>05 Share · primary</span>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font:500 13px/1.4 var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-subtle)">02 · Typography</h2>
+  <div style="display:flex;flex-direction:column;border:1px solid var(--color-border);border-radius:20px;overflow:hidden">
+    <div style="display:grid;grid-template-columns:190px minmax(0,1fr);gap:24px;align-items:baseline;padding:22px 24px;border-bottom:1px solid var(--color-border)"><span style="font:12px/1.5 var(--font-mono);color:var(--color-fg-subtle)">display-xl · serif<br>128 / .95 / −2%</span><span style="font:400 128px/.95 var(--font-display);letter-spacing:-.02em;white-space:nowrap;overflow:hidden;padding-bottom:.15em">March 14</span></div>
+    <div style="display:grid;grid-template-columns:190px minmax(0,1fr);gap:24px;align-items:baseline;padding:22px 24px;border-bottom:1px solid var(--color-border)"><span style="font:12px/1.5 var(--font-mono);color:var(--color-fg-subtle)">display · serif<br>88 / 1 / −1.5%</span><span style="font:400 88px/1 var(--font-display);letter-spacing:-.015em">You live on <span style="font-style:italic">Base</span></span></div>
+    <div style="display:grid;grid-template-columns:190px minmax(0,1fr);gap:24px;align-items:baseline;padding:22px 24px;border-bottom:1px solid var(--color-border)"><span style="font:12px/1.5 var(--font-mono);color:var(--color-fg-subtle)">headline · serif<br>56 / 1.05 / −1%</span><span style="font:400 56px/1.05 var(--font-display);letter-spacing:-.01em">This wallet hasn't made its first move yet</span></div>
+    <div style="display:grid;grid-template-columns:190px minmax(0,1fr);gap:24px;align-items:baseline;padding:22px 24px;border-bottom:1px solid var(--color-border)"><span style="font:12px/1.5 var(--font-mono);color:var(--color-fg-subtle)">stat-xl · sans 500<br>96 / 1 / −3% · tnum</span><span style="font:500 96px/1 var(--font-sans);letter-spacing:-.03em">+38.4%</span></div>
+    <div style="display:grid;grid-template-columns:190px minmax(0,1fr);gap:24px;align-items:baseline;padding:22px 24px;border-bottom:1px solid var(--color-border)"><span style="font:12px/1.5 var(--font-mono);color:var(--color-fg-subtle)">stat · sans 500<br>40 / 1.1 / −2% · tnum</span><span style="font:500 40px/1.1 var(--font-sans);letter-spacing:-.02em">1,284</span></div>
+    <div style="display:grid;grid-template-columns:190px minmax(0,1fr);gap:24px;align-items:baseline;padding:22px 24px;border-bottom:1px solid var(--color-border)"><span style="font:12px/1.5 var(--font-mono);color:var(--color-fg-subtle)">title · sans 400<br>28 / 1.25</span><span style="font:400 28px/1.25 var(--font-sans);color:var(--color-fg-muted)">It started on</span></div>
+    <div style="display:grid;grid-template-columns:190px minmax(0,1fr);gap:24px;align-items:baseline;padding:22px 24px;border-bottom:1px solid var(--color-border)"><span style="font:12px/1.5 var(--font-mono);color:var(--color-fg-subtle)">body · sans 400<br>16 / 24</span><span style="font-size:16px;line-height:24px">Paste an address or ENS name. We'll remember it on this device.</span></div>
+    <div style="display:grid;grid-template-columns:190px minmax(0,1fr);gap:24px;align-items:baseline;padding:22px 24px;border-bottom:1px solid var(--color-border)"><span style="font:12px/1.5 var(--font-mono);color:var(--color-fg-subtle)">label · sans 500<br>12 / 16 / +12% · caps</span><span style="font:500 12px/16px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-muted)">01 · Origin</span></div>
+    <div style="display:grid;grid-template-columns:190px minmax(0,1fr);gap:24px;align-items:baseline;padding:22px 24px"><span style="font:12px/1.5 var(--font-mono);color:var(--color-fg-subtle)">mono · 13 / 20</span><span style="font:13px/20px var(--font-mono);color:var(--color-fg-muted)">0xd8dA…6045</span></div>
+  </div>
+</section>
+
+<section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:32px">
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <h2 style="margin:0;font:500 13px/1.4 var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-subtle)">03 · Gap scale</h2>
+    <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:2px;height:2px;background:var(--color-primary)"></div><span style="font:11px var(--font-mono);color:var(--color-fg-subtle)">2</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:4px;height:4px;background:var(--color-primary)"></div><span style="font:11px var(--font-mono);color:var(--color-fg-subtle)">4</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:8px;height:8px;background:var(--color-primary)"></div><span style="font:11px var(--font-mono);color:var(--color-fg-subtle)">8</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:12px;height:12px;background:var(--color-primary)"></div><span style="font:11px var(--font-mono);color:var(--color-fg-subtle)">12</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:16px;height:16px;background:var(--color-primary)"></div><span style="font:11px var(--font-mono);color:var(--color-fg-subtle)">16</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:20px;height:20px;background:var(--color-primary)"></div><span style="font:11px var(--font-mono);color:var(--color-fg-subtle)">20</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:24px;height:24px;background:var(--color-primary)"></div><span style="font:11px var(--font-mono);color:var(--color-fg-subtle)">24</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:32px;height:32px;background:var(--color-primary)"></div><span style="font:11px var(--font-mono);color:var(--color-fg-subtle)">32</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:40px;height:40px;background:var(--color-primary)"></div><span style="font:11px var(--font-mono);color:var(--color-fg-subtle)">40</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:60px;height:60px;background:var(--color-primary)"></div><span style="font:11px var(--font-mono);color:var(--color-fg-subtle)">60</span></div>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <h2 style="margin:0;font:500 13px/1.4 var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-subtle)">04 · Radii &amp; shadows</h2>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:56px;height:56px;background:var(--color-surface-raised);border-radius:4px"></div><span style="font:11px var(--font-mono);color:var(--color-fg-subtle)">sm 4</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:56px;height:56px;background:var(--color-surface-raised);border-radius:6px"></div><span style="font:11px var(--font-mono);color:var(--color-fg-subtle)">md 6</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:56px;height:56px;background:var(--color-surface-raised);border-radius:8px"></div><span style="font:11px var(--font-mono);color:var(--color-fg-subtle)">lg 8</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:56px;height:56px;background:var(--color-surface-raised);border-radius:12px"></div><span style="font:11px var(--font-mono);color:var(--color-fg-subtle)">xl 12</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:56px;height:56px;background:var(--color-surface-raised);border-radius:16px"></div><span style="font:11px var(--font-mono);color:var(--color-fg-subtle)">2xl 16</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:56px;height:56px;background:var(--color-surface-raised);border-radius:24px"></div><span style="font:11px var(--font-mono);color:var(--color-fg-subtle)">3xl 24</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center"><div style="width:56px;height:56px;background:var(--color-surface-raised);border-radius:999px"></div><span style="font:11px var(--font-mono);color:var(--color-fg-subtle)">full</span></div>
+    </div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:8px"><div style="width:112px;height:64px;border-radius:16px;background:var(--color-surface);box-shadow:var(--shadow-card)"></div><span style="font:11px var(--font-mono);color:var(--color-fg-subtle)">shadow-card</span></div>
+      <div style="display:flex;flex-direction:column;gap:8px"><div style="width:112px;height:64px;border-radius:24px;background:var(--color-surface);box-shadow:var(--shadow-dialog)"></div><span style="font:11px var(--font-mono);color:var(--color-fg-subtle)">shadow-dialog</span></div>
+      <div style="display:flex;flex-direction:column;gap:8px"><div style="width:112px;height:64px;border-radius:12px;background:var(--color-surface-raised);box-shadow:var(--shadow-popover)"></div><span style="font:11px var(--font-mono);color:var(--color-fg-subtle)">shadow-popover</span></div>
+    </div>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font:500 13px/1.4 var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-subtle)">05 · Motion tokens</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:24px;align-items:start">
+    <div style="display:flex;flex-direction:column;border:1px solid var(--color-border);border-radius:20px;overflow:hidden;font-size:14px">
+      <sc-for list="{{ durations }}" as="d" hint-placeholder-count="10">
+        <div style="display:grid;grid-template-columns:120px 80px minmax(0,1fr);gap:12px;padding:11px 20px;border-bottom:1px solid var(--color-border)"><span style="font:13px var(--font-mono)">{{ d.n }}</span><span>{{ d.v }}</span><span style="color:var(--color-fg-muted)">{{ d.u }}</span></div>
+      </sc-for>
+    </div>
+    <div style="display:flex;flex-direction:column;border:1px solid var(--color-border);border-radius:20px;overflow:hidden;font-size:14px">
+      <sc-for list="{{ easings }}" as="e" hint-placeholder-count="6">
+        <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px;padding:11px 20px;border-bottom:1px solid var(--color-border)"><span style="font:13px var(--font-mono)">{{ e.n }}</span><span style="display:flex;flex-direction:column;gap:2px"><span style="font:12px var(--font-mono)">{{ e.v }}</span><span style="color:var(--color-fg-muted)">{{ e.u }}</span></span></div>
+      </sc-for>
+    </div>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font:500 13px/1.4 var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-subtle)">06 · Button · IconButton</h2>
+  <div style="display:grid;grid-template-columns:110px repeat(6,minmax(120px,1fr));gap:16px 12px;align-items:center;padding:28px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:20px;overflow-x:auto">
+    <span></span>
+    <span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">default</span><span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">hover</span><span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">focus-visible</span><span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">pressed</span><span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">disabled</span><span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">loading</span>
+    <span style="font-size:13px;font-weight:500;color:var(--color-fg-muted)">primary</span>
+    <div style="display:flex"><span style="display:inline-flex;align-items:center;height:44px;padding:0 20px;border-radius:999px;background:var(--color-primary);color:var(--color-on-primary);font-size:15px;font-weight:500;white-space:nowrap">Replay</span></div>
+    <div style="display:flex"><span style="display:inline-flex;align-items:center;height:44px;padding:0 20px;border-radius:999px;background:var(--color-primary-hover);color:var(--color-on-primary);font-size:15px;font-weight:500;white-space:nowrap">Replay</span></div>
+    <div style="display:flex"><span style="display:inline-flex;align-items:center;height:44px;padding:0 20px;border-radius:999px;background:var(--color-primary);color:var(--color-on-primary);font-size:15px;font-weight:500;white-space:nowrap;box-shadow:var(--ring)">Replay</span></div>
+    <div style="display:flex"><span style="display:inline-flex;align-items:center;height:44px;padding:0 20px;border-radius:999px;background:var(--color-primary-pressed);color:var(--color-on-primary);font-size:15px;font-weight:500;white-space:nowrap;transform:scale(.97)">Replay</span></div>
+    <div style="display:flex"><span style="display:inline-flex;align-items:center;height:44px;padding:0 20px;border-radius:999px;background:var(--color-surface-raised);color:var(--color-fg-subtle);font-size:15px;font-weight:500;white-space:nowrap">Replay</span></div>
+    <div style="display:flex"><span style="display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 20px;border-radius:999px;background:var(--color-primary);color:var(--color-on-primary);font-size:15px;font-weight:500;white-space:nowrap"><span style="width:14px;height:14px;border-radius:999px;border:2px solid currentColor;border-top-color:transparent;animation:spin .8s linear infinite"></span>Saving</span></div>
+    <span style="font-size:13px;font-weight:500;color:var(--color-fg-muted)">ghost</span>
+    <div style="display:flex"><span style="display:inline-flex;align-items:center;height:44px;padding:0 20px;border-radius:999px;border:1px solid var(--color-border-strong);color:var(--color-fg);font-size:15px;font-weight:500;white-space:nowrap">Share image</span></div>
+    <div style="display:flex"><span style="display:inline-flex;align-items:center;height:44px;padding:0 20px;border-radius:999px;border:1px solid var(--color-border-strong);background:var(--color-surface-raised);color:var(--color-fg);font-size:15px;font-weight:500;white-space:nowrap">Share image</span></div>
+    <div style="display:flex"><span style="display:inline-flex;align-items:center;height:44px;padding:0 20px;border-radius:999px;border:1px solid var(--color-border-strong);color:var(--color-fg);font-size:15px;font-weight:500;white-space:nowrap;box-shadow:var(--ring)">Share image</span></div>
+    <div style="display:flex"><span style="display:inline-flex;align-items:center;height:44px;padding:0 20px;border-radius:999px;border:1px solid var(--color-border-strong);background:var(--color-surface-pressed);color:var(--color-fg);font-size:15px;font-weight:500;white-space:nowrap;transform:scale(.97)">Share image</span></div>
+    <div style="display:flex"><span style="display:inline-flex;align-items:center;height:44px;padding:0 20px;border-radius:999px;border:1px solid var(--color-border);color:var(--color-fg-subtle);font-size:15px;font-weight:500;white-space:nowrap">Share image</span></div>
+    <div style="display:flex"><span style="display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 20px;border-radius:999px;border:1px solid var(--color-border-strong);color:var(--color-fg);font-size:15px;font-weight:500;white-space:nowrap"><span style="width:14px;height:14px;border-radius:999px;border:2px solid currentColor;border-top-color:transparent;animation:spin .8s linear infinite"></span>Rendering</span></div>
+    <span style="font-size:13px;font-weight:500;color:var(--color-fg-muted)">icon · gear</span>
+    <div style="display:flex"><span style="display:grid;place-items:center;width:44px;height:44px;border-radius:999px;color:var(--color-fg-muted)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="8.5" stroke-width="3" stroke-dasharray="2.67 2.67"></circle><circle cx="12" cy="12" r="6.2" stroke-width="1.8"></circle><circle cx="12" cy="12" r="2.2" stroke-width="1.8"></circle></svg></span></div>
+    <div style="display:flex"><span style="display:grid;place-items:center;width:44px;height:44px;border-radius:999px;background:var(--color-surface-raised);color:var(--color-fg)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="8.5" stroke-width="3" stroke-dasharray="2.67 2.67"></circle><circle cx="12" cy="12" r="6.2" stroke-width="1.8"></circle><circle cx="12" cy="12" r="2.2" stroke-width="1.8"></circle></svg></span></div>
+    <div style="display:flex"><span style="display:grid;place-items:center;width:44px;height:44px;border-radius:999px;color:var(--color-fg);box-shadow:var(--ring)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="8.5" stroke-width="3" stroke-dasharray="2.67 2.67"></circle><circle cx="12" cy="12" r="6.2" stroke-width="1.8"></circle><circle cx="12" cy="12" r="2.2" stroke-width="1.8"></circle></svg></span></div>
+    <div style="display:flex"><span style="display:grid;place-items:center;width:44px;height:44px;border-radius:999px;background:var(--color-surface-pressed);color:var(--color-fg);transform:scale(.97)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="8.5" stroke-width="3" stroke-dasharray="2.67 2.67"></circle><circle cx="12" cy="12" r="6.2" stroke-width="1.8"></circle><circle cx="12" cy="12" r="2.2" stroke-width="1.8"></circle></svg></span></div>
+    <div style="display:flex"><span style="display:grid;place-items:center;width:44px;height:44px;border-radius:999px;color:var(--color-border-strong)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="8.5" stroke-width="3" stroke-dasharray="2.67 2.67"></circle><circle cx="12" cy="12" r="6.2" stroke-width="1.8"></circle><circle cx="12" cy="12" r="2.2" stroke-width="1.8"></circle></svg></span></div>
+    <div style="display:flex"><span style="display:grid;place-items:center;width:44px;height:44px;border-radius:999px;color:var(--color-fg)"><span style="width:16px;height:16px;border-radius:999px;border:2px solid currentColor;border-top-color:transparent;animation:spin .8s linear infinite"></span></span></div>
+  </div>
+  <p style="margin:0;font-size:14px;line-height:1.5;color:var(--color-fg-muted)">Buttons are 44px tall to give a comfortable click and tap target. Pressing scales them to .97 over 80ms. The focus ring is primary with a 2px background-colored gap, shown only for keyboard focus. Primary button text is dark in dark mode because white on #00a3f5 fails contrast; it's white in light mode.</p>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font:500 13px/1.4 var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-subtle)">07 · Combobox · Tooltip (Ariakit)</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:28px;padding:28px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:20px">
+    <div style="display:flex;flex-direction:column;gap:8px"><span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">default</span><div style="display:flex;align-items:center;height:52px;padding:0 16px;border-radius:12px;background:var(--color-bg);border:1px solid var(--color-border-strong);font-size:16px;color:var(--color-fg-subtle)">0x… or name.eth</div></div>
+    <div style="display:flex;flex-direction:column;gap:8px"><span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">hover</span><div style="display:flex;align-items:center;height:52px;padding:0 16px;border-radius:12px;background:var(--color-bg);border:1px solid var(--color-fg-subtle);font-size:16px;color:var(--color-fg-subtle)">0x… or name.eth</div></div>
+    <div style="display:flex;flex-direction:column;gap:8px"><span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">focus-visible · open</span>
+      <div style="display:flex;align-items:center;height:52px;padding:0 16px;border-radius:12px;background:var(--color-bg);border:1px solid var(--color-primary);font-size:16px;box-shadow:0 0 0 3px color-mix(in srgb,var(--color-primary) 22%,transparent)">mi<span style="width:1px;height:20px;background:var(--color-fg);margin-left:1px"></span></div>
+      <div style="display:flex;flex-direction:column;padding:6px;border-radius:12px;background:var(--color-bg);box-shadow:var(--shadow-popover)">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:8px;background:var(--color-surface-raised)"><span style="font-size:15px;font-weight:500">vitalik.eth</span><span style="white-space:nowrap;flex:none;font:13px var(--font-mono);color:var(--color-fg-muted)">0xd8dA…6045</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;height:44px;padding:0 12px;border-radius:8px"><span style="font-size:15px;font-weight:500;color:var(--color-fg-subtle)">Demo wallet 2</span><span style="white-space:nowrap;flex:none;font:13px var(--font-mono);color:var(--color-fg-muted)">Not set</span></div>
+      </div></div>
+    <div style="display:flex;flex-direction:column;gap:8px"><span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">invalid</span><div style="display:flex;align-items:center;height:52px;padding:0 16px;border-radius:12px;background:var(--color-negative-soft);border:1px solid var(--color-negative);font:16px var(--font-mono)">0xd8dA6BF2</div><span style="font-size:14px;color:var(--color-negative)">That isn't a valid address or ENS name.</span></div>
+    <div style="display:flex;flex-direction:column;gap:8px"><span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">loading (resolving ENS)</span><div style="display:flex;align-items:center;justify-content:space-between;height:52px;padding:0 16px;border-radius:12px;background:var(--color-bg);border:1px solid var(--color-border-strong);font-size:16px">vitalik.eth<span style="width:14px;height:14px;border-radius:999px;border:2px solid var(--color-fg-muted);border-top-color:transparent;animation:spin .8s linear infinite"></span></div></div>
+    <div style="display:flex;flex-direction:column;gap:8px"><span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">disabled</span><div style="display:flex;align-items:center;height:52px;padding:0 16px;border-radius:12px;background:var(--color-surface-raised);font-size:16px;color:var(--color-fg-subtle)">vitalik.eth</div></div>
+    <div style="display:flex;flex-direction:column;gap:8px"><span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">tooltip · gear</span><span style="padding:6px 10px;border-radius:8px;background:var(--color-fg);color:var(--color-fg-inverse);font-size:12px;font-weight:500;white-space:nowrap;width:fit-content">Change wallet</span><span style="font-size:13px;color:var(--color-fg-muted)">Shows after 400ms hover or immediately on focus; 150ms fade with a 4px lift.</span></div>
+    <div style="display:flex;flex-direction:column;gap:8px"><span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">tooltip · chart point</span><div style="display:flex;flex-direction:column;gap:2px;padding:8px 12px;border-radius:8px;background:var(--color-fg);color:var(--color-fg-inverse);width:fit-content"><span style="font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:uppercase">Peak · Oct 12</span><span style="font-size:15px;font-weight:600">$24,310</span></div></div>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font:500 13px/1.4 var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-subtle)">08 · Dialog — Settings (Ariakit)</h2>
+  <div style="display:grid;place-items:center;padding:56px 24px;border-radius:20px;background:var(--color-overlay)">
+    <div style="display:flex;flex-direction:column;gap:24px;width:100%;max-width:480px;padding:32px;border-radius:24px;background:var(--color-bg);box-shadow:var(--shadow-dialog)">
+      <div style="display:flex;flex-direction:column;gap:8px"><h3 style="margin:0;font:400 40px/1.05 var(--font-display);letter-spacing:-.01em">Choose a wallet</h3><p style="margin:0;font-size:15px;line-height:1.5;color:var(--color-fg-muted)">Paste an address or ENS name. We'll remember it on this device.</p></div>
+      <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13px;font-weight:500;color:var(--color-fg-muted)">Wallet</span><div style="display:flex;align-items:center;justify-content:space-between;height:52px;padding:0 16px;border-radius:12px;background:var(--color-bg);border:1px solid var(--color-border-strong);font-size:16px">vitalik.eth<span style="white-space:nowrap;flex:none;font:13px var(--font-mono);color:var(--color-positive)">0xd8dA…6045 ✓</span></div></div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <span style="font:500 12px/16px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-subtle);padding-bottom:6px">Demo wallets</span>
+        <div style="display:flex;justify-content:space-between;align-items:center;height:44px;padding:0 12px;margin:0 -12px;border-radius:8px;background:var(--color-surface)"><span style="font-size:15px;font-weight:500">vitalik.eth</span><span style="white-space:nowrap;flex:none;font:13px var(--font-mono);color:var(--color-fg-muted)">0xd8dA…6045</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;height:44px;padding:0 12px;margin:0 -12px;border-radius:8px"><span style="font-size:15px;font-weight:500;color:var(--color-fg-subtle)">Demo wallet 2</span><span style="white-space:nowrap;flex:none;font:13px var(--font-mono);color:var(--color-fg-muted)">Not set</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;height:44px;padding:0 12px;margin:0 -12px;border-radius:8px"><span style="font-size:15px;font-weight:500;color:var(--color-fg-subtle)">Demo wallet 3</span><span style="white-space:nowrap;flex:none;font:13px var(--font-mono);color:var(--color-fg-muted)">Not set</span></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:12px"><span style="display:inline-flex;align-items:center;height:44px;padding:0 20px;border-radius:999px;border:1px solid var(--color-border-strong);font-size:15px;font-weight:500">Cancel</span><span style="display:inline-flex;align-items:center;height:44px;padding:0 20px;border-radius:999px;background:var(--color-primary);color:var(--color-on-primary);font-size:15px;font-weight:500">Play rewind</span></div>
+    </div>
+  </div>
+  <p style="margin:0;font-size:14px;line-height:1.5;color:var(--color-fg-muted)">Ariakit <code style="font-family:var(--font-mono)">Dialog</code> with a backdrop. On open, the backdrop fades in over 240ms and the panel moves from scale .96 and y 8px to its resting size and position (ease-out); closing takes 150ms (ease-in). On first visit the dialog can't be dismissed until a wallet is saved.</p>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font:500 13px/1.4 var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-subtle)">09 · ProgressSegments · StatNumber</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:32px;padding:28px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:20px">
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;flex-direction:column;gap:8px"><span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">idle</span><div style="display:flex;gap:6px"><div style="flex:1;height:3px;border-radius:2px;background:var(--color-track)"></div><div style="flex:1;height:3px;border-radius:2px;background:var(--color-track)"></div><div style="flex:1;height:3px;border-radius:2px;background:var(--color-track)"></div><div style="flex:1;height:3px;border-radius:2px;background:var(--color-track)"></div><div style="flex:1;height:3px;border-radius:2px;background:var(--color-track)"></div></div></div>
+      <div style="display:flex;flex-direction:column;gap:8px"><span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">filling · card 2 at 40%</span><div style="display:flex;gap:6px"><div style="flex:1;height:3px;border-radius:2px;background:var(--color-fg)"></div><div style="flex:1;height:3px;border-radius:2px;background:var(--color-track);overflow:hidden"><div style="width:40%;height:100%;background:var(--color-fg)"></div></div><div style="flex:1;height:3px;border-radius:2px;background:var(--color-track)"></div><div style="flex:1;height:3px;border-radius:2px;background:var(--color-track)"></div><div style="flex:1;height:3px;border-radius:2px;background:var(--color-track)"></div></div></div>
+      <div style="display:flex;flex-direction:column;gap:8px"><span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">paused · fill held at 50% opacity</span><div style="display:flex;gap:6px;align-items:center"><div style="flex:1;height:3px;border-radius:2px;background:var(--color-fg)"></div><div style="flex:1;height:3px;border-radius:2px;background:var(--color-track);overflow:hidden"><div style="width:60%;height:100%;background:var(--color-fg);opacity:.5"></div></div><div style="flex:1;height:3px;border-radius:2px;background:var(--color-track)"></div><div style="flex:1;height:3px;border-radius:2px;background:var(--color-track)"></div><div style="flex:1;height:3px;border-radius:2px;background:var(--color-track)"></div><span style="display:flex;gap:3px;margin-left:6px"><span style="width:3px;height:10px;background:var(--color-fg-muted)"></span><span style="width:3px;height:10px;background:var(--color-fg-muted)"></span></span></div></div>
+      <div style="display:flex;flex-direction:column;gap:8px"><span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">done</span><div style="display:flex;gap:6px"><div style="flex:1;height:3px;border-radius:2px;background:var(--color-fg)"></div><div style="flex:1;height:3px;border-radius:2px;background:var(--color-fg)"></div><div style="flex:1;height:3px;border-radius:2px;background:var(--color-fg)"></div><div style="flex:1;height:3px;border-radius:2px;background:var(--color-fg)"></div><div style="flex:1;height:3px;border-radius:2px;background:var(--color-fg)"></div></div></div>
+    </div>
+    <div style="display:flex;gap:40px;flex-wrap:wrap;align-items:flex-end">
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">counting</span><span style="font:500 40px/1.1 var(--font-sans);letter-spacing:-.02em;color:var(--color-fg-muted)">742</span><span style="font-size:14px;color:var(--color-fg-muted)">transactions</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">settled</span><span style="font:500 40px/1.1 var(--font-sans);letter-spacing:-.02em">1,284</span><span style="font-size:14px;color:var(--color-fg-muted)">transactions</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">xl · accent</span><span style="font:500 96px/1 var(--font-sans);letter-spacing:-.03em;color:var(--color-positive)">+38.4%</span><span style="font-size:14px;color:var(--color-fg-muted)">price change</span></div>
+    </div>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font:500 13px/1.4 var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-subtle)">10 · StoryCard · ChainBar</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:24px">
+    <div style="display:flex;flex-direction:column;gap:20px;padding:32px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:20px">
+      <span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">StoryCard anatomy</span>
+      <div style="display:flex;align-items:center;gap:8px"><span style="width:8px;height:8px;border-radius:999px;background:var(--color-notice)"></span><span style="font:500 12px/16px var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-muted)">01 · Origin</span><span style="margin-left:auto;font:11px var(--font-mono);color:var(--color-fg-subtle)">eyebrow · t=0</span></div>
+      <div style="display:flex;flex-direction:column;gap:4px"><span style="font:400 24px/1.25 var(--font-sans);color:var(--color-fg-muted)">It started on</span><span style="font:400 64px/1 var(--font-display);letter-spacing:-.02em">March 14, 2022</span><span style="font:11px var(--font-mono);color:var(--color-fg-subtle)">kicker + headline · t=80ms · t=160ms</span></div>
+      <div style="display:grid;place-items:center;height:96px;border:1px dashed var(--color-border-strong);border-radius:12px;font:12px var(--font-mono);color:var(--color-fg-subtle)">body slot · t=240ms</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:18px;padding:32px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:20px">
+      <span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">ChainBar · top · default · growing</span>
+      <div style="display:grid;grid-template-columns:28px 90px minmax(0,1fr) 48px;gap:12px;align-items:center"><span style="width:28px;height:28px;border-radius:999px;background:var(--color-surface-raised);display:grid;place-items:center;font-size:11px;font-weight:600">B</span><span style="font-size:15px;font-weight:500">Base</span><div style="height:8px;border-radius:999px;background:var(--color-track);overflow:hidden"><div style="width:100%;height:100%;border-radius:999px;background:var(--color-primary)"></div></div><span style="text-align:right;font-size:15px;font-weight:500">46%</span></div>
+      <div style="display:grid;grid-template-columns:28px 90px minmax(0,1fr) 48px;gap:12px;align-items:center"><span style="width:28px;height:28px;border-radius:999px;background:var(--color-surface-raised);display:grid;place-items:center;font-size:11px;font-weight:600">E</span><span style="font-size:15px;font-weight:500">Ethereum</span><div style="height:8px;border-radius:999px;background:var(--color-track);overflow:hidden"><div style="width:59%;height:100%;border-radius:999px;background:var(--color-fg-muted)"></div></div><span style="text-align:right;font-size:15px;color:var(--color-fg-muted)">27%</span></div>
+      <div style="display:grid;grid-template-columns:28px 90px minmax(0,1fr) 48px;gap:12px;align-items:center;opacity:.7"><span style="width:28px;height:28px;border-radius:999px;background:var(--color-surface-raised);display:grid;place-items:center;font-size:11px;font-weight:600">A</span><span style="font-size:15px;font-weight:500">Arbitrum</span><div style="height:8px;border-radius:999px;background:var(--color-track);overflow:hidden"><div style="width:14%;height:100%;border-radius:999px;background:var(--color-fg-muted)"></div></div><span style="text-align:right;font-size:15px;color:var(--color-fg-muted)">6%</span></div>
+      <p style="margin:0;font-size:13px;line-height:1.5;color:var(--color-fg-muted)">The width is relative to the top chain. Only the top bar uses the accent color. The percentage counts up alongside the bar as it grows. The circles are placeholders for chain icons.</p>
+    </div>
+  </div>
+</section>
+
+<section style="display:flex;flex-direction:column;gap:24px">
+  <h2 style="margin:0;font:500 13px/1.4 var(--font-sans);letter-spacing:.12em;text-transform:uppercase;color:var(--color-fg-subtle)">11 · LineChart · ShareCard</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:24px">
+    <div style="display:flex;flex-direction:column;gap:16px;padding:28px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:20px">
+      <span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">LineChart · high / low markers</span>
+      <div style="position:relative;width:100%;aspect-ratio:560/260">
+        <svg viewBox="0 0 560 260" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible">
+          <path d="{{ chart.area }}" fill="var(--color-primary)" opacity=".08"></path>
+          <path d="{{ chart.line }}" fill="none" stroke="var(--color-primary)" stroke-width="2.5" stroke-linecap="round"></path>
+          <circle cx="{{ chart.hx }}" cy="{{ chart.hy }}" r="6" fill="var(--color-bg)" stroke="var(--color-primary)" stroke-width="2.5"></circle>
+          <circle cx="{{ chart.lx }}" cy="{{ chart.ly }}" r="6" fill="var(--color-bg)" stroke="var(--color-fg-muted)" stroke-width="2.5"></circle>
+          <text x="{{ chart.hx }}" y="{{ chart.hty }}" text-anchor="middle" fill="var(--color-fg)" style="font:600 14px Geist">$24,310</text>
+          <text x="{{ chart.lx }}" y="{{ chart.lty }}" text-anchor="middle" fill="var(--color-fg-muted)" style="font:500 13px Geist">$9,120</text>
+        </svg>
+      </div>
+      <p style="margin:0;font-size:13px;line-height:1.5;color:var(--color-fg-muted)">The line draws in over 1600ms (ease-out). The markers then pop from scale 0 to 1 using the card spring, peak first and trough 120ms later. Each marker has a tooltip on hover or focus.</p>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px;padding:28px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:20px">
+      <span style="font:12px var(--font-mono);color:var(--color-fg-subtle)">ShareCard</span>
+      <div style="display:flex;flex-direction:column;gap:24px;padding:28px;border-radius:24px;background:var(--color-bg);box-shadow:var(--shadow-card)">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 36px/1.2 var(--font-display)">vitalik.eth</span><span style="white-space:nowrap;flex:none;font:13px var(--font-mono);color:var(--color-fg-muted)">0xd8dA…6045</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px 16px">
+          <div style="display:flex;flex-direction:column;gap:2px"><span style="font:500 28px/1.1 var(--font-sans);letter-spacing:-.02em">1,284</span><span style="font-size:13px;color:var(--color-fg-muted)">transactions</span></div>
+          <div style="display:flex;flex-direction:column;gap:2px"><span style="font:500 28px/1.1 var(--font-sans);letter-spacing:-.02em">6</span><span style="font-size:13px;color:var(--color-fg-muted)">chains</span></div>
+          <div style="display:flex;flex-direction:column;gap:2px"><span style="font:500 28px/1.1 var(--font-sans);letter-spacing:-.02em">ETH</span><span style="font-size:13px;color:var(--color-fg-muted)">top token</span></div>
+          <div style="display:flex;flex-direction:column;gap:2px"><span style="font:500 28px/1.1 var(--font-sans);letter-spacing:-.02em">Mar 2022</span><span style="font-size:13px;color:var(--color-fg-muted)">onchain since</span></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:16px;border-top:1px solid var(--color-border)"><span style="white-space:nowrap;font:italic 400 18px var(--font-display)">Onchain Rewind</span><span style="width:8px;height:8px;border-radius:999px;background:var(--color-primary)"></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;'dark' | 'light'&quot;}}">
+class Component extends DCLogic {
+  state = { theme: null };
+  theme() { return this.state.theme ?? this.props.theme ?? 'dark'; }
+  applyTheme() { document.documentElement.dataset.theme = this.theme(); }
+  componentDidMount() { this.applyTheme(); }
+  componentDidUpdate() { this.applyTheme(); }
+  chart() {
+    const v = [12480,13900,11200,9820,9120,10400,13650,15200,17800,24310,21400,18902];
+    const W = 560, H = 260, px = 12, top = 40, bot = 36;
+    const min = Math.min(...v), max = Math.max(...v);
+    const p = v.map((y, i) => [px + i * (W - 2 * px) / (v.length - 1), top + (1 - (y - min) / (max - min)) * (H - top - bot)]);
+    let d = `M${p[0][0]},${p[0][1]}`;
+    for (let i = 0; i < p.length - 1; i++) {
+      const a = p[i - 1] || p[i], b = p[i], c = p[i + 1], e = p[i + 2] || c;
+      d += ` C${b[0] + (c[0] - a[0]) / 6},${b[1] + (c[1] - a[1]) / 6} ${c[0] - (e[0] - b[0]) / 6},${c[1] - (e[1] - b[1]) / 6} ${c[0]},${c[1]}`;
+    }
+    const hi = v.indexOf(max), lo = v.indexOf(min);
+    return { line: d, area: `${d} L${p[p.length-1][0]},${H} L${p[0][0]},${H} Z`, hx: p[hi][0], hy: p[hi][1], hty: p[hi][1] - 16, lx: p[lo][0], ly: p[lo][1], lty: p[lo][1] + 28 };
+  }
+  renderVals() {
+    const t = this.theme();
+    return {
+      setDark: () => this.setState({ theme: 'dark' }),
+      setLight: () => this.setState({ theme: 'light' }),
+      darkBg: t === 'dark' ? 'var(--color-surface-raised)' : 'transparent',
+      lightBg: t === 'light' ? 'var(--color-surface-raised)' : 'transparent',
+      chart: this.chart(),
+      colors: [
+        { name: 'bg', dark: '#16161a', light: '#ffffff', src: 'color-white · z-index-0' },
+        { name: 'surface', dark: '#1d1d21', light: '#f5f5f7', src: 'z-index-1 · neutral-100' },
+        { name: 'surface-raised', dark: '#26262b', light: '#ebebee', src: 'neutral-200 (derived)' },
+        { name: 'surface-pressed', dark: '#2d2d31', light: '#e1e1e6', src: 'neutral-300 (derived)' },
+        { name: 'border', dark: '#2d2d31', light: '#e1e1e6', src: 'neutral-300 (derived)' },
+        { name: 'border-strong', dark: '#3a3a40', light: '#cfcfd6', src: 'neutral-400 (derived)' },
+        { name: 'fg', dark: '#ffffff', light: '#16161a', src: 'color-black (ink)' },
+        { name: 'fg-muted', dark: '#9c9ca3', light: '#6e6e76', src: 'neutral-600 (derived)' },
+        { name: 'fg-subtle', dark: '#7a7a82', light: '#6e6e76', src: 'neutral-500 (derived, AA-safe)' },
+        { name: 'primary', dark: '#00a3f5', light: '#2962ef', src: 'primary-500' },
+        { name: 'primary-hover', dark: '#33b5f7', light: '#4375f1', src: 'light: legacy actions-hover' },
+        { name: 'on-primary', dark: '#16161a', light: '#ffffff', src: 'text on primary (contrast)' },
+        { name: 'positive', dark: '#4fbf67', light: '#01a643', src: 'positive-500' },
+        { name: 'negative', dark: '#ff5c5c', light: '#ff4a4a', src: 'negative-500' },
+        { name: 'notice', dark: '#ff9d1c', light: '#ff9d1c', src: 'notice-500 (invariant)' },
+        { name: 'always-white / black', dark: '#ffffff', light: '#16161a', src: 'escape hatch, never inverts' }
+      ],
+      durations: [
+        { n: 'instant', v: '80ms', u: 'Press scale' }, { n: 'fast', v: '150ms', u: 'Hover, focus, tooltip' },
+        { n: 'base', v: '240ms', u: 'Dialog, crossfade' }, { n: 'slow', v: '480ms', u: 'Card element entrance' },
+        { n: 'grow', v: '900ms', u: 'Chain bars' }, { n: 'count', v: '1200ms', u: 'Number roll-up' },
+        { n: 'draw', v: '1600ms', u: 'Line chart path' }, { n: 'reveal', v: '≥3200ms', u: 'Particle gather (waits on data)' },
+        { n: 'story', v: '5000ms', u: 'Time per card' }, { n: 'stagger', v: '80 / 60ms', u: 'Card elements / bars' }
+      ],
+      easings: [
+        { n: 'ease-out', v: 'cubic-bezier(.22,1,.36,1)', u: 'Entrances, count-up, bars, draw' },
+        { n: 'ease-in-out', v: 'cubic-bezier(.65,0,.35,1)', u: 'Particle gather, crossfades' },
+        { n: 'ease-in', v: 'cubic-bezier(.55,0,1,.45)', u: 'Exits only' },
+        { n: 'linear', v: 'linear', u: 'Progress segment fill' },
+        { n: 'spring-card', v: 'stiffness 260 · damping 32', u: 'Card enter/exit ±64px x + opacity; markers' },
+        { n: 'press', v: 'scale .97 · 80ms', u: 'All buttons' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
