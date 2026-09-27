@@ -1,0 +1,139 @@
+# Managed by Vinaya — created by `vinaya init`. `vinaya upgrade` regenerates it; `vinaya eject` removes it.
+#
+# The verdict-comment half of the review gate. A reviewer's verdict arrives
+# as a PR comment (`VERDICT: APPROVE` / `VERDICT: PASS`), which fires
+# GitHub's `issue_comment` event — an event the required PR-event
+# workflow cannot receive. This workflow evaluates the gate on that comment
+# and, when the evaluation is clean, RE-RUNS the required workflow so its
+# check goes green natively with no manual rerun. (Writing check-run
+# conclusions directly is no longer possible: GitHub's 2025-02-12 change
+# restricts check-run updates to the owning workflow — re-running is the
+# supported channel.)
+#
+# Privilege split, deliberate: `evaluate` executes only the default branch's
+# trusted gate code and holds NO write permission; `retrigger` holds
+# `actions: write` but checks out and executes nothing. Neither job checks
+# out or executes pull-request content.
+name: Vinaya Review Gate (on verdict)
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  evaluate:
+    name: vinaya review gate (verdict check)
+    if: github.event.issue.pull_request != null && contains(github.event.comment.body, 'VERDICT')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      checks: read
+    outputs:
+      number: ${{ steps.pr.outputs.number }}
+      sha: ${{ steps.pr.outputs.sha }}
+    steps:
+      # issue_comment payloads carry no PR head SHA — resolve it for immutable
+      # run identity only. It never selects executable code.
+      - name: Resolve PR head
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NUMBER="${{ github.event.issue.number }}"
+          SHA=$(gh pr view "$NUMBER" --repo "${{ github.repository }}" --json headRefOid -q .headRefOid)
+          echo "number=$NUMBER" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          # issue_comment already sources workflows from the default branch;
+          # make the trusted code checkout explicit too.
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Review gate (verdict evaluation)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Same wiring as the required workflow: PR_NUMBER is what makes
+          # the adapter evaluate instead of no-op'ing as "local dev".
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: npx --yes @attalabs/vinaya@0.33.0 check review-gate
+
+  # Executes nothing; consumes only the evaluator's outputs.
+  #
+  # Fires on EITHER verdict. The required check stores a conclusion, and that
+  # stored conclusion — not this job's result — is what guards the merge
+  # button. Running only on a clean evaluation makes the gate one-way: it can
+  # turn the check green on an approval but never turn it red again on a
+  # later rejection, leaving a stale green until someone pushes.
+  retrigger:
+    name: vinaya review gate (retrigger)
+    if: ${{ !cancelled() && needs.evaluate.result != 'skipped' }}
+    needs: evaluate
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Re-run the required review gate for this branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ needs.evaluate.outputs.number }}
+          HEAD_SHA: ${{ needs.evaluate.outputs.sha }}
+        run: |
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No PR number resolved (the evaluate job failed before resolving it) - nothing to re-run."
+            exit 0
+          fi
+          # Same guard, same producer: an empty SHA would make the selection
+          # below match nothing and silently skip the rerun a verdict just
+          # earned. Say so instead.
+          if [ -z "$HEAD_SHA" ]; then
+            echo "No head SHA resolved (the evaluate job failed before resolving it) - nothing to re-run."
+            exit 0
+          fi
+          # pull_request_target runs execute at the DEFAULT branch SHA, so a
+          # run's head_sha cannot identify the PR commit. GitHub's nested
+          # pull_requests snapshot is also not immutable: an old rerun can
+          # expose the PR's current head. The required workflow therefore
+          # records PR number + head SHA in run-name at creation, and this
+          # query matches that immutable display_title exactly.
+          set -o pipefail
+          RUN_TITLE="Vinaya Review Gate PR #$PR_NUMBER @ $HEAD_SHA"
+          # O7 (found live 2026-09-04): dropped `select(.status == "completed")`
+          # — two retriggers for the same head race the SAME required run
+          # (PR #401, PR #409: runs 33841069791/33841065139), and the loser's
+          # query landed while the winner's `gh run rerun` had already
+          # flipped the run to `in_progress`. Requiring `completed` made
+          # that run invisible to the loser entirely — not "already handled,
+          # skip", but "nothing matched, give up" — so when that in-flight
+          # attempt itself later failed, nothing retried it again and the
+          # gate stayed red until a hand rerun. Matching on title+event alone
+          # (any status) lets the loser find the SAME run mid-run and try
+          # `gh run rerun` on it too; the existing "declined (already
+          # queued)" fallback below already handles that outcome harmlessly
+          # — it is not a new failure mode, only a query that used to see
+          # nothing at all now sees the run and takes the same safe no-op.
+          RUN_ID=$(gh api --paginate \
+            "repos/${{ github.repository }}/actions/workflows/vinaya-review.yml/runs?event=pull_request_target&per_page=100" \
+            | jq -sr --arg title "$RUN_TITLE" '
+                [.[].workflow_runs[]
+                 | select(.display_title == $title)
+                 | select(.event == "pull_request_target")
+                 | select(.conclusion != "cancelled")
+                 | .id][0] // empty')
+          if [ -z "$RUN_ID" ]; then
+            echo "No completed, non-cancelled pull_request_target run of vinaya-review.yml for PR #$PR_NUMBER at $HEAD_SHA - nothing to re-run."
+            exit 0
+          fi
+          echo "Re-running vinaya-review.yml run $RUN_ID for PR #$PR_NUMBER at $HEAD_SHA"
+          # Two verdict comments landing together run two retriggers in
+          # parallel (this workflow has no concurrency group, deliberately —
+          # a queued retrigger is a delayed one). Both can select the same
+          # run, and the loser gets "already queued". That is the mechanism
+          # working, not a failure worth reddening the step over; a real
+          # 403 or an expired run still surfaces in the log.
+          gh run rerun "$RUN_ID" --repo "${{ github.repository }}" || echo "rerun declined (already queued, or run too old) - the other verdict's retrigger covers it"

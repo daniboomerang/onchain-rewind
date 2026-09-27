@@ -1,0 +1,104 @@
+# Managed by Vinaya — created by `vinaya init`. `vinaya upgrade` regenerates it; `vinaya eject` removes it.
+#
+# The ring-2 post-merge/scheduled mechanisms: per-task Archivist provenance
+# + close-out (post-merge), dead-branch-push drift (daily-drift, a
+# notification channel — never fails red), and direct-main-push detection
+# (direct-main-push-detection, a real pass/fail).
+name: Vinaya Archivist
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 2 * * *"  # daily at 02:00 UTC
+  workflow_dispatch:
+
+jobs:
+  post-merge:
+    name: Post-Merge Archivist
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # The job builds and runs code from this checkout, and the default
+          # writes GITHUB_TOKEN into .git/config as an http extraheader —
+          # readable by anything the build executes. Nothing here pushes.
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run vinaya archive
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx --yes @attalabs/vinaya@0.33.0 archive --merge-sha=${{ github.sha }}
+      - name: Self-archive the tranche once its last task merges (O4)
+        # `vinaya archive tranche` already IS the "any open task Issue left"
+        # check (`trancheArchivalStatus`) — this step never re-derives that
+        # rule, it only resolves which slug just merged and asks. Refusing
+        # (exit 1) while task Issues remain open is the expected outcome on
+        # every non-final task merge, never a reason to fail this job.
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="$(gh api repos/${{ github.repository }}/commits/${{ github.sha }}/pulls --jq '.[0].number // empty')"
+          if [ -z "$PR_NUMBER" ]; then exit 0; fi
+          BRANCH="$(gh pr view "$PR_NUMBER" -R ${{ github.repository }} --json headRefName --jq .headRefName)"
+          SLUG="$(printf '%s' "$BRANCH" | sed -n 's#^task/\([^/]*\)/.*#\1#p')"
+          if [ -z "$SLUG" ]; then exit 0; fi
+          npx --yes @attalabs/vinaya@0.33.0 archive tranche "$SLUG" --yes
+
+  daily-drift:
+    name: Daily Drift Check (dead-branch pushes)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # The job builds and runs code from this checkout, and the default
+          # writes GITHUB_TOKEN into .git/config as an http extraheader —
+          # readable by anything the build executes. Nothing here pushes.
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run vinaya audit --only=dead-branches
+        continue-on-error: true # never-red — this job is a notification channel, not a gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx --yes @attalabs/vinaya@0.33.0 audit --only=dead-branches
+
+  direct-main-push-detection:
+    name: Direct-Main-Push Detection
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # The job builds and runs code from this checkout, and the default
+          # writes GITHUB_TOKEN into .git/config as an http extraheader —
+          # readable by anything the build executes. Nothing here pushes.
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run vinaya audit --only=direct-push
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx --yes @attalabs/vinaya@0.33.0 audit --only=direct-push --sha=${{ github.sha }}
