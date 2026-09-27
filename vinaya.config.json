@@ -100,5 +100,11 @@
   "dispatch": {
     "agent": "claude",
     "requireWorkerIsolation": false
-  }
+  },
+  "projects": [
+    {
+      "name": "rewind",
+      "path": "."
+    }
+  ]
 }
