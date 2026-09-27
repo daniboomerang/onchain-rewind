@@ -4,7 +4,7 @@ import { StoryChrome } from "../components/rewind/StoryChrome";
 import { SettingsDialog } from "../components/ui/SettingsDialog";
 import { displayName } from "../engine/types";
 import { demoWalletOptions } from "../lib/demo-wallets";
-import { walletInputState } from "../lib/wallet-input";
+import { useWalletInput } from "../lib/wallet-input";
 import { useConnectedWallet } from "../lib/wallet-store";
 
 export const Route = createFileRoute("/")({ component: Home });
@@ -13,7 +13,7 @@ function Home() {
   const { loaded, wallet, connect } = useConnectedWallet();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
-  const input = walletInputState(value);
+  const input = useWalletInput(value);
 
   // First visit: the browser has been read, nothing was stored, so settings opens itself. It stays
   // open until a wallet is chosen, because there is no Rewind to show behind it.
