@@ -107,7 +107,7 @@ Canonical content is in `.claude/skills/<name>/SKILL.md`, and `.agents/skills/<n
 
 ## How to approach a task
 
-- **Plan first when the task is ambiguous or spans several files.** SPEC.md tasks 1–5 fall in this group. Explore, propose the file-by-file approach, get approval, then execute. **Execute directly** for a single, well-located fix.
+- **Plan first when the task is ambiguous or spans several files.** Most tranche tasks fall in this group. Explore, propose the file-by-file approach, get approval, then execute. **Execute directly** for a single, well-located fix.
 - **Engine work is test-first.** Write failing tests from the examples in the rule, then implement.
 - **When output is wrong, add a concrete input/output example** to the relevant rule rather than more prose.
 - Finish every task with `ship-check`.
