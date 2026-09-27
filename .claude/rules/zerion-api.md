@@ -12,15 +12,15 @@ paths:
 
 ## Basics
 - Base URL: `https://api.zerion.io`. Responses are JSON:API: `data`, `links.next`, `included`.
-- Auth: HTTP Basic, with the API key as the username and an empty password. The header is `Authorization: Basic base64(KEY + ":")`. Confirm this against the docs through the Zerion MCP before first use.
-- Always send `currency=usd`. Send `filter[trash]=only_non_trash` wherever the endpoint supports it.
+- Auth: HTTP Basic, with the API key as the username and an empty password. The header is `Authorization: Basic base64(KEY + ":")`. **Confirmed** against the OpenAPI spec's `APIKeyBasicAuth` scheme (`type: http`, `scheme: basic`, "paste your API key … into the username field and leave the password empty") and the authentication page's examples (`btoa(apiKey + ':')`); `zerionFetch` builds it, so no caller ever touches it.
+- Always send `currency=usd` — `zerionFetch` adds it to every call, and a caller only passes it to override it. Send `filter[trash]=only_non_trash` wherever the endpoint supports it.
 - **ENS isn't resolved by Zerion.** Wallet path params must be a hex EVM address. Resolve ENS on the server with viem (`getEnsAddress`, mainnet) in its own server function.
 
 ## Endpoints used
 
 | Purpose | Path | Notes |
 |---|---|---|
-| Transactions | `GET /v1/wallets/{address}/transactions/` | Paginated by following `links.next` exactly as returned; don't build cursors yourself. Filters: `filter[min_mined_at]`, `filter[max_mined_at]`, `filter[chain_ids]`, `filter[operation_types]`, `filter[trash]`. Page size: `page[size]` (use 100). |
+| Transactions | `GET /v1/wallets/{address}/transactions/` | Paginated by following `links.next` exactly as returned; don't build cursors yourself — pass the absolute URL straight to `zerionFetch`, which accepts one. Filters: `filter[min_mined_at]`, `filter[max_mined_at]`, `filter[chain_ids]`, `filter[operation_types]`, `filter[trash]`. Page size: `page[size]` (use 100). |
 | Balance chart | `GET /v1/wallets/{address}/charts/{period}` | Use the year period. Confirm the exact enum value in the OpenAPI spec. |
 | Chains | `GET /v1/chains/` | Names and icons. Cache for 24h. |
 | Fungible | `GET /v1/fungibles/{id}` | Name, symbol, icon, market data. |
