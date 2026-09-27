@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { zerionFetch } from "#/server/zerion/client.ts";
+import { clearZerionCache, zerionFetch } from "#/server/zerion/client.ts";
 
 /** A stand-in for the one `Response` field the client reads. */
 function jsonResponse(body: unknown, status = 200): Response {
@@ -29,6 +29,7 @@ function requestHeaders(fetchMock: ReturnType<typeof mockFetch>, call = 0): Reco
 
 beforeEach(() => {
   vi.stubEnv("ZERION_API_KEY", "test-key");
+  clearZerionCache();
 });
 
 afterEach(() => {
@@ -116,5 +117,100 @@ describe("a successful response", () => {
     const result = await zerionFetch<{ data: { id: string }[] }>("/v1/chains/");
 
     expect(result).toEqual({ ok: true, data: { data: [{ id: "ethereum" }] } });
+  });
+});
+
+describe("the response cache", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("serves a repeated call from memory instead of calling upstream again", async () => {
+    const fetchMock = mockFetch(jsonResponse({ data: [{ id: "ethereum" }] }));
+
+    const first = await zerionFetch("/v1/fungibles/eth");
+    const second = await zerionFetch("/v1/fungibles/eth");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(second).toEqual(first);
+  });
+
+  it("keys by path and sorted params, so parameter order is not a different call", async () => {
+    const fetchMock = mockFetch(jsonResponse({ data: [] }));
+
+    await zerionFetch("/v1/wallets/0xabc/transactions/", { "page[size]": 100, "filter[trash]": "only_non_trash" });
+    await zerionFetch("/v1/wallets/0xabc/transactions/", { "filter[trash]": "only_non_trash", "page[size]": 100 });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats a different param value as a different call", async () => {
+    const fetchMock = mockFetch(jsonResponse({ data: [] }), jsonResponse({ data: [] }));
+
+    await zerionFetch("/v1/wallets/0xabc/transactions/", { "page[size]": 100 });
+    await zerionFetch("/v1/wallets/0xabc/transactions/", { "page[size]": 50 });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("expires an ordinary response after ten minutes", async () => {
+    const fetchMock = mockFetch(jsonResponse({ data: "first" }), jsonResponse({ data: "second" }));
+
+    await zerionFetch("/v1/fungibles/eth");
+    vi.advanceTimersByTime(10 * 60 * 1000 - 1);
+    await zerionFetch("/v1/fungibles/eth");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(1);
+    const afterExpiry = await zerionFetch("/v1/fungibles/eth");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(afterExpiry).toEqual({ ok: true, data: { data: "second" } });
+  });
+
+  it("keeps chains for twenty-four hours", async () => {
+    const fetchMock = mockFetch(jsonResponse({ data: [] }), jsonResponse({ data: [] }));
+
+    await zerionFetch("/v1/chains/");
+    vi.advanceTimersByTime(24 * 60 * 60 * 1000 - 1);
+    await zerionFetch("/v1/chains/");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(1);
+    await zerionFetch("/v1/chains/");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("never caches a failure", async () => {
+    const fetchMock = mockFetch(jsonResponse({ errors: [] }, 500), jsonResponse({ data: [] }));
+
+    const failure = await zerionFetch("/v1/fungibles/eth");
+    const retry = await zerionFetch("/v1/fungibles/eth");
+
+    expect(failure.ok).toBe(false);
+    expect(retry).toEqual({ ok: true, data: { data: [] } });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("evicts the least recently used entry once it is full", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => jsonResponse({ data: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    // Fill the cache, then keep the first entry warm while one more call overflows it.
+    for (let index = 0; index < 200; index++) await zerionFetch(`/v1/fungibles/token-${index}`);
+    await zerionFetch("/v1/fungibles/token-0");
+    const callsBeforeOverflow = fetchMock.mock.calls.length;
+    await zerionFetch("/v1/fungibles/token-200");
+
+    // token-1 was evicted; token-0 stayed, because reading it made it the most recent.
+    await zerionFetch("/v1/fungibles/token-0");
+    expect(fetchMock).toHaveBeenCalledTimes(callsBeforeOverflow + 1);
+    await zerionFetch("/v1/fungibles/token-1");
+    expect(fetchMock).toHaveBeenCalledTimes(callsBeforeOverflow + 2);
   });
 });

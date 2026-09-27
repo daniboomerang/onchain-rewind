@@ -12,6 +12,13 @@
 
 export const ZERION_BASE_URL = "https://api.zerion.io";
 
+/** The free tier allows about 2,000 calls a day, so a repeated call inside the window is served here. */
+const DEFAULT_TTL_MS = 10 * 60 * 1000;
+/** Chain names and icons barely move. */
+const CHAINS_TTL_MS = 24 * 60 * 60 * 1000;
+/** Enough for a year of transaction pages per wallet, a handful of wallets deep. */
+const MAX_CACHE_ENTRIES = 200;
+
 /** A query-parameter value. Arrays are sent comma-separated, the way Zerion's filters expect. */
 export type ZerionParamValue = string | number | boolean | readonly string[];
 
@@ -36,6 +43,11 @@ export async function zerionFetch<T>(
   options: { readonly signal?: AbortSignal } = {},
 ): Promise<ZerionResult<T>> {
   const url = buildUrl(path, params);
+  const cacheKey = `${url.pathname}${url.search}`;
+
+  const cached = readCache(cacheKey);
+  if (cached.hit) return { ok: true, data: cached.value as T };
+
   // Built outside the try: a missing key is a deployment fault, not an upstream failure.
   const headers = { Authorization: authorizationHeader(), Accept: "application/json" };
 
@@ -49,12 +61,22 @@ export async function zerionFetch<T>(
 
   if (!response.ok) return { ok: false, error: "upstream" };
 
+  let data: unknown;
   try {
-    return { ok: true, data: (await response.json()) as T };
+    data = await response.json();
   } catch (error) {
     if (isAbortError(error)) throw error;
     return { ok: false, error: "upstream" };
   }
+
+  // Only successes are cached: a failure must be retried, not remembered.
+  writeCache(cacheKey, data, ttlFor(url.pathname));
+  return { ok: true, data: data as T };
+}
+
+/** Empty the response cache. Tests use it for isolation; nothing in the app needs it yet. */
+export function clearZerionCache(): void {
+  cache.clear();
 }
 
 /**
@@ -92,6 +114,44 @@ function buildUrl(path: string, params: ZerionParams): URL {
   const sorted = [...merged].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
   url.search = new URLSearchParams(sorted).toString();
   return url;
+}
+
+type CacheEntry = { readonly value: unknown; readonly expiresAt: number };
+
+/**
+ * The in-memory response cache, keyed by path and sorted parameters. A `Map` iterates in
+ * insertion order, so re-inserting an entry on every read makes the first key the least
+ * recently used one — which is the one evicted when the cache is full.
+ */
+const cache = new Map<string, CacheEntry>();
+
+function ttlFor(pathname: string): number {
+  return pathname.startsWith("/v1/chains") ? CHAINS_TTL_MS : DEFAULT_TTL_MS;
+}
+
+function readCache(key: string): { hit: true; value: unknown } | { hit: false } {
+  const entry = cache.get(key);
+  if (!entry) return { hit: false };
+
+  if (entry.expiresAt <= Date.now()) {
+    cache.delete(key);
+    return { hit: false };
+  }
+
+  cache.delete(key);
+  cache.set(key, entry);
+  return { hit: true, value: entry.value };
+}
+
+function writeCache(key: string, value: unknown, ttlMs: number): void {
+  cache.delete(key);
+  cache.set(key, { value, expiresAt: Date.now() + ttlMs });
+
+  while (cache.size > MAX_CACHE_ENTRIES) {
+    const leastRecentlyUsed = cache.keys().next();
+    if (leastRecentlyUsed.done) break;
+    cache.delete(leastRecentlyUsed.value);
+  }
 }
 
 function isAbortError(error: unknown): boolean {
