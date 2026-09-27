@@ -16,7 +16,7 @@
 - **Tranche intents:**
   - rewind-v1: Build the Rewind end to end: design system and playground, Zerion server layer, pure engine, settings and wallet, the live flow, share image and deploy (SPEC.md §8 tasks 1–6).
 
-One tranche on purpose. The six tasks form a single dependency graph with two parallel waves (tasks 1 and 2, then tasks 3 and 4), and splitting them into several tranches would add archive and plan cycles to a one-day build.
+One tranche on purpose. The eleven tasks form a single dependency graph, and splitting them into several tranches would add archive and plan cycles to a one-day build.
 
 ## 1. Product
 
@@ -118,11 +118,24 @@ Each task is one PR and one GitHub Issue. The Planner cuts the Issues from this 
 | **Docs to keep coherent** | docs the task must update if it changes their subject |
 | **Agent** | the capabilities the task needs |
 
-**Dependency graph:** `(1 ∥ 2) → (3 ∥ 4) → 5 → 6`, four waves.
-- Tasks 1 and 2 share no file and no type, so they run in parallel.
-- Task 3 needs 1 (`RewindFacts` in `src/engine/types.ts`) and 2 (the trimmed Zerion shapes in `src/engine/zerion.ts`, the recorded fixtures, and the §10 answer that decides `firstTx`).
-- Task 4 needs 1 (SettingsDialog and WalletCombobox) and 2 (the ENS server function). It doesn't need 3, so 3 and 4 run in parallel.
-- Task 5 needs 2, 3 and 4. Task 6 needs 5.
+**Dependency graph:** eleven small tasks, each aimed at a PR of about 600 lines or less.
+
+Waves, if every task merges before the next wave starts:
+1. 1a ∥ 2a
+2. 1b, then 1c (they conflict) ∥ 2b
+3. 1d ∥ 3 ∥ 4
+4. 5a
+5. 5b
+6. 6
+
+- 1b and 1c both need only 1a, but both add sections to `src/routes/system.tsx`, so they conflict and run one after the other.
+- 1d needs 1b (the story components `RewindPlayer` imports) and 1c (the `/system` full-screen flow plays the reveal into the player).
+- 2b needs 2a (the client its server functions call).
+- 3 needs 1a (`RewindFacts` in `src/engine/types.ts`) and 2b (the trimmed Zerion shapes in `src/engine/zerion.ts`, the recorded fixtures, and the §10 answer that decides `firstTx`).
+- 4 needs 1a (SettingsDialog, WalletCombobox and IconButton) and 2b (the ENS server function).
+- 5a needs 2b and 3. It reports progress through callbacks, so it doesn't need the reveal.
+- 5b needs 1c, 1d, 4 and 5a. 6 needs 5b.
+- Critical path: 2a → 2b → 3 → 5a → 5b → 6.
 
 **Shared for every task:**
 - Follow AGENTS.md and the path rules for the surface.
@@ -134,61 +147,68 @@ Each task is one PR and one GitHub Issue. The Planner cuts the Issues from this 
 Bootstrap commit, before any Vinaya task: TanStack Start, Tailwind v4 tokens, fonts, Biome, Vitest with happy-dom and Testing Library, CI checks, and the pinned stack.
 
 ### 1. Design system foundation
-- **Objective:** every component from the design handoff lives in `src/` and runs on fixtures, and `/system` shows it all.
-- **Surface:** `src/components/**`, `src/engine/types.ts`, `src/engine/fixtures.ts`, `src/lib/renderShareImage.ts`, `src/routes/system.tsx`, `src/routeTree.gen.ts`, `design/KNOWN-ISSUES.md`.
-- **Boundary:**
-  - **In:**
-    - Port `design/components` into `src/components/ui/` (Button, IconButton, Tooltip, WalletCombobox, SettingsDialog) and `src/components/rewind/` (the rest, plus `motion.ts`).
-    - Port `design/types.ts` → `src/engine/types.ts`, `design/fixtures.ts` → `src/engine/fixtures.ts`, `design/renderShareImage.ts` → `src/lib/`.
-    - In the ported `types.ts`, correct the `TopToken.changePct` comment to "price change over the window", matching §5. The type itself doesn't change.
-    - Add the `/system` route from `design/Playground.tsx`.
-    - Fix KNOWN-ISSUES #1, with a test.
-  - **Out:** any API call, real data, the `/` route, and the engine logic.
-- **Done when:**
-  - `/system` renders every component in every state, and the full `RewindPlayer` runs on each of the 3 fixtures, with no console errors.
-  - A component test (happy-dom) focuses the gear, presses →, and sees the card advance.
-  - `verify-ui` passes its `/system` step, and `check` and `test` are green.
-- **Traps:**
-  - The Biome ban fails any `@ariakit/react` import outside `src/components/ui/`.
-  - `design/` is read-only, except for KNOWN-ISSUES.
-  - The canvas and `matchMedia` are client-only (SSR).
+
+Split into four tasks so each PR stays small. `/system` grows with each one, so every PR has a browser check. Shared for 1a–1d:
+- **Traps:** the Biome ban fails any `@ariakit/react` import outside `src/components/ui/`. `design/` is read-only, except KNOWN-ISSUES. The canvas, `matchMedia`, `document.fonts` and `navigator.share` are client-only (SSR). `src/routeTree.gen.ts` is generated: commit it, never edit it.
 - **Stop if:** a design component can't meet the strict TS settings without changing its props contract. Ask before changing `RewindFacts` or any component API in DESIGN.md.
-- **Docs to keep coherent:** `design/KNOWN-ISSUES.md`, and `design/DESIGN.md` if any prop changes.
-- **Agent:** frontend (React, Motion, Canvas) with browser verification.
+- **Docs to keep coherent:** `design/DESIGN.md` if any prop changes.
+- **Out, for all four:** any API call, real data, the `/` route, and the engine logic.
+
+#### 1a. Primitives, contract and `/system`
+- **Objective:** the Ariakit layer, the `RewindFacts` contract and the fixtures live in `src/`, and `/system` shows the primitives.
+- **Surface:** `src/components/ui/**`, `src/components/rewind/motion.ts`, `src/engine/types.ts`, `src/engine/fixtures.ts`, `src/routes/system.tsx`, `src/routeTree.gen.ts`.
+- **In:** Button (with Spinner), IconButton, Tooltip, WalletCombobox and SettingsDialog in `src/components/ui/`. `motion.ts` in `src/components/rewind/`, because Button imports its timings. `types.ts` (with the `TopToken.changePct` comment corrected to "price change over the window", matching §5; the type itself doesn't change) and `fixtures.ts`. The `/system` route with the Button, Tooltip, WalletCombobox and SettingsDialog sections of `design/Playground.tsx`.
+- **Done when:** `/system` renders those sections with no console errors, and `check`, `test` and `build` are green.
+- **Agent:** frontend (React, Ariakit) with browser verification.
+
+#### 1b. Story components
+- **Objective:** every story component runs on fixtures, and `/system` shows each one in every state.
+- **Surface:** `src/components/rewind/**` (except `motion.ts`, `ParticleReveal.tsx` and `RewindPlayer.tsx`), `src/lib/renderShareImage.ts`, `src/routes/system.tsx`.
+- **In:** ProgressSegments, StatNumber, StoryCard (with StoryStage), StoryChrome, ChainBar, ChainIcon, TokenIcon, LineChart, ShareCard, EmptyState, ErrorState, and `renderShareImage.ts` → `src/lib/`. Their `/system` sections.
+- **Done when:** each section renders in every state with no console errors, paused tweens freeze and resume, and `check`, `test` and `build` are green.
+- **Agent:** frontend (React, Motion) with browser verification.
+
+#### 1c. Particle reveal
+- **Objective:** the Canvas 2D reveal runs on `/system`, driven by fixture counts, through gather, burst, fail and reduced motion.
+- **Surface:** `src/components/rewind/ParticleReveal.tsx`, `src/routes/system.tsx`.
+- **In:** ParticleReveal with its imperative handle (`addTransactions`, `complete`, `fail`), and a `/system` section that drives it with fixture counts, including a failing run.
+- **Done when:** the reveal gathers, bursts and fails on `/system`, reduced motion shows the static counter, and `check`, `test` and `build` are green.
+- **Agent:** frontend (Canvas 2D, performance) with browser verification.
+
+#### 1d. Player and keyboard fix
+- **Objective:** the full `RewindPlayer` plays each fixture on `/system`, and the arrow keys work even when a button has focus.
+- **Surface:** `src/components/rewind/RewindPlayer.tsx`, `src/routes/system.tsx`, `design/KNOWN-ISSUES.md`.
+- **In:** RewindPlayer (navigation, pause, share and replay). The `/system` "Full screens" section (the reveal played into the player for each of the 3 fixtures, plus a failing run into ErrorState). Fix KNOWN-ISSUES #1.
+- **Done when:** the full screens play each fixture with no console errors, a component test (happy-dom) focuses the gear, presses →, and sees the card advance, `verify-ui` passes its `/system` step, and `check`, `test` and `build` are green.
+- **Docs to keep coherent:** `design/KNOWN-ISSUES.md`.
+- **Agent:** frontend (React, Motion) with browser verification.
 
 ### 2. Zerion server layer
-- **Objective:** typed, cached, server-only access to the Zerion data the Rewind needs.
-- **Surface:** `src/server/**`, `src/engine/zerion.ts`, `src/engine/__fixtures__/**`, `SPEC.md` (§5 and §10 answers).
-- **Boundary:**
-  - **In:**
-    - `src/server/zerion/client.ts` (`zerionFetch`: Basic auth, LRU cache, 429 backoff, typed error mapping).
-    - `src/engine/zerion.ts`: type-only, the trimmed Zerion shapes the server functions return and the engine reads (ADR-0003: knowledge of Zerion shapes lives in `src/engine/`). The server imports these types, and the engine never imports `src/server`.
-    - Server functions: transactions page, chains, fungible, balance chart, and ENS resolve (viem).
-    - Recorded, trimmed fixtures (the `record-fixture` skill) for `vitalik.eth`, the one demo wallet §6 already names. `src/lib/demo-wallets.ts` doesn't exist until task 4.
-    - Answers to the 4 open API questions in §10, written into §5.
-  - **Out:** aggregation logic (task 3), and any UI.
-- **Done when:**
-  - Each server function returns typed, trimmed data for `vitalik.eth`.
-  - A malformed address returns `invalid_address`, and a simulated 429 retries, then returns `rate_limited`.
-  - Unit tests cover the client with a mocked `fetch`.
-  - The key-leak check passes.
-  - §5 and §10 record the verified answers.
-- **Traps:**
-  - Zerion doesn't resolve ENS.
-  - Follow `links.next` exactly as returned.
-  - Verify every field in the OpenAPI spec or the MCP before using it.
-  - Worktrees don't contain `.env.local`, so the key must come from the environment (see §9).
-- **Stop if:**
-  - `ZERION_API_KEY` isn't available in the environment.
-  - The auth scheme or an endpoint behaves differently from `.claude/rules/zerion-api.md`.
-  - The free tier can't serve an endpoint the Rewind needs.
+
+Split into the client and the endpoints. Shared for 2a–2b:
+- **Traps:** Zerion doesn't resolve ENS. Follow `links.next` exactly as returned. Verify every field in the OpenAPI spec or the MCP before using it. Worktrees don't contain `.env.local`, so the key must come from the environment (see §9).
+- **Stop if:** `ZERION_API_KEY` isn't available in the environment, the auth scheme or an endpoint behaves differently from `.claude/rules/zerion-api.md`, or the free tier can't serve an endpoint the Rewind needs.
 - **Docs to keep coherent:** `.claude/rules/zerion-api.md`, and `SPEC.md` §5 and §10.
+- **Out, for both:** aggregation logic (task 3), and any UI.
+
+#### 2a. Zerion client
+- **Objective:** one server-only client that authenticates, caches, backs off and maps errors to typed results.
+- **Surface:** `src/server/zerion/client.ts` and its tests, `SPEC.md` (§5 and §10, question 1).
+- **In:** `zerionFetch` (Basic auth, LRU cache keyed by path and sorted params, 10-minute TTL and 24 hours for chains, 429 backoff at 500ms, 1s and 2s, error mapping to `invalid_address`, `not_found`, `rate_limited` and `upstream`, `AbortSignal`). The answer to §10 question 1 (the auth header).
+- **Done when:** unit tests with a mocked `fetch` cover auth, caching, a malformed address returning `invalid_address`, and a simulated 429 that retries, then returns `rate_limited`. The key-leak check passes. §10 records question 1.
+- **Agent:** backend TypeScript.
+
+#### 2b. Zerion endpoints
+- **Objective:** typed, trimmed, server-only access to the Zerion data the Rewind needs.
+- **Surface:** `src/server/**` (except `client.ts`), `src/engine/zerion.ts`, `src/engine/__fixtures__/**`, `SPEC.md` (§5 and §10, questions 2–4).
+- **In:** server functions for a transactions page (`getTransactionsPage({ address, next? }) → { items, next, count }`), chains, fungible, the year balance chart, and ENS resolve (viem). `src/engine/zerion.ts`: type-only, the trimmed Zerion shapes the server functions return and the engine reads (ADR-0003: knowledge of Zerion shapes lives in `src/engine/`). The server imports these types, and the engine never imports `src/server`. Recorded, trimmed fixtures (the `record-fixture` skill) for `vitalik.eth`, the one demo wallet §6 already names. The answers to §10 questions 2–4, written into §5.
+- **Done when:** each server function returns typed, trimmed data for `vitalik.eth`, the fixtures contain no key or auth header, and §5 and §10 record the verified answers.
 - **Agent:** backend TypeScript with network access to `api.zerion.io`.
 
 ### 3. Rewind engine
 - **Objective:** a pure, tested engine that turns Zerion data into `RewindFacts`.
-- **Surface:** `src/engine/**` (except `types.ts` and `fixtures.ts`, which task 1 owns, and `zerion.ts` and `__fixtures__/`, which task 2 owns).
-- **Boundary:** `createState`, `accumulate` and `finalize → RewindFacts`, test-first from the examples in `.claude/rules/rewind-engine.md`. It reads the trimmed shapes in `src/engine/zerion.ts` and is tested on task 2's recorded fixtures, plus hand-made pages for cases a real wallet doesn't produce (empty, capped, single chain). `firstTx` follows the strategy task 2 recorded in §5. **Out:** fetching, React, and any change to `zerion.ts`.
+- **Surface:** `src/engine/**` (except `types.ts` and `fixtures.ts`, which task 1a owns, and `zerion.ts` and `__fixtures__/`, which task 2b owns).
+- **Boundary:** `createState`, `accumulate` and `finalize → RewindFacts`, test-first from the examples in `.claude/rules/rewind-engine.md`. It reads the trimmed shapes in `src/engine/zerion.ts` and is tested on task 2b's recorded fixtures, plus hand-made pages for cases a real wallet doesn't produce (empty, capped, single chain). `firstTx` follows the strategy task 2b recorded in §5. **Out:** fetching, React, and any change to `zerion.ts`.
 - **Done when:**
   - All the required test cases in the rule pass.
   - The engine imports nothing from React, `src/server` or any I/O.
@@ -200,17 +220,17 @@ Bootstrap commit, before any Vinaya task: TanStack Start, Tailwind v4 tokens, fo
 
 ### 4. Settings and wallet
 - **Objective:** the user sets their wallet once, and it's remembered and treated as connected.
-- **Surface:** `src/routes/index.tsx`, `src/router.tsx`, `src/lib/demo-wallets.ts`, `src/lib/wallet-store.ts`, `src/components/rewind/**` (wiring only).
+- **Surface:** `src/routes/index.tsx`, `src/router.tsx`, `src/lib/demo-wallets.ts`, `src/lib/wallet-store.ts`.
 - **Boundary:**
   - **In:**
     - The settings dialog wired to `localStorage`, shown on first visit and not dismissible then.
-    - The TanStack Query `QueryClientProvider` (default `staleTime` 10 minutes), added for its first consumer, ENS resolution. Task 5 only uses it.
-    - ENS resolution through task 2's server function, with a resolving state.
+    - The TanStack Query `QueryClientProvider` (default `staleTime` 10 minutes), added for its first consumer, ENS resolution. Task 5a only uses it.
+    - ENS resolution through task 2b's server function, with a resolving state.
     - Invalid-address validation.
     - `src/lib/demo-wallets.ts` with 3 wallets vetted by `vet-demo-wallet`.
     - The gear is always visible, and a wallet change updates the stored wallet.
-  - **Out:** the paging loop, the reveal wiring, and restarting the Rewind on a wallet change (task 5).
-- **Done when:** first visit, change wallet, invalid input and ENS resolving all work in the browser (`verify-ui` step 2), with component tests for validation and persistence. `verify-ui` step 5 needs the story on `/`, so it's checked in task 5.
+  - **Out:** the paging loop (5a), the reveal wiring and restarting the Rewind on a wallet change (5b), and any edit in `src/components/`.
+- **Done when:** first visit, change wallet, invalid input and ENS resolving all work in the browser (`verify-ui` step 2), with component tests for validation and persistence. `verify-ui` step 5 needs the story on `/`, so it's checked in task 5b.
 - **Traps:**
   - `localStorage` is client-only.
   - Never invent demo wallets.
@@ -220,28 +240,25 @@ Bootstrap commit, before any Vinaya task: TanStack Start, Tailwind v4 tokens, fo
 - **Agent:** frontend with browser verification, and API access for vetting.
 
 ### 5. Rewind flow
-- **Objective:** a load autoplays the real Rewind: the reveal streams real transactions, then the five cards.
-- **Surface:** `src/routes/index.tsx`, `src/lib/useRewind.ts`, `src/components/rewind/**` (wiring only).
-- **Boundary:**
-  - **In:**
-    - The `useRewind` hook (the paging loop feeds `ParticleReveal.addTransactions` and the engine).
-    - `complete` / `fail`, the 12s timeout, and the 20-page cap ("2,000+").
-    - The empty and error states with retry.
-    - `AbortController` cancels on a wallet change or unmount, and a wallet change restarts the Rewind.
-    - Uses task 4's `QueryClientProvider` for chains, fungible and balance calls.
-  - **Out:** the share image and deploy (task 6).
-- **Done when:**
-  - The whole of `verify-ui` passes on real data for all 3 demo wallets.
-  - An empty wallet shows EmptyState.
-  - A simulated 429 ends in ErrorState with a working retry.
-  - A hook test covers cancel-on-change.
-  - Keyboard after settings (`verify-ui` step 5) passes on `/`.
-- **Traps:**
-  - Don't finalize before paging ends.
-  - Clean up the reveal's rAF.
-  - Guard against state updates after abort.
+
+Split into the hook and its wiring. Shared for 5a–5b:
+- **Traps:** don't finalize before paging ends. Guard against state updates after abort.
 - **Stop if:** the real paging time for a demo wallet regularly exceeds the 12s timeout. Report the timings and ask whether to raise the timeout or lower the cap.
-- **Docs to keep coherent:** `.claude/rules/motion-and-reveal.md`, and `docs/adr/0002-loading-is-the-animation.md` if the loading contract changes (as a new ADR).
+- **Docs to keep coherent:** `.claude/rules/motion-and-reveal.md`, and a new ADR if the loading contract in `docs/adr/0002-loading-is-the-animation.md` changes.
+
+#### 5a. The `useRewind` hook
+- **Objective:** a tested hook pages a wallet's transactions, feeds the engine, and reports progress, completion and failure.
+- **Surface:** `src/lib/useRewind.ts` and its tests.
+- **In:** the paging loop over `getTransactionsPage`, feeding the engine's `accumulate`. Progress, completion and failure reported through callbacks (`onPage(count)`, `onComplete(finalCount)`, `onFail()`), so the hook doesn't depend on the reveal. The chains, fungible and balance calls through TanStack Query, then `finalize`. The 12s timeout, the 20-page cap ("2,000+"), and `AbortController` cancelling on a wallet change or unmount. **Out:** any UI.
+- **Done when:** hook tests with fake server functions cover paging to the end, the cap, the timeout, an error, an empty wallet, and cancel-on-change with no update after abort.
+- **Agent:** TypeScript and React hooks, test-first. No browser needed.
+
+#### 5b. The Rewind on `/`
+- **Objective:** a load autoplays the real Rewind: the reveal streams real transactions, then the five cards.
+- **Surface:** `src/routes/index.tsx`.
+- **In:** the hook's callbacks bound to `ParticleReveal`'s handle, the reveal played into `RewindPlayer`, EmptyState and ErrorState with retry, and a wallet change restarting the Rewind. **Out:** the share image and deploy (task 6).
+- **Done when:** the whole of `verify-ui` passes on real data for all 3 demo wallets, including keyboard after settings (step 5). An empty wallet shows EmptyState, and a simulated 429 ends in ErrorState with a working retry.
+- **Traps:** clean up the reveal's rAF.
 - **Agent:** frontend with browser verification and API access.
 
 ### 6. Share and ship
@@ -249,7 +266,7 @@ Bootstrap commit, before any Vinaya task: TanStack Start, Tailwind v4 tokens, fo
 - **Surface:** `src/lib/renderShareImage.ts`, `src/components/rewind/**` (share wiring), `src/routes/__root.tsx`, `vercel.json`, `vite.config.ts` (the Nitro Vercel preset only), `README.md`.
 - **Boundary:**
   - **In:**
-    - The share image from real facts (native share or download). Task 1 already ports the wiring (`RewindPlayer` calls `renderShareImage` and `shareOrDownload`), so this is verification on real data plus any fix it needs.
+    - The share image from real facts (native share or download). Task 1d already ports the wiring (`RewindPlayer` calls `renderShareImage` and `shareOrDownload`), so this is verification on real data plus any fix it needs.
     - Meta and OG tags checked.
     - Deploy to Vercel.
     - A check on a phone browser.
@@ -295,7 +312,7 @@ Settled, so the Planner doesn't stop to ask:
 - **ENS:** resolved on the server with viem on mainnet through its default public transport. If resolution fails, show the invalid state and suggest pasting an address. Demo wallets store their resolved address, so they never depend on ENS at runtime.
 - **Window:** the last 365 days, capped at 2,000 transactions.
 
-Open, to verify in task 2 (research, not a Principal decision; record the answers in §5):
+Open, to verify in task 2a (question 1) and task 2b (questions 2–4) (research, not a Principal decision; record the answers in §5):
 1. The exact Basic-auth header format.
 2. The enum value of the year chart period.
 3. Whether transactions can be fetched oldest-first. This decides the lifetime versus in-window `firstTx`.
@@ -304,7 +321,7 @@ Open, to verify in task 2 (research, not a Principal decision; record the answer
 Open, for the Principal: none. The plan can proceed.
 
 **Principal actions, not decisions** (tasks stop and ask when they reach these):
-- Create a free Zerion API key and make it available (§9 step 4), before task 2.
+- Create a free Zerion API key and make it available (§9 step 4), before task 2a.
 - Create and link a Vercel project and set `ZERION_API_KEY` in its environment variables, before task 6.
 - Tick each PR's Test Plan after checking it in the browser.
 
