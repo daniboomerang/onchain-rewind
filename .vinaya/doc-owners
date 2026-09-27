@@ -52,3 +52,7 @@
 #
 # This starter ships empty — no bindings, no no-doc entries. Add your own
 # below this line as your repo grows real code → doc coverage needs.
+src/engine/types.ts        SPEC.md
+src/styles/tokens.css      design/DESIGN.md
+biome.json                 AGENTS.md
+.github/workflows/checks.yml  AGENTS.md

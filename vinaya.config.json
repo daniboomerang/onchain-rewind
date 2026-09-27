@@ -1,4 +1,7 @@
 {
+  "principals": [
+    "daniboomerang"
+  ],
   "rings": {
     "ring1_forgeWriteInterception": true,
     "ring2_asyncAudits": true
