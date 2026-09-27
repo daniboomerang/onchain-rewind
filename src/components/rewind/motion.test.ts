@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { duration, enterItem, enterItemReduced, revealMs } from "./motion";
+import { duration, enterCard, enterCardReduced, enterItem, enterItemReduced, revealMs } from "./motion";
 
 /**
  * The server renders a card's hidden state before it can know whether the viewer asked for reduced
@@ -16,9 +16,27 @@ test("both entrance variants end at y 0, so nothing is left offset", () => {
   expect(enterItemReduced.show).toMatchObject({ y: 0 });
 });
 
-test("the reduced variant snaps y rather than moving it", () => {
-  const { transition } = enterItemReduced.show as { transition: { y?: { duration?: number } } };
-  expect(transition.y?.duration).toBe(0);
+test("the share card's shell hides identically to its reduced twin, and both end square", () => {
+  expect(enterCardReduced.hidden).toEqual(enterCard.hidden);
+  expect(enterCard.show).toMatchObject({ opacity: 1, y: 0 });
+  expect(enterCardReduced.show).toMatchObject({ opacity: 1, y: 0 });
+});
+
+/**
+ * A transition with no duration and no delay is not an animation: Motion writes the target through
+ * its own render loop, so the values land whether or not an animation would have run to its end.
+ * A reduced entrance that snapped only its rise left the fade as the one thing between the hidden
+ * state the server wrote and a readable card, and a fade cut short held the card at opacity 0.
+ */
+test("the reduced entrances snap every value, so no animation has to finish for a card to show", () => {
+  for (const [name, show] of [
+    ["enterItemReduced", enterItemReduced.show],
+    ["enterCardReduced", enterCardReduced.show],
+  ] as const) {
+    const { transition } = show as { transition: { duration?: number; delay?: number } };
+    expect(transition.duration, name).toBe(0);
+    expect(transition.delay ?? 0, name).toBe(0);
+  }
 });
 
 /**

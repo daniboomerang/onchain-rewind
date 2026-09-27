@@ -43,15 +43,31 @@ export const enterItem: Variants = {
  * `prefers-reduced-motion`, so a hidden state that differs between the two variants makes the
  * markup a hydration mismatch for whichever viewer the server guessed wrong — and leaves whatever
  * only the full-motion variant animates back stuck at its offset. `show` therefore still targets
- * y 0, but snaps it instead of animating it, so the viewer sees a crossfade and no movement.
+ * y 0, so nothing can be left offset.
+ *
+ * `show` snaps the fade as well as the rise, and the two must snap together. A transition with no
+ * duration and no delay is not an animation at all — Motion writes the target straight through its
+ * own render loop — while a transition with a duration is one, and an animation that never reaches
+ * its end leaves the element at the value it started from. When only the rise snapped, that split
+ * the entrance in two: the rise landed on the first frame and the fade became the single thing
+ * standing between the hidden state the server wrote and a readable card, so a fade that was cut
+ * short left the card at `opacity: 0` with its content in the page and nothing to bring it back.
+ * Snapping both is also what the preference asks for: the card appears, it does not fade in.
  */
 export const enterItemReduced: Variants = {
   hidden: { opacity: 0, y: 12 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: duration.base, ease: ease.inOut, y: { duration: 0 } },
-  },
+  show: { opacity: 1, y: 0, transition: { duration: 0 } },
+};
+
+/** A card's own shell (the share card): `enterItem`'s entrance over a slightly longer rise. */
+export const enterCard: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { duration: duration.slow, ease: ease.out } },
+};
+/** Reduced twin, snapping both values for the reasons `enterItemReduced` gives. */
+export const enterCardReduced: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { duration: 0 } },
 };
 
 /** Playback state shared by every animated story component (hold / Space = paused). */
