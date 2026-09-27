@@ -33,9 +33,20 @@ export const enterItem: Variants = {
   hidden: { opacity: 0, y: 12 },
   show: { opacity: 1, y: 0, transition: { duration: duration.slow, ease: ease.out } },
 };
+/**
+ * Reduced twin. `hidden` is `enterItem`'s, exactly: the server cannot read
+ * `prefers-reduced-motion`, so a hidden state that differs between the two variants makes the
+ * markup a hydration mismatch for whichever viewer the server guessed wrong — and leaves whatever
+ * only the full-motion variant animates back stuck at its offset. `show` therefore still targets
+ * y 0, but snaps it instead of animating it, so the viewer sees a crossfade and no movement.
+ */
 export const enterItemReduced: Variants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { duration: duration.base, ease: ease.inOut } },
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: duration.base, ease: ease.inOut, y: { duration: 0 } },
+  },
 };
 
 /** Playback state shared by every animated story component (hold / Space = paused). */
@@ -61,6 +72,8 @@ export function useTween(
   const reduce = useReducedMotion();
   const paused = usePaused();
   const ctrl = useRef<AnimationPlaybackControls | null>(null);
+  const held = useRef(paused);
+  held.current = paused;
   const cbs = useRef({ onUpdate, onComplete });
   cbs.current = { onUpdate, onComplete };
 
@@ -70,14 +83,17 @@ export function useTween(
       cbs.current.onComplete?.();
       return;
     }
-    ctrl.current = animate(0, to, {
+    const controls = animate(0, to, {
       duration: d,
       delay,
       ease: e as [number, number, number, number],
       onUpdate: (v) => cbs.current.onUpdate(v),
       onComplete: () => cbs.current.onComplete?.(),
     });
-    return () => ctrl.current?.stop();
+    ctrl.current = controls;
+    // A tween recreated mid-hold (a new value, delay or duration) must not start playing.
+    if (held.current) controls.pause();
+    return () => controls.stop();
   }, [to, d, delay, reduce, e]);
 
   useEffect(() => {
