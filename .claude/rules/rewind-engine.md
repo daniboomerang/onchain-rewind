@@ -17,9 +17,9 @@ The engine is the only place that knows both Zerion's shapes and `RewindFacts`. 
 ## Aggregation rules (keep in sync with SPEC.md §5)
 - **Window:** the last 365 days from `now`. Only non-trash transactions count.
 - **`txCount`:** transactions in the window. If capped, add `capped: true` to the state and let the UI show "2,000+".
-- **`chains`:** group by chain id, sort by count descending, share = count / txCount × 100. `chainCount` = distinct chains. Names and icons come from the chains lookup passed in `extras`.
-- **`topToken`:** the most frequent fungible across trades; transfers are the fallback. Ties go to the higher USD volume, then alphabetical order. `timesTraded` = number of those transactions.
-- **`balance`:** from the chart points, one point per day. `high` and `low` must be actual points of `series`. `changePct` = (last − first) / first × 100. If there are fewer than 2 points, leave it undefined.
+- **`chains`:** group by chain id, sort by count descending; equal counts keep the order the year introduced them in. Share = count / (transactions that named a chain) × 100, rounded by largest remainder. That denominator is `txCount` for every real page — Zerion gives each transaction a chain relationship — and it keeps the wheel at 100 if one ever arrives without. `chainCount` = distinct chains. Names and icons come from the chains lookup passed in `extras`; a chain the lookup doesn't carry keeps its id as its name.
+- **`topToken`:** the most frequent fungible across trades; transfers are the fallback. Ties go to the higher USD volume, then alphabetical order. `timesTraded` = number of those transactions, counting a fungible once per transaction however many of its transfers that transaction carries. NFT transfers carry no fungible and never count. `changePct` comes from the fungible the caller fetched for `topFungible(state)`: no fungible, no yearly change, or a different fungible than the transactions named, and `topToken` is left out.
+- **`balance`:** from the chart points, one point per day. `high` and `low` must be actual points of `series`. `changePct` = (last − first) / first × 100, to one decimal. If there are fewer than 2 points, or the first is `0`, leave it undefined.
 - **`firstTx` / `daysOnchain`:** see SPEC.md §5 for the verified strategy. Dates are ISO `YYYY-MM-DD` in UTC.
 - **Empty wallet:** `txCount: 0`, arrays empty, optionals undefined. The UI shows EmptyState.
 
@@ -42,6 +42,13 @@ out:    high = {2026-11-02, 2400}   low = {2026-06-10, 640}   current = 1800   c
 ```
 pages: [ { items: [], next: null } ]
 out:   { txCount: 0, chains: [], chainCount: 0, daysOnchain: 0, firstTx: undefined, topToken: undefined, balance: undefined }
+```
+
+**4. A wallet that never traded falls back to transfers, and a real change can be negative**
+```
+pages:  the recorded vitalik.eth year — operation types receive, execute and send, no trade
+extras: fungible = { id:"eth", symbol:"ETH", name:"Ethereum", changePct365d: -32.769575478149726 }
+out:    topToken = { symbol:"ETH", timesTraded: 38, changePct: -32.8 }
 ```
 
 ## Working method
