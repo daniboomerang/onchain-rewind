@@ -89,7 +89,7 @@ Base URL `https://api.zerion.io`. Auth is HTTP Basic, with the API key as the us
 
 Each task is one PR and one GitHub Issue. The Vinaya Planner cuts the Issues from this section. **Boundary** says what's in, **Done when** is the acceptance bar, and **Traps** are known pitfalls. Dependencies: 1 → (2 ∥ 3) → 4 → 5 → 6. Tasks 2 and 3 can run in parallel.
 
-### 0. Scaffold
+### 0. Scaffold (done)
 Done directly, before any Vinaya task, as part of the bootstrap.
 - **Boundary:**
   - TanStack Start with React 19, TS strict (`noUncheckedIndexedAccess`);

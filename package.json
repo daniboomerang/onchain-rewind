@@ -1,0 +1,43 @@
+{
+  "name": "onchain-rewind",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#/*": "./src/*"
+  },
+  "scripts": {
+    "dev": "vite dev --port 3000",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "bun run check:format && bun run check:lint && bun run check:types",
+    "check:format": "biome format .",
+    "check:lint": "biome lint --error-on-warnings .",
+    "check:types": "tsc --noEmit",
+    "fix": "biome check --write .",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@ariakit/react": "0.4.40",
+    "@tanstack/react-query": "5.104.0",
+    "@tanstack/react-router": "1.170.39",
+    "@tanstack/react-start": "1.168.58",
+    "motion": "13.4.4",
+    "nitro": "3.0.260610-beta",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "viem": "2.56.9"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14",
+    "@tailwindcss/vite": "4.3.3",
+    "@types/node": "22.20.4",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3",
+    "vite": "8.3.1",
+    "vitest": "5.0.2"
+  }
+}
