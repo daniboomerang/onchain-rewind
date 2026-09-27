@@ -1,6 +1,6 @@
 # Onchain Rewind: spec
 
-## 0. Objectives and milestone
+## 0. Objectives
 
 **Goal:** ship a demo-ready Onchain Rewind. A public URL plays any vetted wallet's last 365 days as the full Rewind (reveal, five cards, share image) on real Zerion data, at production quality (craft, accessibility, performance, clean architecture), built through governed AI agents.
 
@@ -10,13 +10,7 @@
 3. `/system` shows every component in every state on fixtures.
 4. Every task merged through a PR with Vinaya's gates and a human Test Plan tick.
 
-**Milestone** (for the Architect):
-- **Title:** Onchain Rewind v1: demo-ready
-- **Release:** 0.1.0
-- **Tranche intents:**
-  - rewind-v1: Build the Rewind end to end: design system and playground, Zerion server layer, pure engine, settings and wallet, the live flow, share image and deploy.
-
-One tranche on purpose. The work forms a single dependency graph, and splitting it into several tranches would add archive and plan cycles to a one-day build.
+The milestone that tracks this goal lives on the forge: "Onchain Rewind v1: demo-ready".
 
 ## 1. Product
 
@@ -105,7 +99,7 @@ Base URL `https://api.zerion.io`. Auth is HTTP Basic, with the API key as the us
 
 ## 8. Tasks
 
-The tasks live on the forge, not in this spec: the Issues labeled `vinaya/tranche:rewind-v1` on the milestone "Onchain Rewind v1: demo-ready". Each Issue carries its own objectives, surface, dependencies and test plan, and the forge holds its state.
+The tasks live on the forge, not in this spec: the task Issues on the milestone "Onchain Rewind v1: demo-ready". Each Issue carries its own objectives, surface, dependencies and test plan, and the forge holds its state.
 
 This spec states what the product is and what it must do. It never lists tasks, their numbers, their order or their dependencies: those are plan, and they change every time the plan changes.
 
