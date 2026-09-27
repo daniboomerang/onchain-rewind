@@ -1,5 +1,23 @@
 # Onchain Rewind: spec
 
+## 0. Objectives and milestone
+
+**Goal:** ship a demo-ready Onchain Rewind. A public URL plays any vetted wallet's last 365 days as the full Rewind (reveal, five cards, share image) on real Zerion data, at production quality (craft, accessibility, performance, clean architecture), built through governed AI agents.
+
+**Success criteria** (the Milestone is done when all of these hold):
+1. The deployed URL plays the Rewind end to end for 3 vetted demo wallets, and handles an empty wallet, an invalid address and an API error gracefully.
+2. The quality bar in §7 holds: checks, tests and build are green, keyboard and reduced motion work, and the key doesn't appear in the client bundle.
+3. `/system` shows every component in every state on fixtures.
+4. Every task merged through a PR with Vinaya's gates and a human Test Plan tick.
+
+**Milestone** (for the Architect):
+- **Title:** Onchain Rewind v1: demo-ready
+- **Release:** 0.1.0
+- **Tranche intents:**
+  - rewind-v1: Build the Rewind end to end: design system and playground, Zerion server layer, pure engine, settings and wallet, the live flow, share image and deploy (SPEC.md §8 tasks 1–6).
+
+One tranche on purpose. The six tasks form a single dependency graph with one parallel wave (tasks 2 and 3), and splitting them into several tranches would add archive and plan cycles to a one-day build.
+
 ## 1. Product
 
 **One line:** your wallet's year, played back.
@@ -25,11 +43,11 @@
 
 No WebGL. No signing, swaps or sends. No accounts or backend database. No personality card. No agent or CLI integration. No full wallet UI. Solana is out of scope: `RewindFacts.wallet.address` is EVM (`0x…`).
 
-**Later** (mention in the video, don't build): a personality card from the transaction mix, a shareable URL `/rewind/<name>` with a server-rendered preview image, an agent skill that returns the facts, and an in-wallet entry point.
+**Later** (don't build these): a personality card from the transaction mix, a shareable URL `/rewind/<name>` with a server-rendered preview image, an agent skill that returns the facts, and an in-wallet entry point.
 
 ## 3. Design input
 
-Everything is in [`design/`](design/): `DESIGN.md` (tokens, components, motion per screen, layout), `tokens.css`, reference components, `types.ts` (the `RewindFacts` contract), `fixtures.ts`, `renderShareImage.ts`, `Playground.tsx`, assets (wordmark, favicon, OG image, video title cards), and the reference sheets in `design/reference/`.
+Everything is in [`design/`](design/): `DESIGN.md` (tokens, components, motion per screen, layout), `tokens.css`, reference components, `types.ts` (the `RewindFacts` contract), `fixtures.ts`, `renderShareImage.ts`, `Playground.tsx`, assets (wordmark, favicon, OG image, title cards), and the reference sheets in `design/reference/`.
 
 The reference code **typechecks under strict TypeScript** and was verified running in a scratch Vite app. Port it into `src/` and adapt it. Don't import from `design/`. Known issues are in [`design/KNOWN-ISSUES.md`](design/KNOWN-ISSUES.md).
 
@@ -46,7 +64,7 @@ routes/index.tsx
        └─ RewindPlayer(facts)
 ```
 
-**Key decisions (explain these in the video):**
+**Key decisions** (recorded as ADRs in [`docs/adr/`](docs/adr/)):
 1. **The key stays on the server.** Every Zerion call goes through a TanStack Start server function, so the browser never sees the key.
 2. **Loading is the animation.** The client pages through transactions and feeds each page's count into `ParticleReveal`. The reveal only completes when the data does (minimum 3.2s, 12s timeout → error).
 3. **The engine is pure and separate from the UI.** Zerion responses → `RewindFacts` in `src/engine/`, unit-tested with recorded fixtures. Components never see raw API data.
@@ -87,100 +105,168 @@ Base URL `https://api.zerion.io`. Auth is HTTP Basic, with the API key as the us
 
 ## 8. Tasks (tranche `rewind-v1`)
 
-Each task is one PR and one GitHub Issue. The Vinaya Planner cuts the Issues from this section. **Boundary** says what's in, **Done when** is the acceptance bar, and **Traps** are known pitfalls. Dependencies: 1 → (2 ∥ 3) → 4 → 5 → 6. Tasks 2 and 3 can run in parallel.
+Each task is one PR and one GitHub Issue. The Planner cuts the Issues from this section. The fields map onto its rationale:
+
+| Field | Meaning |
+|---|---|
+| **Objective** | the outcome the task delivers |
+| **Surface** | the file globs it may touch |
+| **Boundary** | what's in and what's explicitly out |
+| **Done when** | the acceptance bar and test plan |
+| **Traps** | known pitfalls |
+| **Stop if** | when to stop and ask instead of improvising |
+| **Docs to keep coherent** | docs the task must update if it changes their subject |
+| **Agent** | the capabilities the task needs |
+
+**Dependency graph:** `1 → 2 ∥ 3 → 4 → 5 → 6`. Task 4 needs 2 (the ENS server function). Task 5 needs 2, 3 and 4. Task 6 needs 5.
+
+**Shared for every task:**
+- Follow AGENTS.md and the path rules for the surface.
+- Use CONTEXT.md's terms.
+- Finish with the `ship-check` skill.
+- All runtime and test dependencies are already installed. A task that adds a dependency must say why in its PR, because it touches the lockfile, which is a shared blast-radius domain.
 
 ### 0. Scaffold (done)
-Done directly, before any Vinaya task, as part of the bootstrap.
-- **Boundary:**
-  - TanStack Start with React 19, TS strict (`noUncheckedIndexedAccess`);
-  - Tailwind v4 importing `src/styles/tokens.css`;
-  - fonts (Instrument Serif, Geist, Geist Mono);
-  - Vitest, and the scripts from AGENTS.md "Commands";
-  - favicon and wordmark from `design/assets`;
-  - an empty dark `/` route.
-- **Done when:** `bun run check`, `bun test` and `bun run build` pass, and `/` renders a dark page with no console errors.
-- **Traps:** TanStack Start's setup has changed across releases, so follow the version you install. Keep `biome.json` and `checks.yml` as they are.
+Bootstrap commit, before any Vinaya task: TanStack Start, Tailwind v4 tokens, fonts, Biome, Vitest with happy-dom and Testing Library, CI checks, and the pinned stack.
 
 ### 1. Design system foundation
+- **Objective:** every component from the design handoff lives in `src/` and runs on fixtures, and `/system` shows it all.
+- **Surface:** `src/components/**`, `src/engine/types.ts`, `src/engine/fixtures.ts`, `src/lib/renderShareImage.ts`, `src/routes/system.tsx`, `src/routeTree.gen.ts`, `design/KNOWN-ISSUES.md`.
 - **Boundary:**
-  - Port `design/components` into `src/components/ui/` (Button, IconButton, Tooltip, WalletCombobox, SettingsDialog) and `src/components/rewind/` (the rest, plus `motion.ts`).
-  - Port `design/types.ts` → `src/engine/types.ts`, `design/fixtures.ts` → `src/engine/fixtures.ts`, `design/renderShareImage.ts` → `src/lib/`.
-  - Add the `/system` route from `design/Playground.tsx`.
-  - Fix KNOWN-ISSUES #1.
-  - **Not in scope:** any API call or real data.
-- **Done when:** `/system` shows every component in every state, and the full `RewindPlayer` runs on each of the 3 fixtures. Arrow keys work after closing the settings dialog, with a test for it. `check` is green.
+  - **In:**
+    - Port `design/components` into `src/components/ui/` (Button, IconButton, Tooltip, WalletCombobox, SettingsDialog) and `src/components/rewind/` (the rest, plus `motion.ts`).
+    - Port `design/types.ts` → `src/engine/types.ts`, `design/fixtures.ts` → `src/engine/fixtures.ts`, `design/renderShareImage.ts` → `src/lib/`.
+    - Add the `/system` route from `design/Playground.tsx`.
+    - Fix KNOWN-ISSUES #1, with a test.
+  - **Out:** any API call, real data, the `/` route, and the engine logic.
+- **Done when:**
+  - `/system` renders every component in every state, and the full `RewindPlayer` runs on each of the 3 fixtures, with no console errors.
+  - A component test (happy-dom) focuses the gear, presses →, and sees the card advance.
+  - `verify-ui` passes its `/system` step, and `check` and `test` are green.
 - **Traps:**
-  - The Biome import ban fails any Ariakit import outside `src/components/ui/`. Wrappers must re-export what feature code needs.
-  - Don't edit `design/`.
+  - The Biome ban fails any `@ariakit/react` import outside `src/components/ui/`.
+  - `design/` is read-only, except for KNOWN-ISSUES.
+  - The canvas and `matchMedia` are client-only (SSR).
+- **Stop if:** a design component can't meet the strict TS settings without changing its props contract. Ask before changing `RewindFacts` or any component API in DESIGN.md.
+- **Docs to keep coherent:** `design/KNOWN-ISSUES.md`, and `design/DESIGN.md` if any prop changes.
+- **Agent:** frontend (React, Motion, Canvas) with browser verification.
 
 ### 2. Zerion server layer
+- **Objective:** typed, cached, server-only access to the Zerion data the Rewind needs.
+- **Surface:** `src/server/**`, `src/engine/__fixtures__/**`, `SPEC.md` (§5 and §10 answers).
 - **Boundary:**
-  - `src/server/zerion/client.ts` (`zerionFetch`: auth, cache, 429 backoff, typed error mapping).
-  - Server functions: transactions page, chains, fungible, balance chart, ENS resolve.
-  - Recorded fixtures in `src/engine/__fixtures__/` (use the `record-fixture` skill).
-  - **Not in scope:** aggregation logic, and UI.
+  - **In:**
+    - `src/server/zerion/client.ts` (`zerionFetch`: Basic auth, LRU cache, 429 backoff, typed error mapping).
+    - Server functions: transactions page, chains, fungible, balance chart, and ENS resolve (viem).
+    - Recorded, trimmed fixtures (the `record-fixture` skill).
+    - Answers to the 4 open API questions in §10, written into §5.
+  - **Out:** aggregation logic (task 3), and any UI.
 - **Done when:**
   - Each server function returns typed, trimmed data for `vitalik.eth`.
-  - A bad address returns `invalid_address`.
-  - The key-leak check in `ship-check` passes.
-  - SPEC.md §5 records the verified answers to the open API questions in §10.
+  - A malformed address returns `invalid_address`, and a simulated 429 retries, then returns `rate_limited`.
+  - Unit tests cover the client with a mocked `fetch`.
+  - The key-leak check passes.
+  - §5 and §10 record the verified answers.
 - **Traps:**
   - Zerion doesn't resolve ENS.
   - Follow `links.next` exactly as returned.
-  - Verify field names in the OpenAPI spec or the MCP before using them.
-  - Stop and ask if the auth scheme doesn't match the rule.
+  - Verify every field in the OpenAPI spec or the MCP before using it.
+  - Worktrees don't contain `.env.local`, so the key must come from the environment (see §9).
+- **Stop if:**
+  - `ZERION_API_KEY` isn't available in the environment.
+  - The auth scheme or an endpoint behaves differently from `.claude/rules/zerion-api.md`.
+  - The free tier can't serve an endpoint the Rewind needs.
+- **Docs to keep coherent:** `.claude/rules/zerion-api.md`, and `SPEC.md` §5 and §10.
+- **Agent:** backend TypeScript with network access to `api.zerion.io`.
 
 ### 3. Rewind engine
-- **Boundary:** `src/engine/` with `createState`, `accumulate` and `finalize → RewindFacts`, test-first from the examples in `.claude/rules/rewind-engine.md` and the fixtures from task 2 (use hand-made minimal pages until they exist). **Not in scope:** fetching.
-- **Done when:** all the required test cases in the rule pass, and the engine has no imports from React, `src/server`, or anything that does I/O.
-- **Traps:**
-  - Shares must total exactly 100.
-  - `high` and `low` must be real series points.
-  - Don't call `Date.now()` inside the engine.
+- **Objective:** a pure, tested engine that turns Zerion data into `RewindFacts`.
+- **Surface:** `src/engine/**` (except `types.ts` and `fixtures.ts`, which task 1 owns).
+- **Boundary:** `createState`, `accumulate` and `finalize → RewindFacts`, test-first from the examples in `.claude/rules/rewind-engine.md`. It uses the fixtures from task 2 when they exist, and minimal hand-made pages until then. **Out:** fetching, React.
+- **Done when:**
+  - All the required test cases in the rule pass.
+  - The engine imports nothing from React, `src/server` or any I/O.
+  - `now` is injected.
+- **Traps:** shares must total exactly 100, and `high`/`low` must be real series points.
+- **Stop if:** a rule in the engine rule contradicts real fixture data. Record a new input/output example and ask before changing the rule.
+- **Docs to keep coherent:** `.claude/rules/rewind-engine.md`, and `SPEC.md` §5 if a mapping rule changes.
+- **Agent:** TypeScript, test-first. No browser needed.
 
 ### 4. Settings and wallet
+- **Objective:** the user sets their wallet once, and it's remembered and treated as connected.
+- **Surface:** `src/routes/index.tsx`, `src/lib/demo-wallets.ts`, `src/lib/wallet-store.ts`, `src/components/rewind/**` (wiring only).
 - **Boundary:**
-  - The settings dialog wired to `localStorage`, shown on first visit and not dismissible then.
-  - ENS resolution through the server function, with a resolving state.
-  - Invalid-address validation.
-  - `src/lib/demo-wallets.ts` (entries vetted with `vet-demo-wallet`).
-  - The gear is always visible, and a wallet change restarts the Rewind.
-- **Done when:** first visit, change wallet, invalid input and ENS resolving all work in the browser (the `verify-ui` steps 2 and 5).
+  - **In:**
+    - The settings dialog wired to `localStorage`, shown on first visit and not dismissible then.
+    - ENS resolution through task 2's server function, with a resolving state.
+    - Invalid-address validation.
+    - `src/lib/demo-wallets.ts` with 3 wallets vetted by `vet-demo-wallet`.
+    - The gear is always visible, and a wallet change restarts the Rewind.
+  - **Out:** the paging loop and the reveal wiring (task 5).
+- **Done when:** first visit, change wallet, invalid input and ENS resolving all work in the browser (`verify-ui` steps 2 and 5), with component tests for validation and persistence.
 - **Traps:**
-  - `localStorage` is client-only (SSR).
+  - `localStorage` is client-only.
   - Never invent demo wallets.
+  - Keyboard focus returns to the gear on close (see KNOWN-ISSUES #1).
+- **Stop if:** fewer than 3 public wallets pass `vet-demo-wallet`. Report the candidates and scores and ask.
+- **Docs to keep coherent:** `SPEC.md` §6, and `CONTEXT.md` if a term changes.
+- **Agent:** frontend with browser verification, and API access for vetting.
 
 ### 5. Rewind flow
+- **Objective:** a load autoplays the real Rewind: the reveal streams real transactions, then the five cards.
+- **Surface:** `src/routes/index.tsx`, `src/lib/useRewind.ts`, `src/components/rewind/**` (wiring only).
 - **Boundary:**
-  - Autoplay on load.
-  - A `useRewind` hook runs the paging loop, feeding `ParticleReveal.addTransactions` and the engine.
-  - `complete` / `fail` handling, the 12s timeout, and the empty and error states with retry.
-  - `AbortController` cancels on a wallet change.
-- **Done when:** all of `verify-ui` passes on real data for every demo wallet, an empty wallet shows EmptyState, and a simulated 429 ends in ErrorState with a working retry.
+  - **In:**
+    - The `useRewind` hook (the paging loop feeds `ParticleReveal.addTransactions` and the engine).
+    - `complete` / `fail`, the 12s timeout, and the 20-page cap ("2,000+").
+    - The empty and error states with retry.
+    - `AbortController` cancels on a wallet change or unmount.
+  - **Out:** the share image and deploy (task 6).
+- **Done when:**
+  - The whole of `verify-ui` passes on real data for all 3 demo wallets.
+  - An empty wallet shows EmptyState.
+  - A simulated 429 ends in ErrorState with a working retry.
+  - A hook test covers cancel-on-change.
 - **Traps:**
   - Don't finalize before paging ends.
-  - Respect the 20-page cap and show "2,000+".
-  - Clean up the reveal's rAF on unmount.
+  - Clean up the reveal's rAF.
+  - Guard against state updates after abort.
+- **Stop if:** the real paging time for a demo wallet regularly exceeds the 12s timeout. Report the timings and ask whether to raise the timeout or lower the cap.
+- **Docs to keep coherent:** `.claude/rules/motion-and-reveal.md`, and `docs/adr/0002-loading-is-the-animation.md` if the loading contract changes (as a new ADR).
+- **Agent:** frontend with browser verification and API access.
 
 ### 6. Share and ship
+- **Objective:** the Rewind is live at a public URL and shareable.
+- **Surface:** `src/lib/renderShareImage.ts`, `src/components/rewind/**` (share wiring), `src/routes/__root.tsx`, `vercel.json`, `README.md`.
 - **Boundary:**
-  - The share image from real facts (native share or download).
-  - Meta and OG tags (`design/assets/og-default.png`).
-  - Deploy to the target in §10.
-  - A check on a phone browser.
-- **Done when:** `ship-check` passes, the public URL works on desktop and phone, and the OG preview renders when the link is pasted.
+  - **In:**
+    - The share image from real facts (native share or download).
+    - Meta and OG tags checked.
+    - Deploy to Vercel.
+    - A check on a phone browser.
+    - The README roadmap ticked and the live URL added.
+  - **Out:** new features.
+- **Done when:**
+  - `ship-check` passes.
+  - The public URL works on desktop and on a phone.
+  - The OG preview renders when the link is pasted.
 - **Traps:**
   - Wait for fonts before rendering the share image.
-  - Set `ZERION_API_KEY` in the host's environment settings. Never put it in the repo.
-
-For the video, record one task running end to end through `vinaya task run`. Task 4 or 6 is the right size.
+  - The key goes only in Vercel's environment variables.
+- **Stop if:** the Vercel project doesn't exist or isn't linked. That's a Principal action (§10).
+- **Docs to keep coherent:** `README.md`.
+- **Agent:** frontend and deploy, with browser verification.
 
 ## 9. Post-install setup (after `vinaya quickstart`)
 
 1. **Check the agent config survived install.** `AGENTS.md`, `CLAUDE.md`, `.claude/rules/`, `.claude/skills/` and `.agents/skills/` must sit next to Vinaya's generated files (`.agents/skills/vinaya-*`, `.claude/settings.json`, `.claude/commands/vinaya.md`). In Claude Code, `/context` should list `CLAUDE.md` under memory files.
 2. **Add the Zerion docs MCP server** to `.mcp.json` next to Vinaya's entry. Take the endpoint from https://developers.zerion.io/build-with-ai/mcp.md.
 3. **Optional:** install Zerion's agent skill from `zeriontech/zerion-ai` for wallet-analysis context.
-4. **Put the key in `.env.local`:** `ZERION_API_KEY=…`, entered by the human and never committed.
+4. **The API key, for local dev and for agents:**
+   - For local dev, put `ZERION_API_KEY=…` in `.env.local`. It's entered by the human and never committed.
+   - **Vinaya's agents work in fresh git worktrees, which contain no `.env.local`.** Before `vinaya task run`, export it instead: `export ZERION_API_KEY=…` in the shell that launches the run, since server functions read `process.env`.
+   - On the first run, confirm the developer agent actually sees the variable.
+   - CI needs no key, because tests use recorded fixtures and mocked `fetch`.
 5. **Update the global CLI:** `npm install -g @attalabs/vinaya@latest`, then run `vinaya doctor`.
 6. **Doc-coverage bindings** in `.vinaya/doc-owners` (Vinaya-managed; append below its header). Bind only contract files, so ordinary PRs don't owe a doc edit:
    ```
@@ -205,6 +291,10 @@ Open, to verify in task 2 (research, not a Principal decision; record the answer
 3. Whether transactions can be fetched oldest-first. This decides the lifetime versus in-window `firstTx`.
 4. Where the fungible's yearly price change comes from (market data field or price chart).
 
-Open, for the Principal:
-- None.
+Open, for the Principal: none. The plan can proceed.
+
+**Principal actions, not decisions** (tasks stop and ask when they reach these):
+- Create a free Zerion API key and make it available (§9 step 4), before task 2.
+- Create and link a Vercel project and set `ZERION_API_KEY` in its environment variables, before task 6.
+- Tick each PR's Test Plan after checking it in the browser.
 
