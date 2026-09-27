@@ -5,6 +5,10 @@ dist/
 .tanstack/
 .nitro/
 coverage/
+
+# Agent worktrees (Vinaya tasks, Claude Code)
+.worktrees/
+.claude/worktrees/
 *.log
 .DS_Store
 
