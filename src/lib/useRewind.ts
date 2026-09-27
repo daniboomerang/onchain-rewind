@@ -141,9 +141,12 @@ export function useRewind({
     let cancelled = false;
     let timedOut = false;
     let settled = false;
+    // The failure is reported here rather than left to the abort to surface, so a call that ignores
+    // its signal can't hold the Rewind past the timeout by never settling.
     const timer = setTimeout(() => {
       timedOut = true;
       controller.abort();
+      fail("timeout");
     }, timeoutMs);
 
     const settle = (next: Outcome) => {
