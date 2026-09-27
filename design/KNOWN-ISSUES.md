@@ -8,17 +8,21 @@ Found when the reference code was run in a scratch Vite app (React 19, Tailwind 
 
 **Cause:** the `skip()` guard in the keydown effect ignores events whose target is inside `input, textarea, button, [role=dialog]`.
 
-**Fix:** skip only `input, textarea, [contenteditable], [role=dialog]` for arrow keys. For Space, also skip when the target is a button, so a focused button keeps its native Space activation. Add a test: focus the gear, press →, and assert the card advances.
+**Fix, as ported into the app:** the arrow keys skip only `input, textarea, [contenteditable], [role=dialog]`, so the story keeps moving while a button has focus; Space additionally skips a focused button, so that button keeps its native activation. The prop contract is unchanged.
 
-## 2. Three lint rules the app rejects: `components/ChainBar.tsx`, `components/LineChart.tsx`, `renderShareImage.ts`
+**Proven by** `src/components/rewind/RewindPlayer.test.tsx`: "the arrow keys move the story while the gear button has focus" focuses the gear, presses →, and asserts card 2 is on screen (and ← brings card 1 back), with the gear still focused throughout. Two companions hold the other half: "Space activates the focused button instead of pausing the story", and "Space still pauses the story when no button has focus". Restoring the old guard fails the first and leaves the other two green.
 
-**Symptom:** all three files fail the app's lint rules. `design/` is excluded from Biome, so the handoff never saw them.
+## 2. Lint rules the app rejects: `components/ChainBar.tsx`, `components/LineChart.tsx`, `renderShareImage.ts`, `components/RewindPlayer.tsx`
+
+**Symptom:** all four files fail the app's lint rules. `design/` is excluded from Biome, so the handoff never saw them. The first three were found when the components were ported; the fourth when the player was.
 
 **Cause:** `ChainBar` puts `aria-label` on the plain `<span>` that holds the rolling percentage, and a `<span>` has no role that supports it (`a11y/useAriaPropsSupportedByRole`). `LineChart`'s inner `<svg>` carries neither a `<title>` nor an accessible name — the name lives on the wrapping `div`, which is the element with `role="img"` (`a11y/noSvgWithoutTitle`).
 
 **Cause, third file:** `renderShareImage`'s seeded random advances its state inside the returned expression, `((s = (s * 16807) % 2147483647) - 1) / 2147483646` (`suspicious/noAssignInExpressions`).
 
-**Fix, as ported into the app:** `ChainBar` marks the rolling span `aria-hidden` and adds a sibling `sr-only` span holding the chain name and its final percentage — the same idiom `StatNumber` already uses for its counter. `LineChart` marks the inner `<svg>` `aria-hidden`, leaving the labelled wrapper as the single accessible node. `renderShareImage`'s generator becomes a block body that assigns, then returns — the same sequence, so every wallet's ring is unchanged. None of the three changes a prop.
+**Cause, fourth file:** `RewindPlayer`'s full-screen surface is a `<div>` carrying the pointer gestures, and a `<div>` has no role to make them meaningful (`a11y/noStaticElementInteractions`). `role="group"` fails a second rule, which wants a `<fieldset>` (`a11y/useSemanticElements`).
+
+**Fix, as ported into the app:** `ChainBar` marks the rolling span `aria-hidden` and adds a sibling `sr-only` span holding the chain name and its final percentage — the same idiom `StatNumber` already uses for its counter. `LineChart` marks the inner `<svg>` `aria-hidden`, leaving the labelled wrapper as the single accessible node. `renderShareImage`'s generator becomes a block body that assigns, then returns — the same sequence, so every wallet's ring is unchanged. `RewindPlayer`'s surface becomes a `<section aria-label="Rewind story">`, which gives the gestures an element with a role and names the story for a screen reader; every gesture already has a keyboard equivalent on `window`. None of the four changes a prop.
 
 ## 3. The reduced-motion variants make the server's markup a guess: `components/motion.ts`, `components/StoryCard.tsx`, `components/ShareCard.tsx`
 
