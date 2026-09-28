@@ -16,12 +16,12 @@ import { TokenIcon } from "../components/rewind/TokenIcon";
 import { Button } from "../components/ui/Button";
 import { IconButton } from "../components/ui/IconButton";
 import { SettingsDialog } from "../components/ui/SettingsDialog";
+import { ThemeToggle } from "../components/ui/ThemeToggle";
 import { Tooltip } from "../components/ui/Tooltip";
 import { type DemoWallet, WalletCombobox, type WalletStatus } from "../components/ui/WalletCombobox";
 import { type FixtureName, fixtures } from "../engine/fixtures";
 import { displayName, fmt, type RewindFacts, shortAddress } from "../engine/types";
 import { PAGE_INTERVAL_MS, pageTick } from "./-paging";
-import { lockTheme, readTheme, type Theme } from "./-theme";
 
 export const Route = createFileRoute("/system")({ component: System });
 
@@ -56,7 +56,7 @@ function System() {
           <h1 className="font-display text-display">
             Onchain <i>Rewind</i>
           </h1>
-          <ThemeToggle />
+          <ThemeRow />
         </header>
 
         <Section title="Button">
@@ -204,38 +204,16 @@ function System() {
 /* — demos — */
 
 /**
- * Switches the page between the two themes, so every section below can be checked in both. The root
- * document already resolved the system setting into `data-theme` before the first paint; a choice here
- * locks that attribute, so a later change of the system setting can't undo a review pass.
+ * The app's own theme control, on the page that has to be checked in both themes. It is the same
+ * control the story chrome carries on `/`, and the same one setting behind it: a choice made here is
+ * the choice `/` opens in.
  *
  * The story's own components stay dark whichever way this is set — that is the design, not a miss.
  */
-function ThemeToggle() {
-  // The server can't know the visitor's setting, so the first render shows neither theme as chosen:
-  // the attribute the root's head script wrote is only readable in the browser.
-  const [theme, setTheme] = useState<Theme | null>(null);
-
-  useEffect(() => {
-    setTheme(readTheme());
-  }, []);
-
-  const choose = (next: Theme) => {
-    lockTheme(next);
-    setTheme(next);
-  };
-
+function ThemeRow() {
   return (
     <Row label="theme">
-      {(["dark", "light"] as const).map((t) => (
-        <Button
-          key={t}
-          variant={theme === t ? "primary" : "ghost"}
-          aria-pressed={theme === t}
-          onClick={() => choose(t)}
-        >
-          {t}
-        </Button>
-      ))}
+      <ThemeToggle />
     </Row>
   );
 }

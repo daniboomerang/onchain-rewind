@@ -33,7 +33,9 @@ The milestone that tracks this goal lives on the forge: "Onchain Rewind v1: demo
 
 **Platform:** desktop-first web app (1440×900), working down to 390 wide. It's not a native app.
 
-**Theme:** the app chrome — the settings dialog, the wordmark shell, the empty and error screens and `/system` — follows the operating system's light or dark setting, resolved before the first paint so no load flashes the wrong theme. The story is dark whatever that setting is: the particle reveal, the five cards, the share card and the share image are designed in the dark palette only. There is no theme setting in the app; `/system` carries a toggle so both themes can be checked.
+**Theme:** the app chrome — the settings dialog, the wordmark shell, the empty and error screens and `/system` — runs in light or dark, resolved before the first paint so no load flashes the wrong theme. The story is dark whatever that setting is: the particle reveal, the five cards, the share card and the share image are designed in the dark palette only.
+
+The setting is one choice for the whole app, not one per page: a light/dark control sits in the story chrome next to the settings gear, `/system` carries the same control, and the choice is remembered on this device, so it holds across routes and reloads. Until a choice is made the app follows the operating system.
 
 ## 2. Non-goals (this build)
 

@@ -34,5 +34,5 @@ Zerion's own web app runs on TanStack Start, which is why this repo uses it too.
 
 ## SSR boundaries
 - `localStorage`, `canvas`, `matchMedia` and `navigator.share` exist only in the browser. Read them in effects or behind a client-only boundary, never during render on the server.
-- The theme is the one thing an effect is too late for: `__root.tsx`'s head script (`head: () => ({ scripts: [...] })`, rendered by `HeadContent`) reads `matchMedia` in the browser and writes `data-theme` on `<html>` before the first paint. React renders no theme attribute, so nothing about it can mismatch at hydration.
-- The index route renders the shell with no theme attribute, so the server's markup is the dark `:root` default until that script resolves the system setting. The settings dialog or reveal mounts on the client, so there's no hydration mismatch.
+- The theme is the one thing an effect is too late for: `__root.tsx`'s head script (`head: () => ({ scripts: [...] })`, rendered by `HeadContent`) reads the stored choice and then `matchMedia` in the browser, and writes `data-theme` on `<html>` before the first paint. React renders no theme attribute, so nothing about it can mismatch at hydration — which is also why a theme control renders the same label on the server whatever is stored, and corrects it in its first effect.
+- The index route renders the shell with no theme attribute, so the server's markup is the dark `:root` default until that script resolves the setting. The settings dialog or reveal mounts on the client, so there's no hydration mismatch.

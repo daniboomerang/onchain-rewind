@@ -64,6 +64,17 @@
   color-scheme: light;
 }
 
+/* `color` is the one painted property that inherits an already-resolved value rather than the
+   variable behind it, so an element that re-declares the palette has to re-declare `color` too:
+   without this, the story's dark roots inside a light page draw the page's near-black text on their
+   own dark background and the card reads as blank. In `base`, so a `text-*` utility on the same
+   element still wins. */
+@layer base {
+  [data-theme] {
+    color: var(--fg);
+  }
+}
+
 @theme inline {
   --font-display: "Instrument Serif", ui-serif, Georgia, serif;
   --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;

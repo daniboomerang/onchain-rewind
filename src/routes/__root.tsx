@@ -1,7 +1,7 @@
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { THEME_COLOR, THEME_SCRIPT } from "../components/ui/theme";
 import appCss from "../styles/app.css?url";
-import { THEME_COLOR, THEME_SCRIPT } from "./-theme";
 
 const TITLE = "Onchain Rewind";
 const DESCRIPTION = "Your wallet's year, played back.";
@@ -11,7 +11,7 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-      // `-theme.ts`'s head script rewrites this to the theme it resolves.
+      // `ui/theme.ts`'s head script rewrites this to the theme it resolves.
       { name: "theme-color", content: THEME_COLOR.dark },
       { title: TITLE },
       { name: "description", content: DESCRIPTION },
