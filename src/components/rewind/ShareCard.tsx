@@ -3,6 +3,26 @@ import { enterCard, enterCardReduced, enterItem, enterItemReduced, stagger } fro
 
 export type ShareStat = { value: string; label: string };
 
+/**
+ * Reading the panel's values every frame is what keeps them on Motion's own frame loop, and that is the
+ * point of this empty handler — `onUpdate` is the one prop that tells Motion the values are being
+ * observed, so it cannot hand any of them to the browser's animation engine instead. It is the same
+ * handler `StoryStage` keeps, for the same reason, one element further out; see the comment there for
+ * the full mechanism, and `design/KNOWN-ISSUES.md` §9.
+ *
+ * Without it the panel's fade is accelerated, and an accelerated animation stopped before its first
+ * frame is recorded as already finished: Motion writes the end value into the value it owns while the
+ * element renders the `0` the remount's reset had just written, and the restarted entrance, finding
+ * opacity already at its target, animates nothing. The rise is never accelerated and always landed,
+ * which is why the panel sat square and transparent with all of its content in the page. The story
+ * mounts this panel into a tree React's development build double-invokes, so the interruption is not
+ * exotic: it happens on every play.
+ *
+ * The cost is one 600px-wide element's opacity moving off the compositor, on an element already written
+ * every frame for its rise.
+ */
+const readPanelValues = () => {};
+
 export type ShareCardProps = {
   /** ENS name, or short address if none. */
   name: string;
@@ -24,6 +44,7 @@ export function ShareCard({ name, address, stats }: ShareCardProps) {
       variants={card}
       initial="hidden"
       animate="show"
+      onUpdate={readPanelValues}
       className="flex w-full max-w-[600px] flex-col gap-7 rounded-3xl bg-surface p-9 text-left shadow-card max-md:p-6"
     >
       <header className="flex items-baseline justify-between gap-3">

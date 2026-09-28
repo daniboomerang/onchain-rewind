@@ -7,6 +7,7 @@ import { flushSync } from "react-dom";
 import { afterAll, afterEach, beforeAll, expect, test, vi } from "vitest";
 import { normalWallet } from "../../engine/fixtures";
 import { RewindPlayer } from "./RewindPlayer";
+import { installPendingAnimations } from "./story-playback";
 
 /**
  * The stage, not the card: `StoryStage` wraps each card in the element `AnimatePresence` keys, slides
@@ -51,48 +52,10 @@ const SETTLE_MS = 900;
 /** Nine transitions, each playing for real, plus the polling around them. */
 const TEST_TIMEOUT = 30_000;
 
-/**
- * Two things about happy-dom's `Animation` stand between this suite and a browser, and the wrapper
- * below closes both. Neither invents behaviour: each restores what Chromium does, measured there.
- *
- * **A freshly started animation is pending.** happy-dom assigns a `startTime` inside `play()`, so an
- * interruption always reads how far the animation had got correctly and the failure above cannot happen
- * at all. Holding `startTime` at `null` until the first frame, as a browser does, is the one difference
- * this suite needs.
- *
- * **A cancelled animation's `finished` promise.** Interrupting an animation is the normal case here —
- * the story cuts one card's entrance off to play the next. happy-dom creates that promise in its
- * constructor and rejects it on cancel, and nothing in Motion reads it, so every deliberate
- * interruption would surface as an unhandled rejection; a browser creates it only when something asks.
- * Reading it here with a handler attached costs nothing and changes no timing.
- */
 let restoreAnimate: (() => void) | undefined;
 
 beforeAll(() => {
-  const original = Element.prototype.animate;
-  Element.prototype.animate = function pendingUntilFirstFrame(this: Element, ...args: Parameters<Element["animate"]>) {
-    const animation = original.apply(this, args);
-    animation.finished.catch(() => {});
-
-    let assigned = animation.startTime;
-    let pending = true;
-    requestAnimationFrame(() => {
-      pending = false;
-    });
-    Object.defineProperty(animation, "startTime", {
-      configurable: true,
-      get: () => (pending ? null : assigned),
-      set: (value: number | null) => {
-        assigned = value;
-        pending = false;
-      },
-    });
-
-    return animation;
-  };
-  restoreAnimate = () => {
-    Element.prototype.animate = original;
-  };
+  restoreAnimate = installPendingAnimations();
 });
 
 afterAll(() => restoreAnimate?.());
