@@ -1,8 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchLogEventsSince, LOG_PAGE_LIMIT } from "#/server/vinaya/log-client.ts";
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return { ok: status >= 200 && status < 300, status, json: async () => body } as unknown as Response;
+/** Mimics the endpoint's real `content-type: application/x-ndjson` body: one object per line. */
+function ndjsonResponse(lines: readonly unknown[], status = 200): Response {
+  const body = lines.map((line) => JSON.stringify(line)).join("\n") + (lines.length > 0 ? "\n" : "");
+  return { ok: status >= 200 && status < 300, status, text: async () => body } as unknown as Response;
+}
+
+function errorResponse(body: unknown, status: number): Response {
+  return { ok: false, status, text: async () => JSON.stringify(body) } as unknown as Response;
 }
 
 function envelope(seq: number) {
@@ -21,7 +27,7 @@ afterEach(() => {
 
 describe("fetchLogEventsSince", () => {
   it("authenticates with a bearer token and asks for events after the given seq", async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse([]));
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(ndjsonResponse([]));
     vi.stubGlobal("fetch", fetchMock);
 
     await fetchLogEventsSince(42);
@@ -32,12 +38,43 @@ describe("fetchLogEventsSince", () => {
     expect((init as RequestInit).headers).toEqual({ Authorization: "Bearer test-read-token" });
   });
 
+  it("parses the NDJSON body, one object per line", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(ndjsonResponse([envelope(1), envelope(2)]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchLogEventsSince(0);
+    expect(result).toEqual({ ok: true, data: [envelope(1), envelope(2)] });
+  });
+
+  it("ignores a trailing newline, and an empty last line is never an event", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => `${JSON.stringify(envelope(1))}\n\n`,
+    } as unknown as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await fetchLogEventsSince(0);
+    expect(result).toEqual({ ok: true, data: [envelope(1)] });
+  });
+
+  it("treats a malformed line as unreachable, never a thrown parse exception", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => "{not valid json}\n",
+    } as unknown as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await fetchLogEventsSince(0)).toEqual({ ok: false, error: "unreachable" });
+  });
+
   it("pages until a page is short, concatenating every event", async () => {
     const fullPage = Array.from({ length: LOG_PAGE_LIMIT }, (_, i) => envelope(i + 1));
     const fetchMock = vi
       .fn<typeof fetch>()
-      .mockResolvedValueOnce(jsonResponse(fullPage))
-      .mockResolvedValueOnce(jsonResponse([envelope(LOG_PAGE_LIMIT + 1)]));
+      .mockResolvedValueOnce(ndjsonResponse(fullPage))
+      .mockResolvedValueOnce(ndjsonResponse([envelope(LOG_PAGE_LIMIT + 1)]));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await fetchLogEventsSince(0);
@@ -48,7 +85,7 @@ describe("fetchLogEventsSince", () => {
   });
 
   it("stops at once on an empty page", async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse([]));
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(ndjsonResponse([]));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await fetchLogEventsSince(0);
@@ -60,16 +97,16 @@ describe("fetchLogEventsSince", () => {
   it("tells a rejected token apart from an unreachable log, and never retries a rejection", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const unauthorizedFetch = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ error: "nope" }, 401));
+    const unauthorizedFetch = vi.fn<typeof fetch>().mockResolvedValue(errorResponse({ error: "nope" }, 401));
     vi.stubGlobal("fetch", unauthorizedFetch);
     expect(await fetchLogEventsSince(0)).toEqual({ ok: false, error: "unauthorized" });
     expect(unauthorizedFetch).toHaveBeenCalledTimes(1);
 
-    const forbiddenFetch = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ error: "nope" }, 403));
+    const forbiddenFetch = vi.fn<typeof fetch>().mockResolvedValue(errorResponse({ error: "nope" }, 403));
     vi.stubGlobal("fetch", forbiddenFetch);
     expect(await fetchLogEventsSince(0)).toEqual({ ok: false, error: "unauthorized" });
 
-    const brokenFetch = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ error: "boom" }, 500));
+    const brokenFetch = vi.fn<typeof fetch>().mockResolvedValue(errorResponse({ error: "boom" }, 500));
     vi.stubGlobal("fetch", brokenFetch);
     expect(await fetchLogEventsSince(0)).toEqual({ ok: false, error: "unreachable" });
 
@@ -91,7 +128,7 @@ describe("fetchLogEventsSince", () => {
 
   it("throws when the read token isn't configured, since that's a deployment fault", async () => {
     vi.stubEnv("VINAYA_LOG_READ_TOKEN", "");
-    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(jsonResponse([])));
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(ndjsonResponse([])));
 
     await expect(fetchLogEventsSince(0)).rejects.toThrow(/VINAYA_LOG_READ_TOKEN/);
   });

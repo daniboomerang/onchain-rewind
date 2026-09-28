@@ -55,21 +55,37 @@ export async function fetchLogEventsSince<T>(after: number): Promise<VinayaLogRe
       return { ok: false, error: "unreachable" };
     }
 
-    let page: unknown;
+    let text: string;
     try {
-      page = await response.json();
+      text = await response.text();
     } catch {
       return { ok: false, error: "unreachable" };
     }
-    if (!Array.isArray(page)) return { ok: false, error: "unreachable" };
 
-    events.push(...(page as T[]));
+    const page = parseNdjsonPage<T>(text);
+    if (page === undefined) return { ok: false, error: "unreachable" };
+
+    events.push(...page);
     const lastSeq = seqOf(page.at(-1));
     if (page.length < LOG_PAGE_LIMIT || lastSeq === undefined) break;
     cursor = lastSeq;
   }
 
   return { ok: true, data: events };
+}
+
+/** The endpoint answers `content-type: application/x-ndjson`: one JSON object per line, oldest first. */
+function parseNdjsonPage<T>(text: string): T[] | undefined {
+  const lines = text.split("\n").filter((line) => line.trim().length > 0);
+  const page: T[] = [];
+  for (const line of lines) {
+    try {
+      page.push(JSON.parse(line) as T);
+    } catch {
+      return undefined;
+    }
+  }
+  return page;
 }
 
 function seqOf(value: unknown): number | undefined {
