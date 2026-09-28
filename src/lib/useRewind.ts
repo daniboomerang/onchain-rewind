@@ -27,6 +27,7 @@ import {
 } from "#/engine/rewind.ts";
 import type { RewindFacts } from "#/engine/types.ts";
 import type { BalanceChart, ChainLite, FungibleLite, TransactionsPage } from "#/engine/zerion.ts";
+import { STALE_TIME_MS } from "#/lib/query-client.ts";
 import { getChains } from "#/server/zerion/chains.functions.ts";
 import type { ZerionErrorCode, ZerionResult } from "#/server/zerion/client.ts";
 import { getFungible } from "#/server/zerion/fungibles.functions.ts";
@@ -63,8 +64,6 @@ export const REQUEST_INTERVAL_MS = 1_000;
  * an upstream 500 that Zerion returns for a deep page of a very active wallet and then serves fine.
  */
 export const PAGE_RETRY_MS = REQUEST_INTERVAL_MS;
-/** SPEC §5: the client keeps a Zerion read fresh for ten minutes, matching the server's own cache. */
-const STALE_TIME_MS = 10 * 60 * 1000;
 
 export type RewindWallet = RewindWindow["wallet"];
 

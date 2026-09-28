@@ -12,8 +12,16 @@
 
 export const ZERION_BASE_URL = "https://api.zerion.io";
 
-/** The free tier allows about 2,000 calls a day, so a repeated call inside the window is served here. */
-const DEFAULT_TTL_MS = 10 * 60 * 1000;
+/**
+ * The Demo plan allows 300 calls a day, and one full Rewind of a deep wallet spends more than twenty
+ * of them, so the cache is measured in hours rather than minutes: a wallet replayed, re-opened or
+ * shared during the same sitting costs the budget nothing at all. Half a day is as stale as a year of
+ * history can get without any card reading differently — the window is 365 days long.
+ *
+ * On a serverless host this is best-effort by nature: the cache lives in one instance's memory, so a
+ * cold start starts empty. It saves the repeated calls of one session, which is what the budget needs.
+ */
+const DEFAULT_TTL_MS = 12 * 60 * 60 * 1000;
 /** Chain names and icons barely move. */
 const CHAINS_TTL_MS = 24 * 60 * 60 * 1000;
 /** Enough for a year of transaction pages per wallet, a handful of wallets deep. */

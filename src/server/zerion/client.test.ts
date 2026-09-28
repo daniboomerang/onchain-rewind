@@ -157,11 +157,11 @@ describe("the response cache", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("expires an ordinary response after ten minutes", async () => {
+  it("keeps an ordinary response for half a day, so a replay costs the daily budget nothing", async () => {
     const fetchMock = mockFetch(jsonResponse({ data: "first" }), jsonResponse({ data: "second" }));
 
     await zerionFetch("/v1/fungibles/eth");
-    vi.advanceTimersByTime(10 * 60 * 1000 - 1);
+    vi.advanceTimersByTime(12 * 60 * 60 * 1000 - 1);
     await zerionFetch("/v1/fungibles/eth");
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
