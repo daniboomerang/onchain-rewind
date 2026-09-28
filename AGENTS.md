@@ -92,7 +92,7 @@ Conventions that apply to certain paths live in `.claude/rules/<topic>.md`, with
 | [`motion-and-reveal`](.claude/rules/motion-and-reveal.md) | `src/components/rewind/**` | motion tokens, PlaybackContext, ParticleReveal, reduced motion |
 | [`tanstack-start`](.claude/rules/tanstack-start.md) | `src/routes/**`, `src/server/**`, `vite.config.ts` | routing, server functions, env, SSR boundaries |
 
-Rules guide the agent, but **hard rules are enforced by tools, not prose**: the Biome import ban (Ariakit), the key-leak check in `ship-check`, typecheck, tests, and Vinaya's gates, including this repo's `onchain-rewind/vocabulary-citation` check (`vinaya/checks/`): the durable docs (`SPEC.md`, `CONTEXT.md`, `AGENTS.md`, `CLAUDE.md`, `README.md`, `docs/adr/`) never cite a task number, an Issue number or a tranche name, because the plan lives only on the forge.
+Rules guide the agent, but **hard rules are enforced by tools, not prose**: the Biome import ban (Ariakit), the key-leak check in `ship-check`, typecheck, tests, and Vinaya's gates, which keep the durable docs from citing a task number, an Issue number or a tranche name, because the plan lives only on the forge: Vinaya's own `reader-resolvable-prose` check covers `SPEC.md`, `CONTEXT.md` and `docs/adr/`, and this repo's `onchain-rewind/vocabulary-citation` check (`vinaya/checks/`) covers `AGENTS.md`, `CLAUDE.md` and `README.md`.
 
 ## Workflow skills (on demand)
 
