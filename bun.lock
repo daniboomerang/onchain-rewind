@@ -16,7 +16,7 @@
         "viem": "2.56.9",
       },
       "devDependencies": {
-        "@attalabs/aeg-core": "0.34.0",
+        "@attalabs/aeg-core": "0.35.0",
         "@biomejs/biome": "2.5.14",
         "@tailwindcss/vite": "4.3.3",
         "@testing-library/jest-dom": "7.0.1",
@@ -53,11 +53,11 @@
 
     "@ariakit/utils": ["@ariakit/utils@0.2.1", "", {}, "sha512-hJs71Orklyw1tW2bCrDdEDp2nEv6I2c3iP1bof88Chd3rTuJIHAp+3a3yDwU5UKjM3baB6QDrCg4x6jABgsEyw=="],
 
-    "@attalabs/aeg-core": ["@attalabs/aeg-core@0.34.0", "", { "dependencies": { "@attalabs/aeg-forge-state": "0.34.0", "@attalabs/aeg-types": "0.34.0", "gray-matter": "^4.0.3", "zod": "3.25.76" } }, "sha512-NNiSvQ8wksPFvhEvufs1bkrB0Wp4b+blPbf7Ha4rbEZIoRkXuSdAuwTV01gGMOAjms/nb342YlJ3lOYWLVydnA=="],
+    "@attalabs/aeg-core": ["@attalabs/aeg-core@0.35.0", "", { "dependencies": { "@attalabs/aeg-forge-state": "0.35.0", "@attalabs/aeg-types": "0.35.0", "gray-matter": "^4.0.3", "zod": "3.25.76" } }, "sha512-3KnVlKfv5YyOjIsfQmmNlBRsST6LoStYCp9KEWxH4VZ8pRcG1t+7grDCtoEOy7MFSmucEVlrq8Orl1v3EtR9ng=="],
 
-    "@attalabs/aeg-forge-state": ["@attalabs/aeg-forge-state@0.34.0", "", { "dependencies": { "@attalabs/aeg-types": "0.34.0", "@octokit/graphql": "^8.1.1" } }, "sha512-AzU0BHo2GghUCJyu9/IA6FlbXo1A5AToJCkpnwpiGvjI9veU4uyUwm5hLotyuUfUFQorRpHouLXjzZ0fKlZZQA=="],
+    "@attalabs/aeg-forge-state": ["@attalabs/aeg-forge-state@0.35.0", "", { "dependencies": { "@attalabs/aeg-types": "0.35.0", "@octokit/graphql": "^8.1.1" } }, "sha512-rgqQqJkpNXw8l0HBAxGRWDjGj2GOqv/TfFRHPCj8UGGyhRes/PhmbaK9gVdLUJHydcmu9jnFkM1/wjOvElEoRA=="],
 
-    "@attalabs/aeg-types": ["@attalabs/aeg-types@0.34.0", "", {}, "sha512-dXl3syWZ5qRK/6INNBJwfzKEZjHSJancQRwZP9o5sSZslJCPUP4RU624VqTH4BhyG8XMta00d4A5DpB9MOlYug=="],
+    "@attalabs/aeg-types": ["@attalabs/aeg-types@0.35.0", "", {}, "sha512-BR7NT6tg7zOds6jmeDxz9gpTVTLFTOiieldpWzXg54SrLidyj4nVMExPElPF80awOXXPy7Zjoxi9TtGa0EcO1A=="],
 
     "@babel/code-frame": ["@babel/code-frame@7.29.7", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],
 
