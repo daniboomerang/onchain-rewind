@@ -87,7 +87,7 @@ Base URL `https://api.zerion.io`. Auth is HTTP Basic, with the API key as the us
 - Keep an in-memory server cache per `(address, endpoint, params)` with a TTL of half a day — hours, not minutes, so replaying or re-opening a wallet the same day costs no new requests. The window is 365 days long, so nothing on a card reads differently for the drift.
 - On the client, TanStack Query uses the same `staleTime` of half a day.
 - On 429 with calls left in the day, retry with exponential backoff (at most 3 tries), then show the error state.
-- **When the day's budget is spent** the API answers 429 with `ratelimit-org-day-remaining: 0` until `ratelimit-org-day-reset`, and no retry can help. That is its own failure, not a throttle: the Rewind ends on the error state with its own message — the day's data budget is spent, come back tomorrow — instead of the generic "didn't respond".
+- **When the day's budget is spent** the API answers 429 with `ratelimit-org-day-remaining: 0`, and `ratelimit-org-day-reset` counts the seconds until it comes back; no retry helps before then. That is its own failure, not a throttle: the Rewind ends on the error state with its own message — the day's data budget is spent, come back tomorrow — instead of the generic "didn't respond".
 
 ## 6. Demo wallets
 

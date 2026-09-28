@@ -36,7 +36,7 @@ const RATE_LIMIT_BACKOFF_MS = [500, 1000, 2000] as const;
  * Zerion reports the organization's remaining daily calls on every response. Read live off this
  * repository's key and recorded, with the plan's own limit headers, in
  * `.claude/rules/zerion-api.md`: on the free Demo plan a spent day answers `429` with
- * `ratelimit-org-day-remaining: 0` until `ratelimit-org-day-reset`.
+ * `ratelimit-org-day-remaining: 0`, and `ratelimit-org-day-reset` counts the seconds until it returns.
  */
 const DAY_REMAINING_HEADER = "ratelimit-org-day-remaining";
 

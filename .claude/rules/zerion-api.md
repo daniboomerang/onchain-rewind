@@ -47,7 +47,7 @@ The OpenAPI spec is at `https://developers.zerion.io/openapi-v1.yaml`, and the d
 | `ratelimit-org-second-limit` | `1` | **One request a second.** Two in the same second are throttled, whichever endpoints they are. |
 | `ratelimit-org-day-limit` | `300` | **300 requests a day** for the whole organization. |
 | `ratelimit-org-day-remaining` | counts down to `0` | What the day has left. `0` on a `429` is the budget spent. |
-| `ratelimit-org-day-reset` | a timestamp | When the day's budget comes back. Nothing succeeds before it. |
+| `ratelimit-org-day-reset` | seconds, e.g. `33043` | How long until the day's budget comes back. Nothing succeeds before it. Zerion also sends the same figures as `ratelimit-limit: 300 300;w=86400`, `ratelimit-remaining`, `ratelimit-reset` and `ratelimit-type`. |
 
 Every response carries them, so re-read them from a live call rather than trusting this table if the plan ever changes.
 
