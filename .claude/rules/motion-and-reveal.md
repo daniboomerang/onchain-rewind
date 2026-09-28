@@ -23,7 +23,7 @@ The spec is `design/DESIGN.md` §1 (motion tokens) and §3 (motion per screen). 
 
 ## ParticleReveal (Canvas 2D)
 - **Imperative handle:** `addTransactions(n)` for each page from the paging loop, `complete(finalCount)` when paging ends, `fail()` on error. `onBurst` fires at burst start; the story enters 200ms later.
-- **Phases:** scatter 0–600ms, then gather until `complete()` (at least 3,200ms total, a 12s timeout leads to `fail()` upstream), hold 400ms, burst 700ms. Every one of those lengths is a field of `revealMs`, which reads the millisecond twin of a `duration` token wherever one covers the phase; the rAF loop measures in ms, `duration` is in seconds for Motion.
+- **Phases:** scatter 0–600ms, then gather until `complete()` (at least 3,200ms total, a 45s timeout leads to `fail()` upstream), hold 400ms, burst 700ms. Every one of those lengths is a field of `revealMs`, which reads the millisecond twin of a `duration` token wherever one covers the phase; the rAF loop measures in ms, `duration` is in seconds for Motion.
 - **The maths is separate from the component.** `particles.ts` holds the caps, the easings, the position of a particle at a given moment, and the colour and alpha the loop paints it with — pure and unit-tested, because no test environment has a 2D context. `ParticleReveal.tsx` is the canvas, the handle and the loop around it.
 - **Limits:** 1 particle per transaction, capped at 1500 on desktop and 600 on mobile. Dust pads the count to at least 240.
 - **Performance:**
@@ -49,6 +49,10 @@ so a page costs no re-render of the story.
 - **Guard the handover timer against reduced motion.** There the crossfade calls `onBurst` and
   `onDone` in the same tick, so the story is already entered when the timer fires; advance the stage
   only if it is still `reveal`, or the timer remounts a reveal the story has finished with.
+- **A long run is still a counting reveal.** Paging is paced (`PAGE_INTERVAL_MS`) and the run's budget is
+  `TIMEOUT_MS`, so a wallet with a full year of history can page for tens of seconds. Nothing in the
+  reveal is sized to a shorter run: the gather holds until `complete()`, and each page rolls the
+  counter as it lands.
 - **`fail()` is the only way into the error state**, so the particles fade out before it crossfades
   in. Retry is a fresh run, not a resumed one.
 

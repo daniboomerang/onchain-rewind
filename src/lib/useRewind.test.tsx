@@ -13,7 +13,14 @@ import type { ReactNode } from "react";
 import { expect, test, vi } from "vitest";
 import type { Address } from "#/engine/types.ts";
 import type { BalanceChart, ChainLite, FungibleLite, TransactionsPage, TxLite } from "#/engine/zerion.ts";
-import { type RewindApi, TIMEOUT_MS, type UseRewindOptions, useRewind } from "#/lib/useRewind.ts";
+import {
+  MAX_PAGES,
+  PAGE_INTERVAL_MS,
+  type RewindApi,
+  TIMEOUT_MS,
+  type UseRewindOptions,
+  useRewind,
+} from "#/lib/useRewind.ts";
 import type { ZerionResult } from "#/server/zerion/client.ts";
 
 const ADDRESS = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045" as Address;
@@ -118,6 +125,29 @@ function recorder() {
     onComplete: (finalCount: number) => trace.push(`complete:${finalCount}`),
     onFail: () => trace.push("fail"),
   };
+}
+
+/**
+ * A run of `pages` pages where every request takes `latencyMs` upstream, recording the instant each
+ * one went out. That trace is what makes the pacing between pages, and the wall clock a full year at
+ * the cap costs, observable — under fake timers, so neither is a real wait.
+ */
+function pacedApi(pages: number, latencyMs: number) {
+  const startedAt: number[] = [];
+
+  const api: RewindApi = {
+    transactionsPage: async (_input, _signal) => {
+      startedAt.push(Date.now());
+      const index = startedAt.length;
+      await new Promise((resolve) => setTimeout(resolve, latencyMs));
+      return page([tx(`tx-${index}`, "2026-09-20T10:00:00Z", "ethereum")], index >= pages ? null : cursor(index));
+    },
+    chains: async () => ({ ok: true, data: CHAINS }),
+    fungible: async () => ({ ok: true, data: ETH }),
+    balanceChart: async () => ({ ok: true, data: CHART }),
+  };
+
+  return { api, startedAt };
 }
 
 function renderRewind(options: UseRewindOptions) {
@@ -339,6 +369,65 @@ test("stops at the transaction cap, and the count it completes with is the hones
   expect(result.current.facts?.txCount).toBe(2);
   // What the reveal counted still adds up to the count it is completed with.
   expect(trace).toEqual(["page:2", "complete:2"]);
+});
+
+test("paces its page requests, so a long run stays under the free tier's burst limit", async () => {
+  vi.useFakeTimers();
+  try {
+    // An upstream that answers instantly is the throttling case: nothing but the pacing spaces the
+    // requests out, and a 20-page wallet would otherwise fire a burst the free tier rejects.
+    const { api, startedAt } = pacedApi(4, 0);
+
+    const { result } = renderRewind({ wallet: { address: ADDRESS }, now: NOW, api });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TIMEOUT_MS);
+    });
+
+    expect(result.current.status).toBe("ready");
+    expect(startedAt).toHaveLength(4);
+    const gaps = startedAt.slice(1).map((at, index) => at - (startedAt[index] ?? 0));
+    for (const gap of gaps) expect(gap).toBeGreaterThanOrEqual(PAGE_INTERVAL_MS);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("a full year at the page cap reaches the story well inside the timeout", async () => {
+  vi.useFakeTimers();
+  try {
+    const { onPage, onComplete, onFail, trace } = recorder();
+    // Slower per page than the live API is on the demo wallets, so the margin is the point.
+    const { api, startedAt } = pacedApi(MAX_PAGES + 1, 700);
+
+    const startedRunAt = Date.now();
+    let finishedAt: number | undefined;
+    const { result } = renderRewind({
+      wallet: { address: ADDRESS },
+      now: NOW,
+      api,
+      onPage,
+      onComplete: (finalCount) => {
+        finishedAt = Date.now();
+        onComplete(finalCount);
+      },
+      onFail,
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TIMEOUT_MS);
+    });
+
+    expect(result.current.status).toBe("ready");
+    expect(result.current.capped).toBe(true);
+    expect(startedAt).toHaveLength(MAX_PAGES);
+    expect(trace).toEqual([...Array.from({ length: MAX_PAGES }, () => "page:1"), `complete:${MAX_PAGES}`]);
+    // The run really does outlast a 12s budget — it is the timeout, not the latency, that changed.
+    const elapsed = (finishedAt ?? Number.NaN) - startedRunAt;
+    expect(elapsed).toBeGreaterThan(12_000);
+    expect(elapsed).toBeLessThan(TIMEOUT_MS);
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 test("a run still paging when the timeout lands reports failure and aborts", async () => {

@@ -60,7 +60,7 @@ routes/index.tsx
 
 **Key decisions** (recorded as ADRs in [`docs/adr/`](docs/adr/)):
 1. **The key stays on the server.** Every Zerion call goes through a TanStack Start server function, so the browser never sees the key.
-2. **Loading is the animation.** The client pages through transactions and feeds each page's count into `ParticleReveal`. The reveal only completes when the data does (minimum 3.2s, 12s timeout → error).
+2. **Loading is the animation.** The client pages through transactions and feeds each page's count into `ParticleReveal`. The reveal only completes when the data does (minimum 3.2s, 45s timeout → error). The timeout has to hold a full year at the cap, so it is sized for 20 paced page requests rather than for a typical wallet, which still reaches the story in a few seconds.
 3. **The engine is pure and separate from the UI.** Zerion responses → `RewindFacts` in `src/engine/`, unit-tested with recorded fixtures. Components never see raw API data.
 
 ## 5. Data mapping (Zerion → `RewindFacts`)
@@ -78,6 +78,8 @@ Base URL `https://api.zerion.io`. Auth is HTTP Basic, with the API key as the us
 | `balance` | `GET /v1/wallets/{a}/charts/year` | **Verified:** the period is the `year` value of the `chart_period` enum — one point per day over the last 365 days (366 points, `begin_at` and `end_at` exactly a year apart). `points` are `[unix seconds, value]` tuples, oldest first, counting simple token and native-coin balances. `series` becomes daily points, `high`/`low` are max/min points of the series, `current` is the last value, and `changePct` compares first and last, to one decimal. Fewer than two points — or a first point of `0`, where a change has no meaning — leaves `balance` out and hides card 4. |
 
 **Window:** the last 365 days (`filter[min_mined_at]`). **Cap:** page size 100, at most 20 pages (2,000 transactions). If the cap is hit, the counter and share card say "2,000+".
+
+**Pacing and the timeout:** consecutive page requests go out at least 150ms apart, because the free tier allows about ten requests a second and a wallet at the cap would otherwise fire a burst it rejects — a throttled page ends the whole run in the error state. A run that hasn't produced its facts within 45s is the error state; the reveal keeps counting the pages that have landed until then.
 
 **Budget:** the free key allows about 2,000 calls a day and 10 requests a second.
 - Keep an in-memory server cache per `(address, endpoint, params)` with a 10-minute TTL.
