@@ -34,6 +34,24 @@ The spec is `design/DESIGN.md` §1 (motion tokens) and §3 (motion per screen). 
   - canvas resizes on viewport change
 - **Accessibility:** the counter is in an `aria-live="polite"` region, with at most one update per second.
 
+## Driving the reveal from a real run
+The route owns the wiring; the reveal owns the clock. `useRewind`'s three callbacks are the whole
+contract: `onPage` → `addTransactions(n)` for the page that just landed, `onComplete` →
+`complete(finalCount)` when paging ends, `onFail` → `fail()`. None of them goes through React state,
+so a page costs no re-render of the story.
+
+- **One run is one mounted reveal.** A different wallet, a replay or a retry re-keys the run, so the
+  reveal, the stage and the player reset together and the old rAF loop is cancelled by its own
+  unmount. Nothing resets a run in place.
+- **The handover is a three-stage overlap**: `reveal` → `burst` (the player mounts under the burst,
+  `revealMs.storyEnter` after `onBurst`) → `story` (`onDone` unmounts the reveal). The empty wallet
+  needs no branch: the run completes with a count of zero and the player renders its own empty state.
+- **Guard the handover timer against reduced motion.** There the crossfade calls `onBurst` and
+  `onDone` in the same tick, so the story is already entered when the timer fires; advance the stage
+  only if it is still `reveal`, or the timer remounts a reveal the story has finished with.
+- **`fail()` is the only way into the error state**, so the particles fade out before it crossfades
+  in. Retry is a fresh run, not a resumed one.
+
 ## Reduced motion (`useReducedMotion()`)
 - No canvas: a static "Reading N transactions…" whose number updates without rolling, then a 240ms crossfade into card 1. The announced copy is a separate `sr-only` polite region in both branches and the visible number is `aria-hidden`, so the once-a-second throttle holds whether or not there is a canvas — the number itself can keep up with the pages.
 - Cards crossfade with no x movement. Bars, chart and numbers render at their final values. Progress segments still fill, because that's timing, not decoration. Press scale is off.
