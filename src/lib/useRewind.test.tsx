@@ -15,7 +15,7 @@ import type { Address } from "#/engine/types.ts";
 import type { BalanceChart, ChainLite, FungibleLite, TransactionsPage, TxLite } from "#/engine/zerion.ts";
 import {
   MAX_PAGES,
-  PAGE_INTERVAL_MS,
+  REQUEST_INTERVAL_MS,
   type RewindApi,
   TIMEOUT_MS,
   type UseRewindOptions,
@@ -129,34 +129,57 @@ function recorder() {
 
 /**
  * A run of `pages` pages where every request takes `latencyMs` upstream, recording the instant each
- * one went out. That trace is what makes the pacing between pages, and the wall clock a full year at
- * the cap costs, observable — under fake timers, so neither is a real wait.
+ * one went out — pages in `startedAt`, and every request of any kind in `requestedAt`. Those traces
+ * are what make the pacing, and the wall clock a full year at the cap costs, observable — under fake
+ * timers, so neither is a real wait.
  */
 function pacedApi(pages: number, latencyMs: number) {
   const startedAt: number[] = [];
+  const requestedAt: number[] = [];
+
+  const upstream = async <T,>(value: T) => {
+    requestedAt.push(Date.now());
+    await new Promise((resolve) => setTimeout(resolve, latencyMs));
+    return value;
+  };
 
   const api: RewindApi = {
     transactionsPage: async (_input, _signal) => {
       startedAt.push(Date.now());
       const index = startedAt.length;
-      await new Promise((resolve) => setTimeout(resolve, latencyMs));
-      return page([tx(`tx-${index}`, "2026-09-20T10:00:00Z", "ethereum")], index >= pages ? null : cursor(index));
+      return upstream(
+        page([tx(`tx-${index}`, "2026-09-20T10:00:00Z", "ethereum")], index >= pages ? null : cursor(index)),
+      );
     },
-    chains: async () => ({ ok: true, data: CHAINS }),
-    fungible: async () => ({ ok: true, data: ETH }),
-    balanceChart: async () => ({ ok: true, data: CHART }),
+    chains: async () => upstream({ ok: true, data: CHAINS }),
+    fungible: async () => upstream({ ok: true, data: ETH }),
+    balanceChart: async () => upstream({ ok: true, data: CHART }),
   };
 
-  return { api, startedAt };
+  return { api, startedAt, requestedAt };
 }
 
+/** Every gap in a trace of request instants, so "one a second" is one assertion per gap. */
+const gapsIn = (instants: readonly number[]) => instants.slice(1).map((at, index) => at - (instants[index] ?? 0));
+
+/**
+ * Every run here is unpaced unless the test is about pacing: the app's floor is a whole second per
+ * request (the Demo plan's limit), which a scripted three-page run has no reason to spend.
+ */
 function renderRewind(options: UseRewindOptions) {
   // A fresh client per run, so no test reads another's cached chains, fungible or chart.
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
-  return renderHook((props: UseRewindOptions) => useRewind(props), { initialProps: options, wrapper });
+  const unpaced = (props: UseRewindOptions): UseRewindOptions => ({ requestIntervalMs: 0, ...props });
+  const rendered = renderHook((props: UseRewindOptions) => useRewind(props), {
+    initialProps: unpaced(options),
+    wrapper,
+  });
+  // A re-render is a second run, and it takes the same default: `rerender` would otherwise hand the
+  // hook the raw props and pace that run a second apart.
+  return { ...rendered, rerender: (props: UseRewindOptions) => rendered.rerender(unpaced(props)) };
 }
 
 /* ---- O1, O2: paging, the engine, and the facts the extras complete ---- */
@@ -371,22 +394,57 @@ test("stops at the transaction cap, and the count it completes with is the hones
   expect(trace).toEqual(["page:2", "complete:2"]);
 });
 
-test("paces its page requests, so a long run stays under the free tier's burst limit", async () => {
+test("the request floor is the Demo plan's own limit: one request a second", () => {
+  expect(REQUEST_INTERVAL_MS).toBeGreaterThanOrEqual(1_000);
+});
+
+test("paces its page requests, so a long run stays inside the Demo plan's one request a second", async () => {
   vi.useFakeTimers();
   try {
     // An upstream that answers instantly is the throttling case: nothing but the pacing spaces the
-    // requests out, and a 20-page wallet would otherwise fire a burst the free tier rejects.
+    // requests out, and a 20-page wallet would otherwise fire a burst the plan rejects.
     const { api, startedAt } = pacedApi(4, 0);
 
-    const { result } = renderRewind({ wallet: { address: ADDRESS }, now: NOW, api });
+    const { result } = renderRewind({
+      wallet: { address: ADDRESS },
+      now: NOW,
+      api,
+      requestIntervalMs: REQUEST_INTERVAL_MS,
+    });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(TIMEOUT_MS);
     });
 
     expect(result.current.status).toBe("ready");
     expect(startedAt).toHaveLength(4);
-    const gaps = startedAt.slice(1).map((at, index) => at - (startedAt[index] ?? 0));
-    for (const gap of gaps) expect(gap).toBeGreaterThanOrEqual(PAGE_INTERVAL_MS);
+    for (const gap of gapsIn(startedAt)) expect(gap).toBeGreaterThanOrEqual(REQUEST_INTERVAL_MS);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("the reads that resolve once queue behind the pages instead of bursting alongside them", async () => {
+  vi.useFakeTimers();
+  try {
+    // Four pages, plus the chain list, the chart and the top token's fungible: every one of the
+    // seven requests has to be a second clear of the one before it, whichever kind it is.
+    const { api, startedAt, requestedAt } = pacedApi(4, 0);
+
+    const { result } = renderRewind({
+      wallet: { address: ADDRESS },
+      now: NOW,
+      api,
+      requestIntervalMs: REQUEST_INTERVAL_MS,
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TIMEOUT_MS);
+    });
+
+    expect(result.current.status).toBe("ready");
+    expect(requestedAt).toHaveLength(7);
+    for (const gap of gapsIn(requestedAt)) expect(gap).toBeGreaterThanOrEqual(REQUEST_INTERVAL_MS);
+    // The first page goes out first: the reveal starts counting rather than waiting out two extras.
+    expect(startedAt[0]).toBe(requestedAt[0]);
   } finally {
     vi.useRealTimers();
   }
@@ -405,6 +463,7 @@ test("a full year at the page cap reaches the story well inside the timeout", as
       wallet: { address: ADDRESS },
       now: NOW,
       api,
+      requestIntervalMs: REQUEST_INTERVAL_MS,
       onPage,
       onComplete: (finalCount) => {
         finishedAt = Date.now();
@@ -421,10 +480,12 @@ test("a full year at the page cap reaches the story well inside the timeout", as
     expect(result.current.capped).toBe(true);
     expect(startedAt).toHaveLength(MAX_PAGES);
     expect(trace).toEqual([...Array.from({ length: MAX_PAGES }, () => "page:1"), `complete:${MAX_PAGES}`]);
-    // The run really does outlast a 12s budget — it is the timeout, not the latency, that changed.
+    // The run costs what the plan charges for it: 20 pages and the three reads that resolve once are
+    // 23 requests a second apart, and the wall clock says so. The timeout still leaves room for an
+    // upstream twice as slow as this one, which is what "holds a full paced year" has to mean.
     const elapsed = (finishedAt ?? Number.NaN) - startedRunAt;
-    expect(elapsed).toBeGreaterThan(12_000);
-    expect(elapsed).toBeLessThan(TIMEOUT_MS);
+    expect(elapsed).toBeGreaterThan((MAX_PAGES + 2) * REQUEST_INTERVAL_MS);
+    expect(elapsed).toBeLessThan(TIMEOUT_MS / 2);
   } finally {
     vi.useRealTimers();
   }

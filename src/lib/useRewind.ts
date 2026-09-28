@@ -37,27 +37,32 @@ export const MAX_PAGES = 20;
 /**
  * ADR-0002: a run that hasn't finished by here is an error state, not a longer wait.
  *
- * It has to hold a full year at the cap: 20 paced page requests, their upstream latency, the three
- * reads that resolve once, and a 429's own backoffs (500ms, 1s, 2s per call, in `zerionFetch`). A
- * wallet with a year of history loses nothing to the clock, and the reveal counts throughout —
- * nothing here shortens the wait for a wallet that pages quickly, which is still most of them.
+ * It has to hold a full year at the cap on the Demo plan's one request a second
+ * (`.claude/rules/zerion-api.md`): 20 page requests and the three reads that resolve once are 23
+ * slots a second apart, each slot's upstream latency on top, one failed page's retry, and a 429's
+ * own backoffs (500ms, 1s, 2s per call, in `zerionFetch`). That is a little over half a minute for
+ * the deepest wallet, so this leaves room for a slow upstream on top of it. The reveal counts
+ * throughout, and nothing here lengthens the wait for a wallet that pages in three.
  */
-export const TIMEOUT_MS = 45_000;
+export const TIMEOUT_MS = 90_000;
 /**
- * The floor between two page requests. The free tier allows about ten requests a second
- * (`.claude/rules/zerion-api.md`), and a run's pages are sequential, so only a fast upstream can
- * approach that — this keeps even a fully cached run at under seven requests a second, which is
- * what stops a 20-page wallet from being throttled into the error state. It costs a wallet that
- * pages quickly nothing visible: the reveal never finishes before `revealMs.minReveal` anyway.
+ * The floor between any two Zerion requests one run makes — pages and the three reads alike.
+ *
+ * The key's organization is on Zerion's free Demo plan, which allows **one request a second**
+ * (`ratelimit-org-second-limit: 1`, recorded in `.claude/rules/zerion-api.md`). One second is
+ * therefore not a safety margin but the limit itself: two requests in the same second are throttled,
+ * which is why the reads that don't depend on a page queue behind the paging loop instead of
+ * travelling alongside it. It costs a wallet that pages quickly nothing visible: the reveal never
+ * finishes before `revealMs.minReveal` anyway.
  */
-export const PAGE_INTERVAL_MS = 150;
+export const REQUEST_INTERVAL_MS = 1_000;
 /**
- * How long a failed page waits before its one retry. It mirrors `zerionFetch`'s first backoff,
- * because the failures that reach here are the ones the server already gave up on: a 429 that
- * outlasted its three waits, and — measured live on the demo wallets — an upstream 500 that Zerion
- * returns for a deep page of a very active wallet and then serves fine on the next attempt.
+ * How long a failed page waits before its one retry. It is the request floor, because on this plan
+ * nothing can go out sooner anyway: the failures that reach here are the ones the server already
+ * gave up on — a throttle that outlasted its three backoffs, and, measured live on the demo wallets,
+ * an upstream 500 that Zerion returns for a deep page of a very active wallet and then serves fine.
  */
-export const PAGE_RETRY_MS = 500;
+export const PAGE_RETRY_MS = REQUEST_INTERVAL_MS;
 /** SPEC §5: the client keeps a Zerion read fresh for ten minutes, matching the server's own cache. */
 const STALE_TIME_MS = 10 * 60 * 1000;
 
@@ -104,7 +109,7 @@ export type UseRewindOptions = {
   readonly maxPages?: number;
   readonly maxTransactions?: number;
   readonly timeoutMs?: number;
-  readonly pageIntervalMs?: number;
+  readonly requestIntervalMs?: number;
   readonly pageRetryMs?: number;
 };
 
@@ -137,7 +142,7 @@ export function useRewind({
   maxPages = MAX_PAGES,
   maxTransactions,
   timeoutMs = TIMEOUT_MS,
-  pageIntervalMs = PAGE_INTERVAL_MS,
+  requestIntervalMs = REQUEST_INTERVAL_MS,
   pageRetryMs = PAGE_RETRY_MS,
 }: UseRewindOptions): UseRewindResult {
   const client = useQueryClient();
@@ -220,6 +225,27 @@ export function useRewind({
       });
 
     /**
+     * The instant this run's next request may go out. Reserving a slot moves it on, synchronously,
+     * so two callers never share one: the Demo plan allows a single request a second, and a burst of
+     * two is throttled whether it is two pages or a page and a chart.
+     */
+    let nextRequestAt = 0;
+
+    /** Waits for this run's next request slot and reserves it. */
+    const takeSlot = async () => {
+      const at = Math.max(Date.now(), nextRequestAt);
+      nextRequestAt = at + requestIntervalMs;
+      const waitMs = at - Date.now();
+      if (waitMs > 0) await pace(waitMs);
+    };
+
+    /** A Zerion call that waits its turn. Every request this run makes goes through here. */
+    const paced = async <T>(call: () => Promise<ZerionResult<T>>) => {
+      await takeSlot();
+      return call();
+    };
+
+    /**
      * One of the three reads that resolve once, through Query. A failed read yields `undefined`
      * rather than ending the run: the engine leaves the field it feeds out and the card hides, which
      * is a smaller loss than no Rewind at all. Throwing inside the query is what keeps a failure out
@@ -249,40 +275,45 @@ export function useRewind({
           ...(maxTransactions !== undefined ? { maxTransactions } : {}),
         };
 
-        // Neither depends on a page, so both travel alongside the paging loop rather than after it.
-        const chainsRead = read(["zerion", "chains"], () => api.chains(signal));
-        const chartRead = read(["zerion", "balance-chart", address], () => api.balanceChart(address, signal));
+        /**
+         * Neither depends on a page, and on one request a second nothing travels *alongside*
+         * anything: these queue behind the first page rather than in front of it, so the reveal
+         * starts counting on the first page instead of waiting out their two slots first. A read
+         * Query already has costs no slot at all, because the slot is taken inside its `queryFn`.
+         */
+        let chainsRead: Promise<readonly ChainLite[] | undefined> | undefined;
+        let chartRead: Promise<BalanceChart | undefined> | undefined;
+        const startExtras = () => {
+          chainsRead ??= read(["zerion", "chains"], () => paced(() => api.chains(signal)));
+          chartRead ??= read(["zerion", "balance-chart", address], () =>
+            paced(() => api.balanceChart(address, signal)),
+          );
+        };
 
         let state = createState(rewindWindow);
         let next: string | undefined;
         let pages = 0;
         /** The cap stopped paging with a page still behind it — the "2,000+" case. */
         let pageCapHit = false;
-        /** When the request before this one went out, so the next one can be paced off it. */
-        let lastRequestAt: number | undefined;
         /** A page failed for good with a year already counted, so the facts describe part of it. */
         let partial = false;
 
-        for (;;) {
-          if (lastRequestAt !== undefined) {
-            const remaining = pageIntervalMs - (Date.now() - lastRequestAt);
-            if (remaining > 0) {
-              await pace(remaining);
-              if (halted()) return;
-            }
-          }
-          const request = () => {
-            lastRequestAt = Date.now();
-            return api.transactionsPage({ address, ...(next !== undefined ? { next } : {}) }, signal);
-          };
+        /** Takes the run's next request slot, and reports whether the run may still use it. */
+        const slot = async () => {
+          await takeSlot();
+          return !halted();
+        };
+        const request = () => api.transactionsPage({ address, ...(next !== undefined ? { next } : {}) }, signal);
 
+        for (;;) {
+          if (!(await slot())) return;
           let page = await request();
           if (halted()) return;
           if (!page.ok) {
             // One retry, because the failures that get this far are usually the upstream's own
             // flake rather than anything about this wallet.
             await pace(pageRetryMs);
-            if (halted()) return;
+            if (!(await slot())) return;
             page = await request();
             if (halted()) return;
           }
@@ -301,6 +332,7 @@ export function useRewind({
           }
 
           pages += 1;
+          startExtras();
           const before = state.txCount;
           state = accumulate(state, page.data);
           // The engine's own delta, not the page's length: what the reveal counts has to add up to
@@ -321,7 +353,7 @@ export function useRewind({
         const fungible =
           fungibleId === undefined
             ? undefined
-            : await read(["zerion", "fungible", fungibleId], () => api.fungible(fungibleId, signal));
+            : await read(["zerion", "fungible", fungibleId], () => paced(() => api.fungible(fungibleId, signal)));
 
         const extras: RewindExtras = {
           chains: await chainsRead,
@@ -346,7 +378,19 @@ export function useRewind({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [address, name, nowMs, api, maxPages, maxTransactions, timeoutMs, pageIntervalMs, pageRetryMs, client, attempt]);
+  }, [
+    address,
+    name,
+    nowMs,
+    api,
+    maxPages,
+    maxTransactions,
+    timeoutMs,
+    requestIntervalMs,
+    pageRetryMs,
+    client,
+    attempt,
+  ]);
 
   return {
     status: outcome.status,

@@ -153,10 +153,14 @@ function remember(wallet: { label: string; address: Address }) {
   localStorage.setItem(WALLET_STORAGE_KEY, JSON.stringify({ address: wallet.address, name: wallet.label }));
 }
 
+/**
+ * Unpaced: the app spaces its Zerion requests a whole second apart, because the Demo plan allows one
+ * a second, and none of the scripted runs below has a reason to spend that wall clock.
+ */
 function open(api: RewindApi) {
   return render(
     <QueryClientProvider client={createAppQueryClient()}>
-      <Home api={api} />
+      <Home api={api} requestIntervalMs={0} />
     </QueryClientProvider>,
   );
 }

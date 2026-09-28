@@ -18,11 +18,16 @@ export const Route = createFileRoute("/")({ component: Home });
 export type HomeProps = {
   /** The Zerion reads, for the route's own test. The app lets the run use the server functions. */
   api?: RewindApi;
+  /**
+   * The floor between two Zerion requests, for the route's own test: the app's own second-apart
+   * pacing would make every scripted flow below a wall-clock wait. The app never passes it.
+   */
+  requestIntervalMs?: number;
 };
 
 /** Exported for its own test: the route itself is only this component. */
 
-export function Home({ api }: HomeProps) {
+export function Home({ api, requestIntervalMs }: HomeProps) {
   const { loaded, wallet, connect } = useConnectedWallet();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
@@ -67,6 +72,7 @@ export function Home({ api }: HomeProps) {
           key={`${wallet.address}:${run}`}
           wallet={wallet}
           {...(api !== undefined ? { api } : {})}
+          {...(requestIntervalMs !== undefined ? { requestIntervalMs } : {})}
           onRestart={restart}
           onOpenSettings={openSettings}
         />
@@ -99,6 +105,7 @@ export function Home({ api }: HomeProps) {
 type RewindProps = {
   wallet: ConnectedWallet;
   api?: RewindApi;
+  requestIntervalMs?: number;
   /** "Replay", and "Try again" on the error state: both are a fresh run of the whole Rewind. */
   onRestart: () => void;
   onOpenSettings: () => void;
@@ -118,7 +125,7 @@ type Stage = "reveal" | "burst" | "story" | "error";
  * arrives, the last page completes the reveal, and a failure fades the field out. Nothing about the
  * count travels through React state: that is what `ParticleReveal`'s imperative handle is for.
  */
-function Rewind({ wallet, api, onRestart, onOpenSettings }: RewindProps) {
+function Rewind({ wallet, api, requestIntervalMs, onRestart, onOpenSettings }: RewindProps) {
   const reveal = useRef<ParticleRevealHandle>(null);
   /** The 200ms between the burst starting and card 1 entering, cleared if this run is dropped. */
   const handoff = useRef<number | null>(null);
@@ -127,6 +134,7 @@ function Rewind({ wallet, api, onRestart, onOpenSettings }: RewindProps) {
   const { facts } = useRewind({
     wallet,
     ...(api !== undefined ? { api } : {}),
+    ...(requestIntervalMs !== undefined ? { requestIntervalMs } : {}),
     onPage: (count) => reveal.current?.addTransactions(count),
     onComplete: (finalCount) => reveal.current?.complete(finalCount),
     onFail: () => reveal.current?.fail(),
