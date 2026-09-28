@@ -107,6 +107,30 @@ export function StoryCard({
   );
 }
 
+/**
+ * Reading the stage's values every frame is what keeps them on Motion's own frame loop, and that is
+ * the point of this empty handler — `onUpdate` is the one prop that tells Motion the values are being
+ * observed, so it cannot hand any of them to the browser's animation engine instead.
+ *
+ * It has to, because a card enters, is remounted a millisecond or two later, and enters again: React's
+ * development build does that to every newly mounted subtree inside `StrictMode`, which is how the app
+ * runs through TanStack Start's client entry, by detaching and re-attaching its refs around a second
+ * pass. Motion answers a remount by resetting each value to its `initial` variant and stopping whatever
+ * was playing, and stopping an *accelerated* animation is where it went wrong. A browser gives a
+ * freshly started animation no `startTime` until its first frame, and Motion reads that missing start as
+ * `0` — the document's epoch — so it measured the interruption as the entire fade, wrote the end value
+ * into the value it owns, and left the element rendering the `0` the reset had just written. The
+ * restarted entrance then found opacity already at its target and animated nothing, so the card slid
+ * into place and stayed dark for as long as it was on screen. `x` is never accelerated and always
+ * recovered, which is why only the fade was lost. On Motion's own loop the same interruption is
+ * measured from the animation's real start and every frame writes through, so the entrance survives
+ * being cut off and restarted.
+ *
+ * The cost is one full-screen element's opacity moving off the compositor. It is already written every
+ * frame for `x`, so this adds a property to a write that was happening anyway.
+ */
+const readStageValues = () => {};
+
 /** Direction-aware card transition. direction: 1 = next (enters from right), -1 = previous. */
 export function StoryStage({
   id,
@@ -140,6 +164,7 @@ export function StoryStage({
         initial="enter"
         animate="center"
         exit="exit"
+        onUpdate={readStageValues}
         className="absolute inset-0"
       >
         {children}

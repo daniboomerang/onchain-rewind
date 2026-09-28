@@ -15,6 +15,7 @@ The spec is `design/DESIGN.md` §1 (motion tokens) and §3 (motion per screen). 
 ## Card transitions
 - `StoryStage` with `AnimatePresence mode="popLayout"`. Next: enter x +64 → 0 with `springCard` (stiffness 260, damping 32), exit x → −64 over `duration.fast` with `ease.in`. Previous mirrors this.
 - Card elements stagger 80ms: eyebrow → kicker and headline → body. Bars stagger 60ms.
+- The stage's wrapper keeps an `onUpdate` handler, which holds its values on Motion's own frame loop instead of the browser's animation engine. Don't drop it: an accelerated value interrupted before its first frame is recorded as already finished, and the card is then left transparent with its content in the page (`design/KNOWN-ISSUES.md`).
 
 ## Pause
 - `PlaybackContext` holds `paused`. Every tween (`useTween`, counters, chart draw, progress fill) must freeze while paused and resume without jumping.
