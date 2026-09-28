@@ -153,11 +153,21 @@ function buildTaskRecord(issue: number, events: readonly RawLogEvent[]): TaskRec
 
   const dispatchedEffects = new Set<string>();
   const resolvedEffects = new Set<string>();
+  /** Round named by a dispatch's own `round` field, keyed by that dispatch's `effect_id`. */
+  const roundByEffect = new Map<string, number>();
+  /** Developer time waiting for its round's `round_started`, keyed by round number. */
+  const pendingDeveloperMs = new Map<number, number>();
 
   for (const event of events) {
     const effectId = asString(event.effect_id);
     if (effectId !== undefined && event.event === "dispatched") dispatchedEffects.add(effectId);
-    if (effectId !== undefined && event.event === "outcome_received") resolvedEffects.add(effectId);
+    if (effectId !== undefined && (event.event === "outcome_received" || event.event === "dispatch_failed")) {
+      resolvedEffects.add(effectId);
+    }
+    if (effectId !== undefined && event.event === "dispatched") {
+      const round = asNumber(event.round);
+      if (round !== undefined) roundByEffect.set(effectId, round);
+    }
 
     switch (event.event) {
       case "loop_started":
@@ -173,6 +183,11 @@ function buildTaskRecord(issue: number, events: readonly RawLogEvent[]): TaskRec
         const round = asNumber(event.round);
         if (round === undefined) break;
         current = { round, reviewerDispatchMs: [], findings: [] };
+        const pending = pendingDeveloperMs.get(round);
+        if (pending !== undefined) {
+          current.developerMs = pending;
+          pendingDeveloperMs.delete(round);
+        }
         rounds.push(current);
         break;
       }
@@ -213,9 +228,12 @@ function buildTaskRecord(issue: number, events: readonly RawLogEvent[]): TaskRec
         break;
     }
 
-    if (current && event.kind === "role_attempt" && asString(event.subject.role) === "developer") {
+    if (event.kind === "role_attempt" && asString(event.subject.role) === "developer") {
       const duration = asNumber(event.duration_ms);
-      if (duration !== undefined) current.developerMs = (current.developerMs ?? 0) + duration;
+      const round = effectId !== undefined ? roundByEffect.get(effectId) : undefined;
+      if (duration !== undefined && round !== undefined) {
+        pendingDeveloperMs.set(round, (pendingDeveloperMs.get(round) ?? 0) + duration);
+      }
     }
   }
 
