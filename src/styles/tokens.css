@@ -1,12 +1,16 @@
 /* Onchain Rewind — design tokens (Tailwind v4).
    Palette: Zerion app tokens (dark default, light override). "derived" = interpolated, confirm against source.
-   Usage: @import "tailwindcss"; @import "./tokens.css";  Set <html data-theme="light"> for light. */
+   Usage: @import "tailwindcss"; @import "./tokens.css";
+   Theme: `data-theme="light"` / `data-theme="dark"` on any element re-declares the palette for that
+   element and everything inside it, so the story can hold the dark values inside a light page. The
+   root document sets one of the two before the first paint; dark stays the bare `:root` default. */
 
 /* Variants: Ariakit focus + disabled work with both native and aria states */
 @custom-variant focus-ring (&:is([data-focus-visible], :focus-visible));
 @custom-variant disabled-any (&:is(:disabled, [aria-disabled="true"]));
 
-:root {
+:root,
+[data-theme="dark"] {
   --bg: #16161a; /* color-white (dark) */
   --surface: #1d1d21; /* z-index-1 */
   --surface-raised: #26262b; /* derived */

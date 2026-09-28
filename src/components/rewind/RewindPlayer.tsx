@@ -146,9 +146,13 @@ export function RewindPlayer({ facts, onReplay, onOpenSettings }: RewindPlayerPr
        * than a bare div: the story and its chrome are one region a screen reader can find. Every
        * gesture has a keyboard equivalent on `window` — ← → navigate, Space pauses — so nothing
        * here is reachable by pointer alone.
+       *
+       * `data-theme="dark"` re-declares the dark palette for the whole story, so the cards, the
+       * chrome over them and the share panel stay dark inside a page the system set to light.
        */}
       <section
         aria-label="Rewind story"
+        data-theme="dark"
         className="fixed inset-0 touch-none select-none overflow-hidden bg-bg text-fg"
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}

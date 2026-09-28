@@ -30,6 +30,8 @@ Colors come from the Zerion app palette. "Derived" = interpolated, confirm again
 | `track` | #fff @16% | #16161a @12% | Unfilled segments / bars |
 | `overlay` | #0a0a0c @72% | #16161a @40% | Dialog backdrop |
 
+**Theme** — dark is the bare `:root` default; `data-theme="light"` or `data-theme="dark"` on any element re-declares the palette for that element and everything inside it. The root document resolves the system setting into `data-theme` on `<html>` before the first paint, and the story's own roots — the particle reveal, the story surface and the share card — carry `data-theme="dark"`, so the story keeps its palette inside a light page.
+
 **Card accents** (one element per card): Origin `notice` · Home chain `primary` · Top token `positive` (or `negative` if the change is negative) · The ride `primary` · Share `primary`.
 
 **Type** — Display: Instrument Serif 400. UI + every figure: Geist (tabular-nums everywhere). Mono: Geist Mono (addresses only).

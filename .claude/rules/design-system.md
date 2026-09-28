@@ -12,7 +12,7 @@ The source of truth is `design/DESIGN.md`, plus `design/tokens.css` and the refe
 - `src/styles/tokens.css` is a copy of `design/tokens.css`. `app.css` does `@import "tailwindcss"; @import "./tokens.css";`.
 - Use the utilities those tokens generate: `bg-bg`, `bg-surface`, `text-fg`, `text-fg-muted`, `text-primary`, `border-border`, `text-display-xl`, `text-stat`, `rounded-3xl`, `shadow-card` and so on.
 - **No raw hex, px font sizes or ms durations in components.** Add a token first if one is missing, and document it in DESIGN.md.
-- The story always renders dark. The light theme exists in tokens but isn't used by the story.
+- Theme scope: `data-theme="light"` or `data-theme="dark"` on any element re-declares the palette for that element and its subtree, and dark is also the bare `:root` default. The story always renders dark.
 - Never put white text on dark-mode primary (`#00a3f5`); use `text-on-primary`.
 
 ## Typography
