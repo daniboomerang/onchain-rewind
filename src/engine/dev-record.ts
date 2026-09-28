@@ -1,7 +1,7 @@
 /**
  * Pure fold from the Vinaya log's raw events to this repo's own development record: a
- * round-by-round history per task. No I/O, no clock — the log's own `meta.ts` timestamps are the
- * only notion of time, and events arrive in any order.
+ * round-by-round history per task, plus the guardrail totals. No I/O, no clock — the log's own
+ * `meta.ts` timestamps are the only notion of time, and events arrive in any order.
  */
 
 export type LogEventKind = "gate" | "dev_review_loop" | "dispatch" | "role_attempt" | "usage" | "effect";
@@ -62,6 +62,38 @@ export type TaskRecord = {
   readonly running: boolean;
 };
 
+export type GuardrailTotals = {
+  /** Distinct automated checks observed. */
+  readonly checks: number;
+  /** Total check runs, across every check. */
+  readonly runs: number;
+  /** Check runs whose outcome stopped a change. */
+  readonly stopped: number;
+};
+
+/**
+ * The log's guardrail totals, counting only `gate` events — everything else in the log (loop,
+ * dispatch, role_attempt, usage, effect) is never a check. Gate events are assumed to carry
+ * `check` (the check's name) and `outcome: "pass" | "fail"`, which the live log's own docs don't
+ * enumerate; recorded in the task that added this module.
+ */
+export function foldGuardrailTotals(envelopes: readonly RawLogEnvelope[]): GuardrailTotals {
+  const checkNames = new Set<string>();
+  let runs = 0;
+  let stopped = 0;
+
+  for (const envelope of envelopes) {
+    const event = envelope.event;
+    if (event.kind !== "gate") continue;
+    runs++;
+    const check = asString(event.check);
+    if (check !== undefined) checkNames.add(check);
+    if (asString(event.outcome) === "fail") stopped++;
+  }
+
+  return { checks: checkNames.size, runs, stopped };
+}
+
 /** Every task the log has review-loop events for, ordered by issue number. */
 export function foldTaskRecords(envelopes: readonly RawLogEnvelope[]): readonly TaskRecord[] {
   const ordered = orderEvents(envelopes);
@@ -76,6 +108,16 @@ export function foldTaskRecords(envelopes: readonly RawLogEnvelope[]): readonly 
   }
 
   return [...byIssue.entries()].sort(([a], [b]) => a - b).map(([issue, events]) => buildTaskRecord(issue, events));
+}
+
+export type DevelopmentRecord = {
+  readonly tasks: readonly TaskRecord[];
+  readonly guardrails: GuardrailTotals;
+};
+
+/** The whole development record: every task's round-by-round history, and the guardrail totals. */
+export function foldDevelopmentRecord(envelopes: readonly RawLogEnvelope[]): DevelopmentRecord {
+  return { tasks: foldTaskRecords(envelopes), guardrails: foldGuardrailTotals(envelopes) };
 }
 
 /** Order by `meta.ts`, ties by `seq` — events from different machines arrive out of order. */

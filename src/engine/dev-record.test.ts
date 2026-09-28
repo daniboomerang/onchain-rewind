@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { foldTaskRecords, type RawLogEnvelope } from "#/engine/dev-record.ts";
+import { foldGuardrailTotals, foldTaskRecords, type RawLogEnvelope } from "#/engine/dev-record.ts";
 
 type EventOverrides = Record<string, unknown> & { readonly role?: string };
 
@@ -11,6 +11,21 @@ function ev(seq: number, ts: string, issue: number, kind: string, name: string, 
     seq,
     status: "ok",
     event: { meta: { ts, run_id: "run-1", host: "host-a" }, subject, kind, event: name, ...rest },
+  } as RawLogEnvelope;
+}
+
+function gate(seq: number, ts: string, check: string, outcome: "pass" | "fail") {
+  return {
+    seq,
+    status: "ok",
+    event: {
+      meta: { ts, run_id: "run-1", host: "host-a" },
+      subject: {},
+      kind: "gate",
+      event: "check_run",
+      check,
+      outcome,
+    },
   } as RawLogEnvelope;
 }
 
@@ -154,5 +169,30 @@ describe("foldTaskRecords — task-level flags", () => {
       ev(2, "2026-09-01T10:05:00Z", 28, "dispatch", "outcome_received", { effect_id: "eff-closed" }),
     ]);
     expect(settled[0]?.running).toBe(false);
+  });
+});
+
+describe("foldGuardrailTotals", () => {
+  it("counts only gate events, never a loop, dispatch, role_attempt, usage or effect event", () => {
+    const envelopes: RawLogEnvelope[] = [
+      gate(1, "2026-09-01T10:00:00Z", "Check format", "pass"),
+      gate(2, "2026-09-01T10:00:01Z", "Check lint", "fail"),
+      gate(3, "2026-09-01T10:00:02Z", "Check format", "pass"),
+      ev(4, "2026-09-01T10:00:03Z", 29, "dev_review_loop", "loop_started"),
+      ev(5, "2026-09-01T10:00:04Z", 29, "dispatch", "dispatched", { effect_id: "eff-1" }),
+      ev(6, "2026-09-01T10:00:05Z", 29, "role_attempt", "role_attempt", { role: "developer", duration_ms: 1000 }),
+      ev(7, "2026-09-01T10:00:06Z", 29, "usage", "usage", { tokens: 500 }),
+      ev(8, "2026-09-01T10:00:07Z", 29, "effect", "outcome_received", { effect_id: "eff-1" }),
+    ];
+
+    expect(foldGuardrailTotals(envelopes)).toEqual({ checks: 2, runs: 3, stopped: 1 });
+  });
+
+  it("returns zero totals for a log with no gate events", () => {
+    expect(foldGuardrailTotals([ev(1, "2026-09-01T10:00:00Z", 30, "dev_review_loop", "loop_started")])).toEqual({
+      checks: 0,
+      runs: 0,
+      stopped: 0,
+    });
   });
 });
