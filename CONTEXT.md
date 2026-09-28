@@ -40,8 +40,13 @@ A web app that plays a wallet's onchain year back as an animated story, built on
 
 **Demo wallet**: A real public wallet listed in `src/lib/demo-wallets.ts` after vetting. Never invented. _Avoid_: Sample wallet, test wallet, fake wallet
 
+### The build itself
+
+**Development record**: How this app was built, shown on the site: each task's round-by-round record (developer time, reviewer time, outcome, size, confidence, findings) and the guardrail totals (checks run, checks that stopped a change), read from GitHub and the Vinaya log. See [ADR-0004](docs/adr/0004-the-development-record-is-read-on-the-server.md). _Avoid_: Changelog, activity log, audit trail
+
 ## Decisions
 
 - [ADR-0001](docs/adr/0001-zerion-key-stays-on-the-server.md): The Zerion API key stays on the server
 - [ADR-0002](docs/adr/0002-loading-is-the-animation.md): Loading is the animation
 - [ADR-0003](docs/adr/0003-pure-engine-between-api-and-ui.md): A pure engine between the API and the UI
+- [ADR-0004](docs/adr/0004-the-development-record-is-read-on-the-server.md): The development record is read on the server
