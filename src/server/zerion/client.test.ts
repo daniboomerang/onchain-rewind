@@ -1,14 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearZerionCache, zerionFetch } from "#/server/zerion/client.ts";
 
-/** A stand-in for the one `Response` field the client reads. */
-function jsonResponse(body: unknown, status = 200): Response {
+/** A stand-in for the `Response` fields the client reads: the status, the body, and the headers. */
+function jsonResponse(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return {
     ok: status >= 200 && status < 300,
     status,
+    headers: new Headers(headers),
     json: async () => body,
   } as unknown as Response;
 }
+
+/** The `429` of a spent day: Zerion reports the organization has no daily calls left. */
+const spentDay = () => jsonResponse({}, 429, { "ratelimit-org-day-remaining": "0" });
 
 function mockFetch(...responses: Response[]) {
   const fetchMock = vi.fn<typeof fetch>();
@@ -250,6 +254,49 @@ describe("a rate-limited upstream", () => {
     expect(fetchMock).toHaveBeenCalledTimes(4);
 
     await expect(pending).resolves.toEqual({ ok: false, error: "rate_limited" });
+  });
+
+  it("reports budget_spent at once when the day has no calls left, without a single retry", async () => {
+    const fetchMock = mockFetch(spentDay(), jsonResponse({ data: [] }));
+
+    const result = await zerionFetch("/v1/wallets/0xabc/transactions/");
+
+    // No backoff was waited out and no second request went out: every one would be refused too.
+    expect(result).toEqual({ ok: false, error: "budget_spent" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("still backs off for a 429 that leaves calls in the day's budget", async () => {
+    const fetchMock = mockFetch(
+      jsonResponse({}, 429, { "ratelimit-org-day-remaining": "271" }),
+      jsonResponse({ data: [] }),
+    );
+
+    const pending = zerionFetch("/v1/chains/");
+    await vi.advanceTimersByTimeAsync(500);
+
+    await expect(pending).resolves.toEqual({ ok: true, data: { data: [] } });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("treats an unreadable remaining count as a throttle, not a spent day", async () => {
+    mockFetch(jsonResponse({}, 429, { "ratelimit-org-day-remaining": "" }), jsonResponse({ data: [] }));
+
+    const pending = zerionFetch("/v1/chains/");
+    await vi.advanceTimersByTimeAsync(500);
+
+    await expect(pending).resolves.toEqual({ ok: true, data: { data: [] } });
+  });
+
+  it("never caches a spent day, so the first call after the reset really calls", async () => {
+    const fetchMock = mockFetch(spentDay(), jsonResponse({ data: [] }));
+
+    const spent = await zerionFetch("/v1/chains/");
+    const afterReset = await zerionFetch("/v1/chains/");
+
+    expect(spent).toEqual({ ok: false, error: "budget_spent" });
+    expect(afterReset).toEqual({ ok: true, data: { data: [] } });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("returns the response when a retry succeeds", async () => {

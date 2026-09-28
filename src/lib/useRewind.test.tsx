@@ -632,6 +632,22 @@ test.each(["upstream", "rate_limited", "invalid_address", "not_found"] as const)
   },
 );
 
+test("a spent daily budget fails the run at once: no retry, because every retry is refused", async () => {
+  const { onPage, onComplete, onFail, trace } = recorder();
+  // A second page is scripted and must go unused: asking again only spends the wait.
+  const { api, calls } = fakeApi({
+    pages: [{ ok: false, error: "budget_spent" }, page([tx("a", "2026-09-20T10:00:00Z", "ethereum")], null)],
+  });
+
+  const { result } = renderRewind({ wallet: { address: ADDRESS }, now: NOW, api, onPage, onComplete, onFail });
+  await waitFor(() => expect(result.current.status).toBe("failed"));
+
+  expect(calls.pages).toHaveLength(1);
+  expect(result.current.error).toBe("budget_spent");
+  expect(trace).toEqual(["fail"]);
+  expect(result.current.facts).toBeUndefined();
+});
+
 test("a first page that fails once and answers on the retry never reaches the error state", async () => {
   const { onPage, onComplete, onFail, trace } = recorder();
   const { api, calls } = fakeApi({

@@ -67,7 +67,7 @@ export const PAGE_RETRY_MS = REQUEST_INTERVAL_MS;
 
 export type RewindWallet = RewindWindow["wallet"];
 
-/** The hook's failure vocabulary: the client's four Zerion codes, plus running out of time. */
+/** The hook's failure vocabulary: the client's five Zerion codes, plus running out of time. */
 export type RewindFailure = ZerionErrorCode | "timeout";
 
 /**
@@ -308,9 +308,10 @@ export function useRewind({
           if (!(await slot())) return;
           let page = await request();
           if (halted()) return;
-          if (!page.ok) {
-            // One retry, because the failures that get this far are usually the upstream's own
-            // flake rather than anything about this wallet.
+          // One retry, because the failures that get this far are usually the upstream's own flake
+          // rather than anything about this wallet — but never for a spent daily budget, which every
+          // request is refused for until the day resets. Asking again only spends the wait.
+          if (!page.ok && page.error !== "budget_spent") {
             await pace(pageRetryMs);
             if (!(await slot())) return;
             page = await request();

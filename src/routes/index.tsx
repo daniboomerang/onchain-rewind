@@ -15,6 +15,16 @@ import { type ConnectedWallet, useConnectedWallet } from "../lib/wallet-store";
 
 export const Route = createFileRoute("/")({ component: Home });
 
+/**
+ * The one failure worth explaining. The demo reads onchain data on Zerion's free Demo plan, whose
+ * daily budget is 300 requests, and a Rewind of a deep wallet spends more than twenty of them: when
+ * the day's are gone nothing the visitor does brings the year back before the day resets, so the copy
+ * says that and says when to come back instead of blaming an upstream that answered perfectly well.
+ */
+const BUDGET_SPENT_MESSAGE =
+  "This demo reads onchain data on Zerion's free plan, and today's requests are all spent. " +
+  "Nothing is wrong with your wallet — come back tomorrow and the year plays from the start.";
+
 export type HomeProps = {
   /** The Zerion reads, for the route's own test. The app lets the run use the server functions. */
   api?: RewindApi;
@@ -131,7 +141,7 @@ function Rewind({ wallet, api, requestIntervalMs, onRestart, onOpenSettings }: R
   const handoff = useRef<number | null>(null);
   const [stage, setStage] = useState<Stage>("reveal");
 
-  const { facts } = useRewind({
+  const { facts, error } = useRewind({
     wallet,
     ...(api !== undefined ? { api } : {}),
     ...(requestIntervalMs !== undefined ? { requestIntervalMs } : {}),
@@ -169,7 +179,12 @@ function Rewind({ wallet, api, requestIntervalMs, onRestart, onOpenSettings }: R
         />
       )}
       {stage === "error" && (
-        <ErrorState wallet={displayName(wallet)} onRetry={onRestart} onChangeWallet={onOpenSettings} />
+        <ErrorState
+          wallet={displayName(wallet)}
+          message={error === "budget_spent" ? BUDGET_SPENT_MESSAGE : undefined}
+          onRetry={onRestart}
+          onChangeWallet={onOpenSettings}
+        />
       )}
     </>
   );
