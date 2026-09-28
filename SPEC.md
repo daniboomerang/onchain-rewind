@@ -60,7 +60,7 @@ routes/index.tsx
 
 **Key decisions** (recorded as ADRs in [`docs/adr/`](docs/adr/)):
 1. **The key stays on the server.** Every Zerion call goes through a TanStack Start server function, so the browser never sees the key.
-2. **Loading is the animation.** The client pages through transactions and feeds each page's count into `ParticleReveal`. The reveal only completes when the data does (minimum 3.2s, 45s timeout → error). The timeout has to hold a full year at the cap, so it is sized for 20 paced page requests rather than for a typical wallet, which still reaches the story in a few seconds.
+2. **Loading is the animation.** The client pages through transactions and feeds each page's count into `ParticleReveal`. The reveal only completes when the data does (minimum 3.2s, 90s timeout → error). The timeout has to hold a full year at the cap, so it is sized for the 23 requests that year costs at one a second rather than for a typical wallet, which still reaches the story in a few seconds.
 3. **The engine is pure and separate from the UI.** Zerion responses → `RewindFacts` in `src/engine/`, unit-tested with recorded fixtures. Components never see raw API data.
 
 ## 5. Data mapping (Zerion → `RewindFacts`)
@@ -79,14 +79,15 @@ Base URL `https://api.zerion.io`. Auth is HTTP Basic, with the API key as the us
 
 **Window:** the last 365 days (`filter[min_mined_at]`). **Cap:** page size 100, at most 20 pages (2,000 transactions). If the cap is hit, the counter and share card say "2,000+".
 
-**Pacing and the timeout:** consecutive page requests go out at least 150ms apart, because the free tier allows about ten requests a second and a wallet at the cap would otherwise fire a burst it rejects. A run that hasn't produced its facts within 45s is the error state; the reveal keeps counting the pages that have landed until then.
+**Pacing and the timeout:** every request one run makes — each page, and each of the three reads that resolve once — goes out at least a second after the one before it, because the key's plan allows one request a second and a burst of two is throttled whatever the two are. One per-run scheduler reserves those slots, so the chain list and the balance chart queue behind the first page rather than firing alongside it: the reveal starts counting on page one. A wallet at the cap therefore costs 23 paced requests, a little over twenty seconds of wall clock; a run that hasn't produced its facts within 90s is the error state, which leaves room for an upstream twice as slow. The reveal keeps counting the pages that have landed throughout.
 
 **A page that fails:** it is asked for once more, half a second later, because a throttled page and the 500 Zerion returns for some deep pages of a very active wallet both usually answer on the next attempt. If it fails again, what happens depends on how far the year got: the **first** page failing is the error state, while a **later** page failing ends paging there and the Rewind plays the year that did arrive, marked the same way the cap marks it. A counted year is worth more than a perfect one.
 
-**Budget:** the free key allows about 2,000 calls a day and 10 requests a second.
-- Keep an in-memory server cache per `(address, endpoint, params)` with a 10-minute TTL.
-- On the client, TanStack Query uses `staleTime` of 10 minutes.
-- On 429, retry with exponential backoff (at most 3 tries), then show the error state.
+**Budget:** the key's organization is on Zerion's free **Demo plan**, and its limits are the plan's own, read from the response headers (`ratelimit-org-tier: demo`, `ratelimit-org-second-limit: 1`, `ratelimit-org-day-limit: 300`): **one request a second, and 300 a day**. One Rewind of a wallet at the cap spends 23 of them, so the day holds roughly a dozen.
+- Keep an in-memory server cache per `(address, endpoint, params)` with a TTL of half a day — hours, not minutes, so replaying or re-opening a wallet the same day costs no new requests. The window is 365 days long, so nothing on a card reads differently for the drift.
+- On the client, TanStack Query uses the same `staleTime` of half a day.
+- On 429 with calls left in the day, retry with exponential backoff (at most 3 tries), then show the error state.
+- **When the day's budget is spent** the API answers 429 with `ratelimit-org-day-remaining: 0` until `ratelimit-org-day-reset`, and no retry can help. That is its own failure, not a throttle: the Rewind ends on the error state with its own message — the day's data budget is spent, come back tomorrow — instead of the generic "didn't respond".
 
 ## 6. Demo wallets
 
