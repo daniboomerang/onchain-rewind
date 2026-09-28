@@ -79,7 +79,9 @@ Base URL `https://api.zerion.io`. Auth is HTTP Basic, with the API key as the us
 
 **Window:** the last 365 days (`filter[min_mined_at]`). **Cap:** page size 100, at most 20 pages (2,000 transactions). If the cap is hit, the counter and share card say "2,000+".
 
-**Pacing and the timeout:** consecutive page requests go out at least 150ms apart, because the free tier allows about ten requests a second and a wallet at the cap would otherwise fire a burst it rejects — a throttled page ends the whole run in the error state. A run that hasn't produced its facts within 45s is the error state; the reveal keeps counting the pages that have landed until then.
+**Pacing and the timeout:** consecutive page requests go out at least 150ms apart, because the free tier allows about ten requests a second and a wallet at the cap would otherwise fire a burst it rejects. A run that hasn't produced its facts within 45s is the error state; the reveal keeps counting the pages that have landed until then.
+
+**A page that fails:** it is asked for once more, half a second later, because a throttled page and the 500 Zerion returns for some deep pages of a very active wallet both usually answer on the next attempt. If it fails again, what happens depends on how far the year got: the **first** page failing is the error state, while a **later** page failing ends paging there and the Rewind plays the year that did arrive, marked the same way the cap marks it. A counted year is worth more than a perfect one.
 
 **Budget:** the free key allows about 2,000 calls a day and 10 requests a second.
 - Keep an in-memory server cache per `(address, endpoint, params)` with a 10-minute TTL.

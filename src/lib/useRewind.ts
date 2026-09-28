@@ -51,6 +51,13 @@ export const TIMEOUT_MS = 45_000;
  * pages quickly nothing visible: the reveal never finishes before `revealMs.minReveal` anyway.
  */
 export const PAGE_INTERVAL_MS = 150;
+/**
+ * How long a failed page waits before its one retry. It mirrors `zerionFetch`'s first backoff,
+ * because the failures that reach here are the ones the server already gave up on: a 429 that
+ * outlasted its three waits, and — measured live on the demo wallets — an upstream 500 that Zerion
+ * returns for a deep page of a very active wallet and then serves fine on the next attempt.
+ */
+export const PAGE_RETRY_MS = 500;
 /** SPEC §5: the client keeps a Zerion read fresh for ten minutes, matching the server's own cache. */
 const STALE_TIME_MS = 10 * 60 * 1000;
 
@@ -98,13 +105,17 @@ export type UseRewindOptions = {
   readonly maxTransactions?: number;
   readonly timeoutMs?: number;
   readonly pageIntervalMs?: number;
+  readonly pageRetryMs?: number;
 };
 
 export type UseRewindResult = {
   status: "idle" | "loading" | "ready" | "failed";
   /** The finished facts. `txCount: 0` is the empty wallet, which is a success, not a failure. */
   facts?: RewindFacts;
-  /** The cap hid transactions the wallet really made, so figures read "2,000+". */
+  /**
+   * The facts describe less than the wallet really did, so figures read with a "+": the cap stopped
+   * paging, or a page failed for good after the ones before it had landed.
+   */
   capped: boolean;
   error?: RewindFailure;
   /** Starts a fresh run for the same wallet. Safe while one is in flight: it cancels that one. */
@@ -127,6 +138,7 @@ export function useRewind({
   maxTransactions,
   timeoutMs = TIMEOUT_MS,
   pageIntervalMs = PAGE_INTERVAL_MS,
+  pageRetryMs = PAGE_RETRY_MS,
 }: UseRewindOptions): UseRewindResult {
   const client = useQueryClient();
   const [outcome, setOutcome] = useState<Outcome>({ status: "idle" });
@@ -248,6 +260,8 @@ export function useRewind({
         let pageCapHit = false;
         /** When the request before this one went out, so the next one can be paced off it. */
         let lastRequestAt: number | undefined;
+        /** A page failed for good with a year already counted, so the facts describe part of it. */
+        let partial = false;
 
         for (;;) {
           if (lastRequestAt !== undefined) {
@@ -257,12 +271,33 @@ export function useRewind({
               if (halted()) return;
             }
           }
-          lastRequestAt = Date.now();
-          const page = await api.transactionsPage({ address, ...(next !== undefined ? { next } : {}) }, signal);
+          const request = () => {
+            lastRequestAt = Date.now();
+            return api.transactionsPage({ address, ...(next !== undefined ? { next } : {}) }, signal);
+          };
+
+          let page = await request();
           if (halted()) return;
           if (!page.ok) {
-            fail(page.error);
-            return;
+            // One retry, because the failures that get this far are usually the upstream's own
+            // flake rather than anything about this wallet.
+            await pace(pageRetryMs);
+            if (halted()) return;
+            page = await request();
+            if (halted()) return;
+          }
+          if (!page.ok) {
+            // Nothing landed, so there is no story to tell: this is the error state.
+            if (pages === 0) {
+              fail(page.error);
+              return;
+            }
+            // A page deep into the year failed for good. The reveal has already counted every page
+            // before it, and the engine holds a real year's worth, so the run finishes with what
+            // arrived and records that the wallet made more than the facts describe — a partial
+            // story beats throwing a counted year away over one upstream fault.
+            partial = true;
+            break;
           }
 
           pages += 1;
@@ -295,7 +330,9 @@ export function useRewind({
         };
         if (halted()) return;
 
-        if (settle({ status: "ready", facts: finalize(state, extras), capped: state.capped || pageCapHit })) {
+        if (
+          settle({ status: "ready", facts: finalize(state, extras), capped: state.capped || pageCapHit || partial })
+        ) {
           handlers.current.onComplete?.(state.txCount);
         }
       } catch {
@@ -309,7 +346,7 @@ export function useRewind({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [address, name, nowMs, api, maxPages, maxTransactions, timeoutMs, pageIntervalMs, client, attempt]);
+  }, [address, name, nowMs, api, maxPages, maxTransactions, timeoutMs, pageIntervalMs, pageRetryMs, client, attempt]);
 
   return {
     status: outcome.status,

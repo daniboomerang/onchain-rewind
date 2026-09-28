@@ -100,7 +100,10 @@ type Options = {
   readonly pages?: readonly TxLite[][];
   /** Each page waits for its own release, so a run can be observed between pages. */
   readonly gated?: boolean;
-  /** The first page of the first run fails, so the retry is the run that succeeds. */
+  /**
+   * The first run's first page fails both times it is asked for — the hook retries a failed page
+   * once — so the run ends in the error state and "Try again" is the run that succeeds.
+   */
   readonly failFirstRun?: boolean;
 };
 
@@ -125,8 +128,8 @@ function fakeApi({ pages = PAGES, gated = false, failFirstRun = false }: Options
   const api: RewindApi = {
     transactionsPage: async () => {
       const index = calls++;
-      if (failFirstRun && index === 0) return { ok: false, error: "upstream" };
-      const slot = (failFirstRun ? index - 1 : index) % pages.length;
+      if (failFirstRun && index < 2) return { ok: false, error: "upstream" };
+      const slot = (failFirstRun ? index - 2 : index) % pages.length;
       if (gated) await gates[slot]?.wait;
       return page(pages[slot] ?? [], slot === pages.length - 1);
     },
@@ -210,7 +213,8 @@ test("a failed run ends in the error state, and Try again plays the Rewind", asy
   const { api } = fakeApi({ failFirstRun: true });
   open(api);
 
-  const alert = await screen.findByRole("alert");
+  // The failed page is retried once before the run gives up, so the error state is a moment later.
+  const alert = await screen.findByRole("alert", undefined, { timeout: 4000 });
   expect(alert).toHaveTextContent("The rewind got stuck");
 
   await user.click(screen.getByRole("button", { name: "Try again" }));
