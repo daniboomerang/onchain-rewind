@@ -55,6 +55,7 @@ function System() {
           <h1 className="font-display text-display">
             Onchain <i>Rewind</i>
           </h1>
+          <ThemeToggle />
         </header>
 
         <Section title="Button">
@@ -200,6 +201,47 @@ function System() {
 }
 
 /* — demos — */
+
+type Theme = "dark" | "light";
+
+/**
+ * Switches the page between the two themes, so every section below can be checked in both. The root
+ * document already resolved the system setting into `data-theme` before the first paint; a choice
+ * here locks that attribute, so a later change of the system setting can't undo a review pass.
+ *
+ * The story's own components stay dark whichever way this is set — that is the design, not a miss.
+ */
+function ThemeToggle() {
+  // The server can't know the visitor's setting, so the first render shows neither theme as chosen:
+  // the attribute the root script wrote is only readable in the browser.
+  const [theme, setTheme] = useState<Theme | null>(null);
+
+  useEffect(() => {
+    setTheme(document.documentElement.dataset.theme === "light" ? "light" : "dark");
+  }, []);
+
+  const choose = (next: Theme) => {
+    const root = document.documentElement;
+    root.dataset.themeLock = "1";
+    root.dataset.theme = next;
+    setTheme(next);
+  };
+
+  return (
+    <Row label="theme">
+      {(["dark", "light"] as const).map((t) => (
+        <Button
+          key={t}
+          variant={theme === t ? "primary" : "ghost"}
+          aria-pressed={theme === t}
+          onClick={() => choose(t)}
+        >
+          {t}
+        </Button>
+      ))}
+    </Row>
+  );
+}
 
 function ProgressDemo() {
   const [current, setCurrent] = useState(1);
