@@ -10,11 +10,18 @@ import { INVALID_INPUT } from "./wallet-input";
 import { readStoredWallet } from "./wallet-store";
 
 /**
- * The settings flow as a visitor meets it: nothing stored, so the dialog opens itself and holds; a
- * demo pick is remembered; and the gear brings the dialog back, dismissable this time.
+ * The settings flow as a visitor meets it: nothing stored, so the dialog opens itself and holds, and
+ * a demo pick is remembered and starts the Rewind at once.
+ *
+ * The reveal covers the screen for as long as it is reading, with no chrome of its own — chrome
+ * enters with card 1 — so the gear, and everything reached through it, belongs to a suite that plays
+ * the Rewind far enough for the story to own the screen. That suite is `routes/-rewind-flow`.
  */
 
-const [first, second] = demoWallets;
+const [first] = demoWallets;
+
+/** The reveal, which is what a wallet's page load autoplays into. */
+const reading = () => screen.getByText("Reading transactions…");
 
 // Vitest runs without global test APIs, so Testing Library never registers its own cleanup.
 afterEach(() => {
@@ -56,30 +63,17 @@ test("a demo pick is remembered as the connected wallet", async () => {
 
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(readStoredWallet()).toEqual({ address: first.address, name: first.label });
-  expect(screen.getByText(first.label)).toBeInTheDocument();
+  // Choosing a wallet is what starts the Rewind: the dialog closes onto the reveal, not onto a shell.
+  expect(reading()).toBeInTheDocument();
 });
 
-test("a remembered wallet means no dialog, and the gear is what opens it", async () => {
-  const user = userEvent.setup();
-  if (!first || !second) throw new Error("the demo wallets are too few");
+test("a remembered wallet means no dialog, and the page load plays the Rewind", async () => {
+  if (!first) throw new Error("the demo wallets are empty");
   localStorage.setItem("onchain-rewind:wallet", JSON.stringify({ address: first.address, name: first.label }));
   open();
 
-  await waitFor(() => expect(screen.getByText(first.label)).toBeInTheDocument());
+  await waitFor(() => expect(reading()).toBeInTheDocument());
   expect(screen.queryByRole("dialog")).toBeNull();
-
-  await user.click(screen.getByRole("button", { name: "Change wallet" }));
-
-  const dialog = await screen.findByRole("dialog");
-  expect(dialog).toBeInTheDocument();
-  // A wallet is already connected, so this time there is something to cancel back to.
-  expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
-
-  await user.click(screen.getByRole("button", { name: new RegExp(second.label) }));
-  await user.click(screen.getByRole("button", { name: "Play rewind" }));
-
-  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-  expect(readStoredWallet()).toEqual({ address: second.address, name: second.label });
 });
 
 test("a pasted address that isn't one cannot be submitted, and says to paste an address", async () => {
