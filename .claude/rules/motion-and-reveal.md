@@ -23,7 +23,7 @@ The spec is `design/DESIGN.md` §1 (motion tokens) and §3 (motion per screen). 
 
 ## ParticleReveal (Canvas 2D)
 - **Imperative handle:** `addTransactions(n)` for each page from the paging loop, `complete(finalCount)` when paging ends, `fail()` on error. `onBurst` fires at burst start; the story enters 200ms later.
-- **Phases:** scatter 0–600ms, then gather until `complete()` (at least 3,200ms total, a 12s timeout leads to `fail()` upstream), hold 400ms, burst 700ms. Every one of those lengths is a field of `revealMs`, which reads the millisecond twin of a `duration` token wherever one covers the phase; the rAF loop measures in ms, `duration` is in seconds for Motion.
+- **Phases:** scatter 0–600ms, then gather until `complete()` (at least 3,200ms total, a 45s timeout leads to `fail()` upstream), hold 400ms, burst 700ms. Every one of those lengths is a field of `revealMs`, which reads the millisecond twin of a `duration` token wherever one covers the phase; the rAF loop measures in ms, `duration` is in seconds for Motion.
 - **The maths is separate from the component.** `particles.ts` holds the caps, the easings, the position of a particle at a given moment, and the colour and alpha the loop paints it with — pure and unit-tested, because no test environment has a 2D context. `ParticleReveal.tsx` is the canvas, the handle and the loop around it.
 - **Limits:** 1 particle per transaction, capped at 1500 on desktop and 600 on mobile. Dust pads the count to at least 240.
 - **Performance:**
@@ -33,6 +33,29 @@ The spec is `design/DESIGN.md` §1 (motion tokens) and §3 (motion per screen). 
   - no allocations per frame in the hot loop
   - canvas resizes on viewport change
 - **Accessibility:** the counter is in an `aria-live="polite"` region, with at most one update per second.
+
+## Driving the reveal from a real run
+The route owns the wiring; the reveal owns the clock. `useRewind`'s three callbacks are the whole
+contract: `onPage` → `addTransactions(n)` for the page that just landed, `onComplete` →
+`complete(finalCount)` when paging ends, `onFail` → `fail()`. None of them goes through React state,
+so a page costs no re-render of the story.
+
+- **One run is one mounted reveal.** A different wallet, a replay or a retry re-keys the run, so the
+  reveal, the stage and the player reset together and the old rAF loop is cancelled by its own
+  unmount. Nothing resets a run in place.
+- **The handover is a three-stage overlap**: `reveal` → `burst` (the player mounts under the burst,
+  `revealMs.storyEnter` after `onBurst`) → `story` (`onDone` unmounts the reveal). The empty wallet
+  needs no branch: the run completes with a count of zero and the player renders its own empty state.
+- **Guard the handover timer against reduced motion.** There the crossfade calls `onBurst` and
+  `onDone` in the same tick, so the story is already entered when the timer fires; advance the stage
+  only if it is still `reveal`, or the timer remounts a reveal the story has finished with.
+- **A long run is still a counting reveal.** Paging is paced (`PAGE_INTERVAL_MS`) and the run's budget is
+  `TIMEOUT_MS`, so a wallet with a full year of history can page for tens of seconds. Nothing in the
+  reveal is sized to a shorter run: the gather holds until `complete()`, and each page rolls the
+  counter as it lands.
+- **`fail()` is the only way into the error state**, so the particles fade out before it crossfades
+  in. Retry is a fresh run, not a resumed one. A page that fails once the reveal has counted others
+  is not a failed run: paging stops there and the run completes, so the burst still happens.
 
 ## Reduced motion (`useReducedMotion()`)
 - No canvas: a static "Reading N transactions…" whose number updates without rolling, then a 240ms crossfade into card 1. The announced copy is a separate `sr-only` polite region in both branches and the visible number is `aria-hidden`, so the once-a-second throttle holds whether or not there is a canvas — the number itself can keep up with the pages.

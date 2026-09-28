@@ -13,7 +13,14 @@ import type { ReactNode } from "react";
 import { expect, test, vi } from "vitest";
 import type { Address } from "#/engine/types.ts";
 import type { BalanceChart, ChainLite, FungibleLite, TransactionsPage, TxLite } from "#/engine/zerion.ts";
-import { type RewindApi, TIMEOUT_MS, type UseRewindOptions, useRewind } from "#/lib/useRewind.ts";
+import {
+  MAX_PAGES,
+  PAGE_INTERVAL_MS,
+  type RewindApi,
+  TIMEOUT_MS,
+  type UseRewindOptions,
+  useRewind,
+} from "#/lib/useRewind.ts";
 import type { ZerionResult } from "#/server/zerion/client.ts";
 
 const ADDRESS = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045" as Address;
@@ -118,6 +125,29 @@ function recorder() {
     onComplete: (finalCount: number) => trace.push(`complete:${finalCount}`),
     onFail: () => trace.push("fail"),
   };
+}
+
+/**
+ * A run of `pages` pages where every request takes `latencyMs` upstream, recording the instant each
+ * one went out. That trace is what makes the pacing between pages, and the wall clock a full year at
+ * the cap costs, observable — under fake timers, so neither is a real wait.
+ */
+function pacedApi(pages: number, latencyMs: number) {
+  const startedAt: number[] = [];
+
+  const api: RewindApi = {
+    transactionsPage: async (_input, _signal) => {
+      startedAt.push(Date.now());
+      const index = startedAt.length;
+      await new Promise((resolve) => setTimeout(resolve, latencyMs));
+      return page([tx(`tx-${index}`, "2026-09-20T10:00:00Z", "ethereum")], index >= pages ? null : cursor(index));
+    },
+    chains: async () => ({ ok: true, data: CHAINS }),
+    fungible: async () => ({ ok: true, data: ETH }),
+    balanceChart: async () => ({ ok: true, data: CHART }),
+  };
+
+  return { api, startedAt };
 }
 
 function renderRewind(options: UseRewindOptions) {
@@ -341,6 +371,65 @@ test("stops at the transaction cap, and the count it completes with is the hones
   expect(trace).toEqual(["page:2", "complete:2"]);
 });
 
+test("paces its page requests, so a long run stays under the free tier's burst limit", async () => {
+  vi.useFakeTimers();
+  try {
+    // An upstream that answers instantly is the throttling case: nothing but the pacing spaces the
+    // requests out, and a 20-page wallet would otherwise fire a burst the free tier rejects.
+    const { api, startedAt } = pacedApi(4, 0);
+
+    const { result } = renderRewind({ wallet: { address: ADDRESS }, now: NOW, api });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TIMEOUT_MS);
+    });
+
+    expect(result.current.status).toBe("ready");
+    expect(startedAt).toHaveLength(4);
+    const gaps = startedAt.slice(1).map((at, index) => at - (startedAt[index] ?? 0));
+    for (const gap of gaps) expect(gap).toBeGreaterThanOrEqual(PAGE_INTERVAL_MS);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("a full year at the page cap reaches the story well inside the timeout", async () => {
+  vi.useFakeTimers();
+  try {
+    const { onPage, onComplete, onFail, trace } = recorder();
+    // Slower per page than the live API is on the demo wallets, so the margin is the point.
+    const { api, startedAt } = pacedApi(MAX_PAGES + 1, 700);
+
+    const startedRunAt = Date.now();
+    let finishedAt: number | undefined;
+    const { result } = renderRewind({
+      wallet: { address: ADDRESS },
+      now: NOW,
+      api,
+      onPage,
+      onComplete: (finalCount) => {
+        finishedAt = Date.now();
+        onComplete(finalCount);
+      },
+      onFail,
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TIMEOUT_MS);
+    });
+
+    expect(result.current.status).toBe("ready");
+    expect(result.current.capped).toBe(true);
+    expect(startedAt).toHaveLength(MAX_PAGES);
+    expect(trace).toEqual([...Array.from({ length: MAX_PAGES }, () => "page:1"), `complete:${MAX_PAGES}`]);
+    // The run really does outlast a 12s budget — it is the timeout, not the latency, that changed.
+    const elapsed = (finishedAt ?? Number.NaN) - startedRunAt;
+    expect(elapsed).toBeGreaterThan(12_000);
+    expect(elapsed).toBeLessThan(TIMEOUT_MS);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 test("a run still paging when the timeout lands reports failure and aborts", async () => {
   vi.useFakeTimers();
   try {
@@ -453,42 +542,109 @@ test("an empty wallet completes with no transactions, which is a success", async
 });
 
 test.each(["upstream", "rate_limited", "invalid_address", "not_found"] as const)(
-  "a %s response from the transactions endpoint reports failure",
+  "a %s response from the transactions endpoint, twice, reports failure",
   async (error) => {
     const { onPage, onComplete, onFail, trace } = recorder();
-    const { api } = fakeApi({ pages: [{ ok: false, error }] });
+    // Twice, because the first page gets the same one retry every other page does.
+    const { api, calls } = fakeApi({
+      pages: [
+        { ok: false, error },
+        { ok: false, error },
+      ],
+    });
 
-    const { result } = renderRewind({ wallet: { address: ADDRESS }, now: NOW, api, onPage, onComplete, onFail });
+    const { result } = renderRewind({
+      wallet: { address: ADDRESS },
+      now: NOW,
+      api,
+      pageRetryMs: 0,
+      onPage,
+      onComplete,
+      onFail,
+    });
     await waitFor(() => expect(result.current.status).toBe("failed"));
 
+    expect(calls.pages).toHaveLength(2);
     expect(result.current.error).toBe(error);
     expect(trace).toEqual(["fail"]);
     expect(result.current.facts).toBeUndefined();
   },
 );
 
-test("a failure part-way through paging keeps the pages already reported and completes nothing", async () => {
+test("a first page that fails once and answers on the retry never reaches the error state", async () => {
   const { onPage, onComplete, onFail, trace } = recorder();
-  const { api } = fakeApi({
-    pages: [page([tx("a", "2026-09-20T10:00:00Z", "ethereum")], cursor(1)), { ok: false, error: "rate_limited" }],
+  const { api, calls } = fakeApi({
+    pages: [{ ok: false, error: "upstream" }, page([tx("a", "2026-09-20T10:00:00Z", "ethereum")], null)],
   });
 
-  const { result } = renderRewind({ wallet: { address: ADDRESS }, now: NOW, api, onPage, onComplete, onFail });
-  await waitFor(() => expect(result.current.status).toBe("failed"));
+  const { result } = renderRewind({
+    wallet: { address: ADDRESS },
+    now: NOW,
+    api,
+    pageRetryMs: 0,
+    onPage,
+    onComplete,
+    onFail,
+  });
+  await waitFor(() => expect(result.current.status).toBe("ready"));
 
-  expect(trace).toEqual(["page:1", "fail"]);
-  expect(result.current.error).toBe("rate_limited");
+  // The retry asks for the same page again — the cursor never moves on a failure.
+  expect(calls.pages).toEqual([{ address: ADDRESS }, { address: ADDRESS }]);
+  expect(trace).toEqual(["page:1", "complete:1"]);
+  expect(result.current.capped).toBe(false);
+});
+
+test("a page that fails for good part-way through finishes the run with what landed", async () => {
+  const { onPage, onComplete, onFail, trace } = recorder();
+  const { api, calls } = fakeApi({
+    pages: [
+      page([tx("a", "2026-09-20T10:00:00Z", "ethereum")], cursor(1)),
+      { ok: false, error: "rate_limited" },
+      { ok: false, error: "rate_limited" },
+    ],
+  });
+
+  const { result } = renderRewind({
+    wallet: { address: ADDRESS },
+    now: NOW,
+    api,
+    pageRetryMs: 0,
+    onPage,
+    onComplete,
+    onFail,
+  });
+  await waitFor(() => expect(result.current.status).toBe("ready"));
+
+  // The page was asked for twice and then let go; the year already counted still becomes a story,
+  // and `capped` is what records that the wallet did more than the facts describe.
+  expect(calls.pages).toHaveLength(3);
+  expect(trace).toEqual(["page:1", "complete:1"]);
+  expect(result.current.capped).toBe(true);
+  expect(result.current.error).toBeUndefined();
+  expect(result.current.facts?.txCount).toBe(1);
 });
 
 test("retry starts paging over, and a run that then succeeds clears the failure", async () => {
   const { onPage, onComplete, onFail, trace } = recorder();
   const { api, calls } = fakeApi({
-    pages: [{ ok: false, error: "rate_limited" }, page([tx("a", "2026-09-20T10:00:00Z", "ethereum")], null)],
+    pages: [
+      { ok: false, error: "rate_limited" },
+      { ok: false, error: "rate_limited" },
+      page([tx("a", "2026-09-20T10:00:00Z", "ethereum")], null),
+    ],
   });
 
-  const { result } = renderRewind({ wallet: { address: ADDRESS }, now: NOW, api, onPage, onComplete, onFail });
+  const { result } = renderRewind({
+    wallet: { address: ADDRESS },
+    now: NOW,
+    api,
+    pageRetryMs: 0,
+    onPage,
+    onComplete,
+    onFail,
+  });
   await waitFor(() => expect(result.current.status).toBe("failed"));
-  expect(calls.pages).toHaveLength(1);
+  expect(calls.pages).toHaveLength(2);
 
   act(() => {
     result.current.retry();
@@ -496,7 +652,7 @@ test("retry starts paging over, and a run that then succeeds clears the failure"
   await waitFor(() => expect(result.current.status).toBe("ready"));
 
   // The retry asks for the first page again, with no cursor from the run that failed.
-  expect(calls.pages).toEqual([{ address: ADDRESS }, { address: ADDRESS }]);
+  expect(calls.pages).toEqual([{ address: ADDRESS }, { address: ADDRESS }, { address: ADDRESS }]);
   expect(trace).toEqual(["fail", "page:1", "complete:1"]);
   expect(result.current.error).toBeUndefined();
   expect(result.current.facts?.txCount).toBe(1);

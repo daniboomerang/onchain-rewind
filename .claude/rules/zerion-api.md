@@ -33,6 +33,8 @@ The OpenAPI spec is at `https://developers.zerion.io/openapi-v1.yaml`, and the d
 - The client calls it in a loop, feeding `count` to `ParticleReveal.addTransactions`.
 - Stop when `next` is null, when the window is exhausted, or at the cap of 20 pages (2,000 transactions). Report `capped: true`.
 - Honour `AbortSignal`: a wallet change cancels the loop.
+- Pace it: consecutive page requests go out at least `PAGE_INTERVAL_MS` apart (`src/lib/useRewind.ts`), so a wallet at the cap stays under the free tier's ten-requests-a-second burst limit.
+- A failed page is asked for once more (`PAGE_RETRY_MS`) before the run reacts to it. Measured live: a deep page of a very active wallet can answer `429` even when paced, and can answer `500` — twice the same second and then fine — so one retry is what the client owes the upstream. If it fails again, only the *first* page failing is the error state; a later one ends paging and reports `capped: true`.
 
 ## Limits, caching, errors
 - The free tier allows about 2,000 calls a day and 10 requests a second.
