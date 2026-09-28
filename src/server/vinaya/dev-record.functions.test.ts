@@ -1,0 +1,105 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { clearDevRecordCache, readDevRecord } from "#/server/vinaya/dev-record.functions.ts";
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return { ok: status >= 200 && status < 300, status, json: async () => body } as unknown as Response;
+}
+
+function gateEnvelope(seq: number) {
+  return {
+    seq,
+    status: "ok",
+    event: {
+      meta: { ts: "2026-09-01T00:00:00Z" },
+      subject: {},
+      kind: "gate",
+      event: "check_run",
+      check: "Check types",
+      outcome: "pass",
+    },
+  };
+}
+
+function requestedAfter(url: unknown): string | null {
+  return new URL(String(url)).searchParams.get("after");
+}
+
+beforeEach(() => {
+  vi.stubEnv("VINAYA_LOG_READ_TOKEN", "test-read-token");
+  clearDevRecordCache();
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+  clearDevRecordCache();
+});
+
+describe("readDevRecord", () => {
+  it("reads the whole log from after=0 on the first call, and folds it", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse([gateEnvelope(1)]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await readDevRecord();
+
+    expect(requestedAfter(fetchMock.mock.calls[0]?.[0])).toBe("0");
+    expect(result).toEqual({ ok: true, data: { tasks: [], guardrails: { checks: 1, runs: 1, stopped: 0 } } });
+  });
+
+  it("asks only for events after the last one held on the next read", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse([gateEnvelope(1), gateEnvelope(2)]))
+      .mockResolvedValueOnce(jsonResponse([gateEnvelope(3)]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await readDevRecord();
+    const second = await readDevRecord();
+
+    expect(requestedAfter(fetchMock.mock.calls[1]?.[0])).toBe("2");
+    expect(second).toEqual({ ok: true, data: { tasks: [], guardrails: { checks: 1, runs: 3, stopped: 0 } } });
+  });
+
+  it("shares one read between concurrent callers", async () => {
+    let resolveFetch: (value: Response) => void = () => {};
+    const fetchMock = vi.fn<typeof fetch>().mockReturnValue(
+      new Promise((resolve) => {
+        resolveFetch = resolve;
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const first = readDevRecord();
+    const second = readDevRecord();
+    resolveFetch(jsonResponse([gateEnvelope(1)]));
+
+    const [firstResult, secondResult] = await Promise.all([first, second]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(firstResult).toEqual(secondResult);
+  });
+
+  it("keeps serving what is held when a refresh fails", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse([gateEnvelope(1)]))
+      .mockResolvedValueOnce(jsonResponse({ error: "boom" }, 500));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const first = await readDevRecord();
+    const second = await readDevRecord();
+
+    expect(second).toEqual(first);
+    expect(second).toEqual({ ok: true, data: { tasks: [], guardrails: { checks: 1, runs: 1, stopped: 0 } } });
+  });
+
+  it("returns the typed error when a failing read has nothing held yet", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ error: "nope" }, 401));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    expect(await readDevRecord()).toEqual({ ok: false, error: "unauthorized" });
+  });
+});
