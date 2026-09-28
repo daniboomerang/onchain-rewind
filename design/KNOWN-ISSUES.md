@@ -60,6 +60,16 @@ Found when the reference code was run in a scratch Vite app (React 19, Tailwind 
 
 **Status:** carried into the app verbatim, and the same literals are already in the app's primitives, so this is a scale gap rather than a regression in any one component. Closing it means adding the four steps to `design/tokens.css`, copying them into the app's own `tokens.css`, documenting them in `DESIGN.md` §1, and migrating both component directories in one pass — wider than any single component's task.
 
-## 7. Nothing else found
+## 7. A card is invisible whenever its entrance's fade doesn't finish: `components/motion.ts`, `components/StoryCard.tsx`, `components/ShareCard.tsx`
+
+**Symptom:** with `prefers-reduced-motion` emulated, a card can sit at `opacity: 0; transform: none` with all of its content present in the page — a blank card, nothing but the chrome above it, while the progress bar keeps advancing. Measured on the share card's outer `<article>`, whose stats sit at opacity 1 underneath a transparent parent, and seen on a story card during the full-screen flow.
+
+**Cause:** the reduced-motion entrance snaps the rise and animates the fade. Motion treats a transition with no duration and no delay as no animation at all — it writes the target straight through its own render loop — so the rise lands on the first frame and `transform: none` appears immediately. The fade is a real animation, and it is the only thing standing between the hidden state the server rendered (`opacity: 0`) and a readable card. An animation that never reaches its end leaves the element at the value it started from, and nothing later re-writes it: Motion renders from the value the animation last set, so every subsequent render paints the card transparent again. The full-motion path cannot land here — both values share one duration, so a fade stuck at 0 is always paired with a visible part-way rise — which is why the stuck state only ever showed up with the preference set.
+
+**Fix, as ported into the app:** the reduced twins snap the fade as well as the rise, so the entrance writes both values through the render loop and no animation has to finish for a card to be readable. That is also what the preference asks for: the card appears rather than fading in. The share card stops writing its own entrance inline and reads a named variant, so the shell's two twins live beside the item's in one file and cannot drift apart again. No prop and no motion token changes.
+
+**Proven by** `src/components/rewind/card-entrance.test.tsx`, which renders every story card and the share card for every fixture and asserts each animated element reaches opacity 1 — under reduced motion with no frame allowed to pass, which is the assertion the old variants fail. `src/components/rewind/motion.test.ts` holds the invariant directly: every reduced entrance's transition has duration 0 and delay 0.
+
+## 8. Nothing else found
 
 Strict typecheck (including `noUncheckedIndexedAccess`) passes. The playground renders with no console errors. The reveal, all five cards, and the empty and error states were visually checked.

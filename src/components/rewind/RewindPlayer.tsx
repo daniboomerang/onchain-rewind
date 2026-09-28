@@ -24,7 +24,8 @@ export type RewindPlayerProps = {
 /** Below this width the pointer split is 30/70 rather than 50/50 — DESIGN.md §3. */
 const MOBILE_BP = 640;
 
-type Card = { key: string; eyebrow: string; render: (index: number, total: number) => ReactNode };
+/** One story card, as the player composes it. Exported so a test can mount the real ones. */
+export type Card = { key: string; eyebrow: string; render: (index: number, total: number) => ReactNode };
 
 /** Plays the story: chrome, cards, navigation, pause. Card 5 (Share) doesn't auto-advance. */
 export function RewindPlayer({ facts, onReplay, onOpenSettings }: RewindPlayerProps) {
@@ -221,7 +222,12 @@ export function RewindPlayer({ facts, onReplay, onOpenSettings }: RewindPlayerPr
   );
 }
 
-function buildCards(f: RewindFacts, a: { share: () => void; sharing: boolean; onReplay: () => void }): Card[] {
+/**
+ * The story's cards for a wallet: Origin, Home chain, Top token and The ride where the facts carry
+ * them, then the share card, which every wallet with a transaction gets. Exported for the entrance
+ * tests, which mount each card the player would build rather than assembling their own.
+ */
+export function buildCards(f: RewindFacts, a: { share: () => void; sharing: boolean; onReplay: () => void }): Card[] {
   const cards: Card[] = [];
 
   if (f.firstTx) {

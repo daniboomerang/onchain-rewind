@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from "motion/react";
-import { duration, ease, enterItem, enterItemReduced, stagger } from "./motion";
+import { enterCard, enterCardReduced, enterItem, enterItemReduced, stagger } from "./motion";
 
 export type ShareStat = { value: string; label: string };
 
@@ -14,17 +14,16 @@ export type ShareCardProps = {
 export function ShareCard({ name, address, stats }: ShareCardProps) {
   const reduce = useReducedMotion();
   const item = reduce ? enterItemReduced : enterItem;
+  // The card's own entrance is a named variant rather than a target written here: the hidden state
+  // has to be preference-independent, because the server renders it before it can know, and the two
+  // twins only stay in step while one place owns both. `hidden` is where the server leaves this
+  // element, so `show` is the only thing that makes the card readable.
+  const card = reduce ? enterCardReduced : enterCard;
   return (
     <motion.article
-      // `initial` is preference-independent for the same reason `enterItem`'s hidden state is:
-      // the server renders it before it can know, and `animate` ends at y 0 either way.
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={
-        reduce
-          ? { duration: duration.base, ease: ease.inOut, y: { duration: 0 } }
-          : { duration: duration.slow, ease: ease.out }
-      }
+      variants={card}
+      initial="hidden"
+      animate="show"
       className="flex w-full max-w-[600px] flex-col gap-7 rounded-3xl bg-surface p-9 text-left shadow-card max-md:p-6"
     >
       <header className="flex items-baseline justify-between gap-3">
