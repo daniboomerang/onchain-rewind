@@ -66,8 +66,8 @@ export type WalletInputState = {
 /**
  * The combobox's state for the current field value, resolving an ENS name on the server when the
  * value is one. The query key is the name, so the same name typed again — after a wrong paste, or
- * on a second visit to settings — is served from the cache for the next ten minutes instead of
- * being read from mainnet twice.
+ * on a second visit to settings — is served from the cache for as long as a read stays fresh
+ * (`STALE_TIME_MS`) instead of being read from mainnet twice.
  */
 export function useWalletInput(value: string, wallets: readonly DemoWalletEntry[] = demoWallets): WalletInputState {
   const reading = readWalletInput(value, wallets);

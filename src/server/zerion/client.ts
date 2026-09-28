@@ -3,7 +3,7 @@
  *
  * Every Zerion call in this app goes through `zerionFetch`. The API key is read here and
  * nowhere else, it never leaves this module, and no upstream message ever reaches a caller:
- * failures come back as one of four typed error codes the UI can render.
+ * failures come back as one of five typed error codes the UI can render.
  *
  * Auth is HTTP Basic with the key as the username and an empty password —
  * `Authorization: Basic base64(KEY + ":")` — confirmed against the OpenAPI spec's
@@ -12,22 +12,48 @@
 
 export const ZERION_BASE_URL = "https://api.zerion.io";
 
-/** The free tier allows about 2,000 calls a day, so a repeated call inside the window is served here. */
-const DEFAULT_TTL_MS = 10 * 60 * 1000;
+/**
+ * The Demo plan allows 300 calls a day, and one full Rewind of a deep wallet spends more than twenty
+ * of them, so the cache is measured in hours rather than minutes: a wallet replayed, re-opened or
+ * shared during the same sitting costs the budget nothing at all. Half a day is as stale as a year of
+ * history can get without any card reading differently — the window is 365 days long.
+ *
+ * On a serverless host this is best-effort by nature: the cache lives in one instance's memory, so a
+ * cold start starts empty. It saves the repeated calls of one session, which is what the budget needs.
+ */
+const DEFAULT_TTL_MS = 12 * 60 * 60 * 1000;
 /** Chain names and icons barely move. */
 const CHAINS_TTL_MS = 24 * 60 * 60 * 1000;
 /** Enough for a year of transaction pages per wallet, a handful of wallets deep. */
 const MAX_CACHE_ENTRIES = 200;
-/** The free tier allows about ten requests a second. One 429 waits; a fourth gives up. */
+/**
+ * A throttle is transient, so it waits: one 429 waits, a fourth gives up. The Demo plan allows one
+ * request a second, which is what the run's own pacing is sized for; these backoffs are what catches
+ * the second request the pacing didn't foresee.
+ */
 const RATE_LIMIT_BACKOFF_MS = [500, 1000, 2000] as const;
+/**
+ * Zerion reports the organization's remaining daily calls on every response. Read live off this
+ * repository's key and recorded, with the plan's own limit headers, in
+ * `.claude/rules/zerion-api.md`: on the free Demo plan a spent day answers `429` with
+ * `ratelimit-org-day-remaining: 0`, and `ratelimit-org-day-reset` counts the seconds until it returns.
+ */
+const DAY_REMAINING_HEADER = "ratelimit-org-day-remaining";
 
 /** A query-parameter value. Arrays are sent comma-separated, the way Zerion's filters expect. */
 export type ZerionParamValue = string | number | boolean | readonly string[];
 
 export type ZerionParams = Readonly<Record<string, ZerionParamValue | undefined>>;
 
-/** The only failure vocabulary a caller ever sees. Raw upstream messages stay in this module. */
-export type ZerionErrorCode = "invalid_address" | "not_found" | "rate_limited" | "upstream";
+/**
+ * The only failure vocabulary a caller ever sees. Raw upstream messages stay in this module.
+ *
+ * `rate_limited` and `budget_spent` are both a `429`, and they are not the same failure: the first is
+ * a throttle that outlasted its backoffs and is worth retrying, the second is the plan's daily budget
+ * spent, which no retry can help until the day resets — so only the second is worth telling a visitor
+ * about.
+ */
+export type ZerionErrorCode = "invalid_address" | "not_found" | "rate_limited" | "budget_spent" | "upstream";
 
 export type ZerionResult<T> =
   | { readonly ok: true; readonly data: T }
@@ -63,6 +89,10 @@ export async function zerionFetch<T>(
     }
 
     if (response.status === 429) {
+      // A spent daily budget is not a transient throttle: every retry is refused until the day
+      // resets, so it skips the backoffs entirely and comes back as its own code.
+      if (dailyBudgetSpent(response)) return { ok: false, error: "budget_spent" };
+
       const backoffMs = RATE_LIMIT_BACKOFF_MS[attempt];
       if (backoffMs === undefined) return { ok: false, error: "rate_limited" };
       await sleep(backoffMs, options.signal);
@@ -176,6 +206,17 @@ function errorForStatus(status: number): ZerionErrorCode {
   if (status === 400 || status === 422) return "invalid_address";
   if (status === 404) return "not_found";
   return "upstream";
+}
+
+/**
+ * Whether this `429` is the plan's daily budget spent rather than a throttle. A header that is
+ * missing, empty or unreadable is not one: an unexplained 429 stays the retryable failure it was.
+ */
+function dailyBudgetSpent(response: Response): boolean {
+  const remaining = response.headers.get(DAY_REMAINING_HEADER);
+  if (remaining === null || remaining.trim() === "") return false;
+  const left = Number(remaining);
+  return Number.isFinite(left) && left <= 0;
 }
 
 /** A cancellable wait: an abort during a backoff stops the retry loop instead of outliving it. */

@@ -105,6 +105,8 @@ type Options = {
    * once — so the run ends in the error state and "Try again" is the run that succeeds.
    */
   readonly failFirstRun?: boolean;
+  /** The day's data budget is spent: the first page fails with it, and no page is asked for twice. */
+  readonly budgetSpent?: boolean;
 };
 
 type Gate = { readonly wait: Promise<void>; readonly open: () => void };
@@ -121,13 +123,14 @@ function gate(): Gate {
  * The Zerion reads, scripted. Pages are consumed in order across the whole render, so a retry or a
  * second wallet keeps reading the same year — which is what a server cache would do anyway.
  */
-function fakeApi({ pages = PAGES, gated = false, failFirstRun = false }: Options = {}) {
+function fakeApi({ pages = PAGES, gated = false, failFirstRun = false, budgetSpent = false }: Options = {}) {
   const gates = pages.map(gate);
   let calls = 0;
 
   const api: RewindApi = {
     transactionsPage: async () => {
       const index = calls++;
+      if (budgetSpent) return { ok: false, error: "budget_spent" };
       if (failFirstRun && index < 2) return { ok: false, error: "upstream" };
       const slot = (failFirstRun ? index - 2 : index) % pages.length;
       if (gated) await gates[slot]?.wait;
@@ -153,10 +156,14 @@ function remember(wallet: { label: string; address: Address }) {
   localStorage.setItem(WALLET_STORAGE_KEY, JSON.stringify({ address: wallet.address, name: wallet.label }));
 }
 
+/**
+ * Unpaced: the app spaces its Zerion requests a whole second apart, because the Demo plan allows one
+ * a second, and none of the scripted runs below has a reason to spend that wall clock.
+ */
 function open(api: RewindApi) {
   return render(
     <QueryClientProvider client={createAppQueryClient()}>
-      <Home api={api} />
+      <Home api={api} requestIntervalMs={0} />
     </QueryClientProvider>,
   );
 }
@@ -220,6 +227,18 @@ test("a failed run ends in the error state, and Try again plays the Rewind", asy
   await user.click(screen.getByRole("button", { name: "Try again" }));
 
   expect(await screen.findByLabelText(CARD.origin)).toBeInTheDocument();
+});
+
+test("a spent daily budget ends on the error state saying so, and when to come back", async () => {
+  remember(first);
+  const { api } = fakeApi({ budgetSpent: true });
+  open(api);
+
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent("today's requests are all spent");
+  expect(alert).toHaveTextContent("come back tomorrow");
+  // The generic copy is gone: the data service answered, it just answered that the day is over.
+  expect(alert).not.toHaveTextContent("The data service didn't respond");
 });
 
 test("changing the wallet restarts the Rewind", async () => {

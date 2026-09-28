@@ -15,14 +15,29 @@ import { type ConnectedWallet, useConnectedWallet } from "../lib/wallet-store";
 
 export const Route = createFileRoute("/")({ component: Home });
 
+/**
+ * The one failure worth explaining. The demo reads onchain data on Zerion's free Demo plan, whose
+ * daily budget is 300 requests, and a Rewind of a deep wallet spends more than twenty of them: when
+ * the day's are gone nothing the visitor does brings the year back before the day resets, so the copy
+ * says that and says when to come back instead of blaming an upstream that answered perfectly well.
+ */
+const BUDGET_SPENT_MESSAGE =
+  "This demo reads onchain data on Zerion's free plan, and today's requests are all spent. " +
+  "Nothing is wrong with your wallet — come back tomorrow and the year plays from the start.";
+
 export type HomeProps = {
   /** The Zerion reads, for the route's own test. The app lets the run use the server functions. */
   api?: RewindApi;
+  /**
+   * The floor between two Zerion requests, for the route's own test: the app's own second-apart
+   * pacing would make every scripted flow below a wall-clock wait. The app never passes it.
+   */
+  requestIntervalMs?: number;
 };
 
 /** Exported for its own test: the route itself is only this component. */
 
-export function Home({ api }: HomeProps) {
+export function Home({ api, requestIntervalMs }: HomeProps) {
   const { loaded, wallet, connect } = useConnectedWallet();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
@@ -67,6 +82,7 @@ export function Home({ api }: HomeProps) {
           key={`${wallet.address}:${run}`}
           wallet={wallet}
           {...(api !== undefined ? { api } : {})}
+          {...(requestIntervalMs !== undefined ? { requestIntervalMs } : {})}
           onRestart={restart}
           onOpenSettings={openSettings}
         />
@@ -99,6 +115,7 @@ export function Home({ api }: HomeProps) {
 type RewindProps = {
   wallet: ConnectedWallet;
   api?: RewindApi;
+  requestIntervalMs?: number;
   /** "Replay", and "Try again" on the error state: both are a fresh run of the whole Rewind. */
   onRestart: () => void;
   onOpenSettings: () => void;
@@ -118,15 +135,16 @@ type Stage = "reveal" | "burst" | "story" | "error";
  * arrives, the last page completes the reveal, and a failure fades the field out. Nothing about the
  * count travels through React state: that is what `ParticleReveal`'s imperative handle is for.
  */
-function Rewind({ wallet, api, onRestart, onOpenSettings }: RewindProps) {
+function Rewind({ wallet, api, requestIntervalMs, onRestart, onOpenSettings }: RewindProps) {
   const reveal = useRef<ParticleRevealHandle>(null);
   /** The 200ms between the burst starting and card 1 entering, cleared if this run is dropped. */
   const handoff = useRef<number | null>(null);
   const [stage, setStage] = useState<Stage>("reveal");
 
-  const { facts } = useRewind({
+  const { facts, error } = useRewind({
     wallet,
     ...(api !== undefined ? { api } : {}),
+    ...(requestIntervalMs !== undefined ? { requestIntervalMs } : {}),
     onPage: (count) => reveal.current?.addTransactions(count),
     onComplete: (finalCount) => reveal.current?.complete(finalCount),
     onFail: () => reveal.current?.fail(),
@@ -161,7 +179,12 @@ function Rewind({ wallet, api, onRestart, onOpenSettings }: RewindProps) {
         />
       )}
       {stage === "error" && (
-        <ErrorState wallet={displayName(wallet)} onRetry={onRestart} onChangeWallet={onOpenSettings} />
+        <ErrorState
+          wallet={displayName(wallet)}
+          message={error === "budget_spent" ? BUDGET_SPENT_MESSAGE : undefined}
+          onRetry={onRestart}
+          onChangeWallet={onOpenSettings}
+        />
       )}
     </>
   );

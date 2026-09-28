@@ -29,7 +29,7 @@ Zerion's own web app runs on TanStack Start, which is why this repo uses it too.
 - **Build check:** after `bun run build`, grep the client output for the key's first characters. It must not be found.
 
 ## Client data
-- TanStack Query for server-function calls. `staleTime` is 10 minutes. The query key includes the address.
+- TanStack Query for server-function calls. `staleTime` is half a day, the same as the server's own cache, because the API plan's daily budget is small. The query key includes the address.
 - The transaction paging loop lives in a hook (`useRewind`). It isn't a single query, because it must stream counts into the reveal. Use `AbortController` and cancel on wallet change or unmount.
 
 ## SSR boundaries
