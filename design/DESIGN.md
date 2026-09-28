@@ -177,7 +177,7 @@ Don't
 
 **`components/StoryChrome.tsx`** — The top bar (segments slot, wordmark, wallet name, gear), split out so the player and the state screens share it.
 
-**`components/EmptyState.tsx` / `ErrorState.tsx`** — Match S12 and S13. ErrorState props: `onRetry`, `onChangeWallet`, `retrying`, and `message`; focus goes to "Try again". `message` replaces the generic explanation under the headline for a failure worth naming — the day's data budget being spent on the free API plan, which is nothing the visitor did and resolves when the day resets. Left out, the paragraph reads as S13 does.
+**`components/EmptyState.tsx` / `ErrorState.tsx`** — Match S12 and S13. ErrorState props: `onRetry`, `onChangeWallet`, `retrying`, and `reason`. `reason` picks the screen: `"unavailable"` (the default) reads as S13 does — "The rewind got stuck", with focus on "Try again" — while `"budget-spent"` is the day's data budget being spent on the free API plan, which is nothing the visitor did and which resolves when the day resets: its own eyebrow and headline ("Today's data budget is spent"), its own paragraph saying when to come back, and no "Try again" at all, because no retry succeeds before the reset. Focus then goes to "Change wallet".
 
 **`components/TokenIcon.tsx` / `ChainIcon.tsx`** — `AvatarImage`: the initial renders first with the image layered over it; `onError` keeps the fallback. Lazy loading with async decoding, fixed size, so there's no layout shift.
 
