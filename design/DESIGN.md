@@ -1,6 +1,6 @@
 # Onchain Rewind — DESIGN.md
 
-A wallet's year, played back as five story cards after a particle reveal. Dark first (light theme exists in the tokens but the story always renders dark). Desktop 1440×900, mobile 390 wide.
+A wallet's year, played back as five story cards after a particle reveal. Dark first: the story always renders dark, while the app chrome around it — settings dialog, wordmark shell, empty and error screens, `/system` — follows the operating system's light or dark setting (§1, Theme). Desktop 1440×900, mobile 390 wide.
 
 Files: `tokens.css` (Tailwind v4), `components/*.tsx` (reference code), `Rewind Design System.dc.html` (component sheet), `Rewind Screens.dc.html` (screens S01–S16, M01–M02).
 

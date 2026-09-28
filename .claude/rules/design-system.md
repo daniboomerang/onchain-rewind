@@ -12,7 +12,8 @@ The source of truth is `design/DESIGN.md`, plus `design/tokens.css` and the refe
 - `src/styles/tokens.css` is a copy of `design/tokens.css`. `app.css` does `@import "tailwindcss"; @import "./tokens.css";`.
 - Use the utilities those tokens generate: `bg-bg`, `bg-surface`, `text-fg`, `text-fg-muted`, `text-primary`, `border-border`, `text-display-xl`, `text-stat`, `rounded-3xl`, `shadow-card` and so on.
 - **No raw hex, px font sizes or ms durations in components.** Add a token first if one is missing, and document it in DESIGN.md.
-- Theme scope: `data-theme="light"` or `data-theme="dark"` on any element re-declares the palette for that element and its subtree, and dark is also the bare `:root` default. The story always renders dark.
+- Theme scope: `data-theme="light"` or `data-theme="dark"` on any element re-declares the palette for that element and its subtree, and dark is also the bare `:root` default.
+- The app chrome follows the operating system's setting: the root route resolves it into `data-theme` on `<html>` in a head script, before the first paint, because `matchMedia` read from an effect runs after it. The story always renders dark — its roots (the reveal, the story surface, the share card) carry `data-theme="dark"` — and so does the share image. Any non-story component must read correctly in both themes: check its `/system` section with the toggle at the top of the page.
 - Never put white text on dark-mode primary (`#00a3f5`); use `text-on-primary`.
 
 ## Typography
