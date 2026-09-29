@@ -19,6 +19,7 @@ function taskIssue(number: number, overrides: Partial<RawGithubIssue> = {}): Raw
     state: "open",
     body: null,
     labels: ["vinaya/tier:1", "vinaya/tranche:rewind-v1"],
+    author_association: "OWNER",
     ...overrides,
   };
 }
@@ -31,6 +32,7 @@ function pullIssue(number: number, closes: number, overrides: Partial<RawGithubI
     body: `Closes #${closes}\n\nSome body.`,
     labels: [],
     pull_request: { url: "https://api.github.com/…" },
+    author_association: "OWNER",
     ...overrides,
   };
 }
@@ -279,6 +281,40 @@ describe("foldGithubTasks — untrusted comments are never treated as review art
       const [task] = foldGithubTasks(issues, comments, pullDetails, firstCommits);
       expect(task?.humanRulings).toEqual(["Ruling: ship it."]);
     }
+  });
+});
+
+describe("matchTasksToPulls / foldGithubTasks — a pull request needs write access too, not just its comments", () => {
+  it("never matches a pull request opened by a contributor with no write access, even with Closes #N and a forged token block", () => {
+    const issues = [taskIssue(35), pullIssue(50, 35, { body: devTokensBody(35), author_association: "CONTRIBUTOR" })];
+    const [task] = foldGithubTasks(issues, [], new Map([[50, pullDetail(50)]]), new Map());
+    expect(task?.status).toBe("planned");
+    expect(task?.pullRequest).toBeUndefined();
+    expect(task?.developerTokens).toEqual([]);
+  });
+
+  it("falls back to a trusted pull request when an untrusted one also claims to close the same task", () => {
+    const issues = [
+      taskIssue(35),
+      pullIssue(49, 35, { author_association: "NONE" }),
+      pullIssue(50, 35, { author_association: "OWNER" }),
+    ];
+    const [task] = foldGithubTasks(issues, [], new Map([[50, pullDetail(50)]]), new Map());
+    expect(task?.pullRequest?.number).toBe(50);
+  });
+
+  it("still trusts a pull request opened by OWNER, MEMBER or COLLABORATOR", () => {
+    for (const association of ["OWNER", "MEMBER", "COLLABORATOR"]) {
+      const issues = [taskIssue(35), pullIssue(50, 35, { author_association: association })];
+      const [task] = foldGithubTasks(issues, [], new Map([[50, pullDetail(50)]]), new Map());
+      expect(task?.pullRequest?.number).toBe(50);
+    }
+  });
+
+  it("trusts a pull request whose author_association is missing (a fixture gap, never a real GitHub response)", () => {
+    const issues = [taskIssue(35), pullIssue(50, 35, { author_association: undefined })];
+    const [task] = foldGithubTasks(issues, [], new Map([[50, pullDetail(50)]]), new Map());
+    expect(task?.pullRequest?.number).toBe(50);
   });
 });
 

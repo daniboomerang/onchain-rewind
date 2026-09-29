@@ -5,6 +5,7 @@ import { buildDevLogView, type DevLogView, type TicketView } from "../../engine/
 import { SEVERITIES, type TaskStatus } from "../../engine/github-dev-record";
 import { getGithubDevRecord } from "../../server/github/dev-record.functions";
 import { getDevRecord } from "../../server/vinaya/dev-record.functions";
+import type { VinayaLogResult } from "../../server/vinaya/log-client";
 import { duration, ease, enterCard, enterCardReduced, stagger } from "../rewind/motion";
 import { localStamp, minutes, plural, tokens } from "./format";
 import { RoundTimeline } from "./RoundTimeline";
@@ -131,16 +132,29 @@ function DevLogData() {
   }
   if (!view) return <StateMessage state="loading" />;
 
-  const vinayaFailed = vinaya.data && !vinaya.data.ok;
+  const vinayaProblem = vinayaState(vinaya);
 
   return (
     <>
       <DevLogRecord view={view} />
-      {vinayaFailed && vinaya.data && !vinaya.data.ok && (
-        <StateMessage state={vinaya.data.error === "unauthorized" ? "token_rejected" : "unreachable"} />
-      )}
+      {vinayaProblem && <StateMessage state={vinayaProblem} />}
     </>
   );
+}
+
+/**
+ * The one state the Vinaya read can be in worth telling the visitor about, or `null` when it's
+ * fine. `getDevRecord` only ever throws for one reason (`log-client.ts`'s own missing-token
+ * check — every other failure it meets, network or upstream, comes back as a typed `unreachable`
+ * or `unauthorized` result instead) — so a query that errored without ever producing a result is
+ * that one thrown case, read here as "token rejected" the same as the typed `unauthorized` result.
+ * Guardrails and the round-by-round timeline both need this read; the ticket list and headline
+ * numbers don't, so this never blocks the page the way a failed GitHub read does.
+ */
+function vinayaState(vinaya: { data?: VinayaLogResult<unknown>; isError: boolean }): LoadState | null {
+  if (vinaya.isError) return "token_rejected";
+  if (vinaya.data && !vinaya.data.ok) return vinaya.data.error === "unauthorized" ? "token_rejected" : "unreachable";
+  return null;
 }
 
 function Reveal({ index, children, className }: { index: number; children: ReactNode; className?: string }) {

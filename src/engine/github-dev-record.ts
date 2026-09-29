@@ -31,6 +31,12 @@ export type RawGithubIssue = {
   readonly labels: readonly (string | { readonly name?: string })[];
   /** Present (any shape) only on pull requests — issues never carry this key. */
   readonly pull_request?: unknown;
+  /**
+   * Same field GitHub puts on every comment (`RawGithubComment`), trusted the same way. GitHub's
+   * real API always sends it — a genuinely missing value is a fixture gap, not a payload an
+   * outside contributor can forge or omit, so `isTrustedAssociation` treats "missing" as trusted.
+   */
+  readonly author_association?: string;
 };
 
 /** `GET /repos/{owner}/{repo}/pulls/{n}`. The issues list has no size; this does. */
@@ -67,8 +73,18 @@ export type RawGithubComment = {
   readonly author_association: string;
 };
 
-/** Author associations with write access to this repo — the only comments trusted as review artifacts. */
+/** Author associations with write access to this repo — the only authors trusted as review or task artifacts. */
 const TRUSTED_ASSOCIATIONS = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
+
+/**
+ * Whether an `author_association` (a comment's, or a pull request's own) has write access to this
+ * repo. `undefined` is trusted: GitHub's real API always sends this field, so a genuinely missing
+ * value only ever happens in a fixture that predates this check, never in a live GitHub response —
+ * see `RawGithubIssue`.
+ */
+function isTrustedAssociation(association: string | undefined): boolean {
+  return association === undefined || TRUSTED_ASSOCIATIONS.has(association);
+}
 
 /**
  * Whether a comment's author is trusted to post a reviewer summary table, a verdict or a human
@@ -77,7 +93,7 @@ const TRUSTED_ASSOCIATIONS = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
  * the public development record as if it were authentic.
  */
 function isTrustedComment(comment: RawGithubComment): boolean {
-  return TRUSTED_ASSOCIATIONS.has(comment.author_association);
+  return isTrustedAssociation(comment.author_association);
 }
 
 /** The immutable per-pull-request facts a merged pull request never needs re-read for. */
@@ -322,10 +338,19 @@ export type PullMatch = { readonly issue: RawGithubIssue; readonly pulls: readon
  * `/pulls/{n}/commits` for, without repeating the `Closes #N` parsing — knowledge of GitHub's
  * shapes belongs to the engine alone. `selectPull` below picks the one that actually represents
  * the task once their merge status is known.
+ *
+ * A pull request only enters this map if its own author has write access to this repo. This
+ * tracker is public: without that check, anyone could open a pull request whose body says
+ * `Closes #N` and carries a forged `AEG:TOKENS` block, and — with no comment, no review, no merge
+ * at all — have it picked up as that task's own developer record, the same forgery `isTrustedComment`
+ * already guards against for comments.
  */
 export function matchTasksToPulls(issues: readonly RawGithubIssue[]): Map<number, PullMatch> {
   const tasks = issues.filter(isMilestoneTaskIssue);
-  const pulls = issues.filter((issue) => "pull_request" in issue && issue.pull_request !== undefined);
+  const pulls = issues.filter(
+    (issue) =>
+      "pull_request" in issue && issue.pull_request !== undefined && isTrustedAssociation(issue.author_association),
+  );
 
   const byIssueNumber = new Map<number, PullMatch>();
   for (const task of tasks) byIssueNumber.set(task.number, { issue: task, pulls: [] });

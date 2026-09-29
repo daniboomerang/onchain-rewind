@@ -1,9 +1,33 @@
 // @vitest-environment happy-dom
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { emptyDevLog, normalDevLog } from "../../engine/__fixtures__/dev-log";
-import { DevLogRecord, StateMessage } from "./DevLogPage";
+
+vi.mock("../../server/github/dev-record.functions", () => ({ getGithubDevRecord: vi.fn() }));
+vi.mock("../../server/vinaya/dev-record.functions", () => ({ getDevRecord: vi.fn() }));
+
+import { getGithubDevRecord } from "../../server/github/dev-record.functions";
+import { getDevRecord } from "../../server/vinaya/dev-record.functions";
+import { DevLogPage, DevLogRecord, StateMessage } from "./DevLogPage";
+
+const emptyGithubRecord = {
+  ok: true as const,
+  data: {
+    tasks: [],
+    totals: {
+      tasksMerged: 0,
+      developerMs: 0,
+      reviewerMs: 0,
+      secondRoundTasks: 0,
+      findings: { blocker: 0, major: 0, minor: 0, critical: 0, high: 0, medium: 0, low: 0 },
+      tokens: { developerIn: 0, developerOut: 0, reviewerIn: 0, reviewerOut: 0 },
+      typicalSize: {},
+      humanRulings: 0,
+    },
+  },
+};
 
 beforeAll(() => {
   vi.stubGlobal("matchMedia", (query: string) => ({
@@ -92,5 +116,48 @@ describe("DevLogRecord", () => {
   it("shows zero tickets and zero merged for an empty milestone", () => {
     render(<DevLogRecord view={emptyDevLog} />);
     expect(screen.getByText((_, element) => element?.textContent === "0 of 0 tickets merged")).toBeInTheDocument();
+  });
+});
+
+describe("DevLogPage — a missing VINAYA_LOG_READ_TOKEN never fails silently", () => {
+  afterEach(() => {
+    vi.mocked(getGithubDevRecord).mockReset();
+    vi.mocked(getDevRecord).mockReset();
+  });
+
+  function renderPage() {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(
+      <QueryClientProvider client={client}>
+        <DevLogPage />
+      </QueryClientProvider>,
+    );
+  }
+
+  it("shows the token-rejected message when the Vinaya read throws instead of returning a result", async () => {
+    vi.mocked(getGithubDevRecord).mockResolvedValue(emptyGithubRecord);
+    // This is exactly what `log-client.ts` does for a missing `VINAYA_LOG_READ_TOKEN`: it throws
+    // rather than returning a typed `VinayaLogResult`, so the query settles into `isError`, not a
+    // `{ ok: false }` value — the case this test exists to cover.
+    vi.mocked(getDevRecord).mockRejectedValue(new Error("VINAYA_LOG_READ_TOKEN is not set"));
+
+    renderPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("VINAYA_LOG_READ_TOKEN");
+    // The ticket list itself still rendered — a missing token degrades the page, it doesn't blank it.
+    expect(screen.getByText("Onchain Rewind v1: demo-ready")).toBeInTheDocument();
+  });
+
+  it("shows nothing extra when both reads succeed", async () => {
+    vi.mocked(getGithubDevRecord).mockResolvedValue(emptyGithubRecord);
+    vi.mocked(getDevRecord).mockResolvedValue({
+      ok: true,
+      data: { tasks: [], guardrails: { checks: 0, runs: 0, stopped: 0 } },
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("Onchain Rewind v1: demo-ready")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
