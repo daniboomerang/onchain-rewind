@@ -44,6 +44,12 @@ A web app that plays a wallet's onchain year back as an animated story, built on
 
 **Development record**: How this app was built, shown on the site: each task's round-by-round record (developer time, reviewer time, outcome, size, confidence, findings) and the guardrail totals (checks run, checks that stopped a change), read from GitHub and the Vinaya log. See [ADR-0004](docs/adr/0004-the-development-record-is-read-on-the-server.md). _Avoid_: Changelog, activity log, audit trail
 
+**Development log**: The `/logs` page that shows the development record: the milestone's progress, its headline numbers, where the time goes, the guardrails and every ticket. _Avoid_: Dashboard, admin panel, console, build log
+
+**Ticket**: One row of the development log — a milestone task, with its status, time, rounds, size, problems and pull request. A ticket is never a **card** (that word is reserved for the Rewind's five). _Avoid_: Task (the code's own name for the underlying record; the page's own word is ticket), row, item
+
+**Round**: One back-and-forth of the developer and the reviewers within a ticket, ended by a verdict or a request for changes. A round whose number repeats is a re-review, most often after a human ruling. _Avoid_: Loop, iteration, pass, cycle
+
 ## Decisions
 
 - [ADR-0001](docs/adr/0001-zerion-key-stays-on-the-server.md): The Zerion API key stays on the server

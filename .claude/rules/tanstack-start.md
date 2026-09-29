@@ -13,6 +13,7 @@ Zerion's own web app runs on TanStack Start, which is why this repo uses it too.
 - `__root.tsx`: document shell, fonts, meta and OG tags, favicon, global CSS, and the head script that resolves the theme before the first paint.
 - `index.tsx`: the Rewind (settings dialog on first visit, then autoplay).
 - `system.tsx`: the component playground, ported from `design/Playground.tsx`.
+- `logs.tsx`: the development log (CONTEXT.md) — this project's own milestone, tickets and round-by-round review loop, read live from GitHub and the Vinaya log. Renders a neutral shell on the server; the record loads on the client, same SSR-boundary reasoning as below.
 - No other routes in v1.
 
 ## Server functions (`src/server/`)
@@ -22,15 +23,18 @@ Zerion's own web app runs on TanStack Start, which is why this repo uses it too.
 - Each `*.functions.ts` exports the handler's body as a plain `read…` function beside the server function itself. The server function is one line around it, and the tests call the `read…` function: `createServerFn`'s own handler needs the Start server runtime, which Vitest doesn't have.
 - **Return, never throw.** A server function returns the client's `ZerionResult<T>` (or, for ENS, `EnsResult`), including for input it refuses. Validation happens before the call goes out.
 - ENS is not Zerion, so it lives in `src/server/ens/`, not `src/server/zerion/`.
+- The development log's two sources each get their own directory, same reasoning: `src/server/github/` (`dev-record.functions.ts` → `getGithubDevRecord`) reads this repo's issues, pull requests and comments; `src/server/vinaya/` (`dev-record.functions.ts` → `getDevRecord`) reads the Vinaya log directly. Neither touches Zerion or ENS. `getGithubDevRecord` folds the Vinaya round record in server-side (ADR-0004), so `/logs` calls both only because the round-by-round timeline needs the log's own unreduced round list — the ticket list and headline numbers come from `getGithubDevRecord` alone.
 
 ## Env
 - `ZERION_API_KEY` in `.env.local` (gitignored), documented in `.env.example`. It's read via `process.env` only on the server.
+- `VINAYA_LOG_READ_TOKEN` (server only, the Vinaya log) and `GITHUB_TOKEN` (server only, optional, raises GitHub's anonymous rate limit) sit beside it, same file, same rule.
 - Never use the `VITE_` prefix for secrets: Vite inlines `VITE_*` into the client bundle.
-- **Build check:** after `bun run build`, grep the client output for the key's first characters. It must not be found.
+- **Build check:** after `bun run build`, grep the client output for the key's first characters. It must not be found. This only checks a secret's *value* — its variable name is fine to show a visitor, and `/logs`' own error copy names `VINAYA_LOG_READ_TOKEN` and `GITHUB_TOKEN` on purpose (never a value) when the server can't read them.
 
 ## Client data
 - TanStack Query for server-function calls. `staleTime` is half a day, the same as the server's own cache, because the API plan's daily budget is small. The query key includes the address.
 - The transaction paging loop lives in a hook (`useRewind`). It isn't a single query, because it must stream counts into the reveal. Use `AbortController` and cancel on wallet change or unmount.
+- `/logs` is the one deliberate exception to the half-day `staleTime`: it polls its two queries every few seconds (`POLL_MS` in `DevLogPage.tsx`) with `staleTime: 0`, because it is showing a review loop that finishes in minutes, not a Zerion budget that resets once a day. `refetchIntervalInBackground` stays at its default `false`, so a hidden tab stops polling. Nothing else about the Zerion default changes.
 
 ## SSR boundaries
 - `localStorage`, `canvas`, `matchMedia` and `navigator.share` exist only in the browser. Read them in effects or behind a client-only boundary, never during render on the server.

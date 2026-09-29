@@ -200,3 +200,25 @@ Don't
 - `title-intro.png`, `title-section.png`, `title-outro.png`: 1920×1080. The intro leaves room for a name line at y ≈ 720–800; the outro leaves room for a name and link at y ≈ 640–860.
 
 **Strictness notes** — `LineChart` compiles with `noUncheckedIndexedAccess` (clamped point lookup, returns null below 2 points). Fixture high/low use `?? fallback` for the same reason.
+
+---
+
+## 7. Development log (`/logs`)
+
+This project's own build history (CONTEXT.md), not part of the Rewind story — its own route, its own components, reusing the same tokens and motion constants. `src/engine/dev-log-view.ts` is the only place that reads both `github-dev-record.ts`'s and `dev-record.ts`'s shapes; every component below reads its `DevLogView` output only, the same "components never see the raw upstream shape" discipline as `RewindFacts`.
+
+| Component | Props | Notes |
+|---|---|---|
+| **`DevLogPage`** | *(none — the route's component)* | Owns the two polling queries and the client-only mount gate; renders the header, the record, the footer's "Made with Vinaya" link. |
+| **`DevLogRecord`** | `view: DevLogView` | The milestone card, the five headline stats, the time split, the guardrails card and the ticket list. Pure presentational — this is what `/system` renders on fixtures. |
+| **`DegradedLogRecord`** | `view: DegradedLogView` | What the Vinaya log alone can show when GitHub has failed: the live line (no role — GitHub's ticket status is what names it), the time split, the guardrails card and a round-activity list keyed by issue number only, no title, status, size or verdicts. Renders alongside a `StateMessage` naming what's missing and why. |
+| **`StateMessage`** | `state: "loading" \| "rate_limited" \| "token_rejected" \| "unreachable"` | The four clear-message states a read can be in. Names an environment variable (`GITHUB_TOKEN`, `VINAYA_LOG_READ_TOKEN`), never a value. Its copy says what's still shown alongside it, and what isn't — a failed read degrades the page, it never blanks it while the other source still answers. |
+| **`RoundTimeline`** | `timeline: RoundTimelineEntry[]`, `scaleMs: number`, `humanRulings: number` | Developer and reviewer bars on one shared scale (the longest round on the page sets `scaleMs`), outcome pill, confidence, files changed, problems raised. A round whose number repeats reads "re-review" (plus "after a human ruling" when the ticket had one). |
+
+**Layout** — same page rhythm as the story's cards: `rounded-2xl border border-border bg-surface p-6` for every block, `gap-4`/`gap-8` between them, `max-w-[1180px]` centered, side padding 40 desktop / 20 mobile (`px-10`/`max-sm:px-5`). The ticket list is a `6fr`-ish CSS grid (`Ticket · Time · Rounds · Size · Problems · Tokens`) that collapses to 2 columns under `lg` and 1 under `sm`, matching the Rewind's own mobile-collapse pattern.
+
+**Motion** — each block fades and rises in with `enterCard`/`enterCardReduced` (`components/rewind/motion.ts`), staggered by `stagger.children` per block index; the milestone and time-split bars fill with `duration.grow`/`ease.out`, same as `ProgressSegments`. A ticket expands with the native `<details>`/`<summary>` disclosure (no `@ariakit/react` needed for it) — no bespoke open/close animation, so it costs nothing under reduced motion. The "working on it now" dot uses the same `animate-pulse` treatment as no other component in this doc; it's a plain CSS animation, not a `motion/react` one, so it isn't gated by `useReducedMotion()` — it is a single pulsing opacity, well under the threshold `design/KNOWN-ISSUES.md` would flag.
+
+**Polling** — the page's two queries refresh every few seconds (`.claude/rules/tanstack-start.md`), the one deliberate exception to the app's half-day `staleTime`. `refetchIntervalInBackground` stays at its TanStack Query default (`false`), so a hidden tab stops polling — the same "hidden tabs pause" rule the story's own tweens follow, just enforced by Query instead of `PlaybackContext`.
+
+**SSR** — the route renders a neutral shell on the server (no ticket data, no local time). `DevLogPage` mounts `DevLogData` (which owns both queries) only after a client-only effect flips a `mounted` flag, the same pattern `useConnectedWallet`'s `loaded` flag uses in `index.tsx`: the server and the first client render agree, so hydration never mismatches. Every local-time string (`LocalTime`, `src/components/logs/format.ts`'s `localStamp`) is therefore only ever rendered after that mount, from data that only exists on the client.
