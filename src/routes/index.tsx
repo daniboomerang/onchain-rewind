@@ -232,6 +232,10 @@ function Rewind({ wallet, api, requestIntervalMs, onRestart, onOpenSettings, onC
           onFailed={() => setStage("error")}
         />
       )}
+      {/* Once the burst starts, the player is already mounted underneath with its own chrome. */}
+      {stage === "reveal" && (
+        <StoryChrome wallet={displayName(wallet)} onOpenSettings={onOpenSettings} onClose={onClose} />
+      )}
       {stage === "error" && (
         <ErrorState
           wallet={displayName(wallet)}

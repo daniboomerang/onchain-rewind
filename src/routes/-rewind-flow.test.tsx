@@ -387,3 +387,46 @@ test("a remembered wallet lands the start screen with nothing loading, until Pla
   expect(screen.getByRole("link", { name: "Design system" })).toBeInTheDocument();
   expect(callCount()).toBe(0);
 });
+
+test("Escape during the reveal returns to the start screen and aborts the run", async () => {
+  const user = userEvent.setup();
+  remember(first);
+  const { api, release, callCount } = fakeApi({ gated: true });
+  open(api);
+  await play(user);
+
+  // The first page is requested and in flight, gated so it hasn't resolved yet.
+  expect(await screen.findByText("0")).toBeInTheDocument();
+  await waitFor(() => expect(callCount()).toBe(1));
+
+  await user.keyboard("{Escape}");
+
+  expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
+  expect(revealCounter()).toBeNull();
+
+  // Letting the first page land doesn't ask for a second: the run was cancelled, not merely
+  // outrun, and `useRewind`'s cleanup already aborted the signal on unmount.
+  await release(0);
+  await wait(20);
+  expect(callCount()).toBe(1);
+});
+
+test("the close button during the reveal does the same as Escape, and aborts the run", async () => {
+  const user = userEvent.setup();
+  remember(first);
+  const { api, release, callCount } = fakeApi({ gated: true });
+  open(api);
+  await play(user);
+
+  expect(await screen.findByText("0")).toBeInTheDocument();
+  await waitFor(() => expect(callCount()).toBe(1));
+
+  await user.click(screen.getByRole("button", { name: "Close" }));
+
+  expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
+  expect(revealCounter()).toBeNull();
+
+  await release(0);
+  await wait(20);
+  expect(callCount()).toBe(1);
+});
