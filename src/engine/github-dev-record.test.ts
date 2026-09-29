@@ -408,7 +408,7 @@ describe("mergeRoundRecords", () => {
     };
   }
 
-  it("replaces the GitHub-estimated rounds and time with the round record's when one exists", () => {
+  it("replaces the GitHub-estimated time with the round record's when one exists, keeping the table's findings", () => {
     const logTasks: LogTaskRecord[] = [
       {
         issue: 35,
@@ -440,9 +440,9 @@ describe("mergeRoundRecords", () => {
     ];
     const [merged] = mergeRoundRecords([githubTask], logTasks);
     expect(merged?.rounds).toHaveLength(1);
-    // The last occurrence's findings win, the same "later overrides earlier" rule GitHub's own tables follow.
-    expect(merged?.rounds[0]?.findings.minor).toBe(1);
-    expect(merged?.rounds[0]?.findings.blocker).toBe(0);
+    // Findings still come from the GitHub table's round 1 row, unaffected by which log occurrence is last.
+    expect(merged?.rounds[0]?.findings.blocker).toBe(1);
+    expect(merged?.rounds[0]?.findings.minor).toBe(0);
     // Time reflects both sessions actually spent.
     expect(merged?.developerMs).toBe(420_000);
     expect(merged?.reviewerMs).toBe(840_000);
@@ -451,6 +451,59 @@ describe("mergeRoundRecords", () => {
   it("keeps the GitHub-derived rounds and timing when the log has no record for the task", () => {
     const [merged] = mergeRoundRecords([githubTask], []);
     expect(merged).toEqual(githubTask);
+  });
+
+  it("takes severity counts from the GitHub table, not the log's own unmapped findings, for a matching round (O6)", () => {
+    // The log's own severity scale doesn't map onto this app's seven severities, so its reduced
+    // findings would all read 0 if trusted directly — the exact bug this fold must avoid.
+    const tableRound: TaskDevRecord = {
+      ...githubTask,
+      rounds: [
+        {
+          round: 1,
+          findings: { blocker: 0, major: 2, minor: 6, critical: 0, high: 0, medium: 0, low: 1 },
+          confidence: undefined,
+          outcome: "changes_requested",
+        },
+      ],
+    };
+    const logTasks: LogTaskRecord[] = [
+      {
+        issue: 35,
+        rounds: [logRound(1, 300_000, 600_000, "unscaled-p1")],
+        resumed: false,
+        paused: false,
+        recovered: false,
+        running: false,
+      },
+    ];
+    const [merged] = mergeRoundRecords([tableRound], logTasks);
+    expect(merged?.rounds).toEqual([
+      {
+        round: 1,
+        findings: { blocker: 0, major: 2, minor: 6, critical: 0, high: 0, medium: 0, low: 1 },
+        confidence: undefined,
+        outcome: "changes_requested",
+      },
+    ]);
+    expect(merged?.developerMs).toBe(300_000);
+    expect(merged?.reviewerMs).toBe(600_000);
+  });
+
+  it("keeps the log's own findings for a round the GitHub table never saw (the GitHub-unreachable path)", () => {
+    const noTableTask: TaskDevRecord = { ...githubTask, rounds: [] };
+    const logTasks: LogTaskRecord[] = [
+      {
+        issue: 35,
+        rounds: [logRound(1, 300_000, 600_000, "blocker")],
+        resumed: false,
+        paused: false,
+        recovered: false,
+        running: false,
+      },
+    ];
+    const [merged] = mergeRoundRecords([noTableTask], logTasks);
+    expect(merged?.rounds[0]?.findings.blocker).toBe(1);
   });
 });
 

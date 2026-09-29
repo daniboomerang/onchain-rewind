@@ -543,9 +543,14 @@ function isSeverity(value: string): value is Severity {
 }
 
 /**
- * Replace each task's GitHub-estimated rounds and timing with the Vinaya round record's, when the
- * log has one for that task's issue (O2). A task the log never saw keeps its GitHub-derived rounds
- * and its first-commit-to-last-verdict span as `timeMs`.
+ * Replace each task's GitHub-estimated round timing with the Vinaya round record's, when the log
+ * has one for that task's issue (O2). Each round itself, though, stays the GitHub reviewers'
+ * summary table's row for that same round number when one exists: the log's own `findings` list
+ * uses a severity scale that doesn't always map onto this app's seven severities (see
+ * `isSeverity`), and an unmapped or empty list must never zero out counts the table already
+ * carries (O6). A round the table never saw — the log-only, GitHub-unreachable path
+ * `DegradedLogRecord` renders — keeps its log-derived round, its only source. A task the log never
+ * saw keeps its GitHub-derived rounds and its first-commit-to-last-verdict span as `timeMs`.
  */
 export function mergeRoundRecords(
   githubTasks: readonly TaskDevRecord[],
@@ -558,6 +563,8 @@ export function mergeRoundRecords(
     if (!logTask || logTask.rounds.length === 0) return task;
 
     const reduced = reduceLogRounds(logTask.rounds);
+    const githubRoundsByNumber = new Map(task.rounds.map((round) => [round.round, round]));
+    const rounds = reduced.rounds.map((round) => githubRoundsByNumber.get(round.round) ?? round);
     const timeMs =
       reduced.developerMs !== undefined || reduced.reviewerMs !== undefined
         ? (reduced.developerMs ?? 0) + (reduced.reviewerMs ?? 0)
@@ -565,7 +572,7 @@ export function mergeRoundRecords(
 
     return {
       ...task,
-      rounds: reduced.rounds,
+      rounds,
       developerMs: reduced.developerMs,
       reviewerMs: reduced.reviewerMs,
       timeMs,
