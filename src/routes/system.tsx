@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { DevLogRecord, StateMessage } from "../components/logs/DevLogPage";
 import { ChainBar } from "../components/rewind/ChainBar";
 import { ChainIcon } from "../components/rewind/ChainIcon";
 import { EmptyState } from "../components/rewind/EmptyState";
@@ -19,6 +20,7 @@ import { SettingsDialog } from "../components/ui/SettingsDialog";
 import { ThemeToggle } from "../components/ui/ThemeToggle";
 import { Tooltip } from "../components/ui/Tooltip";
 import { type DemoWallet, WalletCombobox, type WalletStatus } from "../components/ui/WalletCombobox";
+import { emptyDevLog, normalDevLog } from "../engine/__fixtures__/dev-log";
 import { type FixtureName, fixtures } from "../engine/fixtures";
 import { displayName, fmt, type RewindFacts, shortAddress } from "../engine/types";
 import { PAGE_INTERVAL_MS, pageTick } from "./-paging";
@@ -195,6 +197,27 @@ function System() {
 
         <Section title="Full screens">
           <FullScreenDemo />
+        </Section>
+
+        <Section title="Development log">
+          <p className="text-small text-fg-muted">
+            The four read states, then the record on fixtures — a ticket with two rounds (a re-review after a human
+            ruling), and a ticket the log currently marks running.
+          </p>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-4">
+            <StateMessage state="loading" />
+            <StateMessage state="rate_limited" />
+            <StateMessage state="token_rejected" />
+            <StateMessage state="unreachable" />
+          </div>
+          <Row label="empty milestone">
+            <div className="w-full max-w-2xl">
+              <DevLogRecord view={emptyDevLog} />
+            </div>
+          </Row>
+          <div className="flex flex-col gap-8">
+            <DevLogRecord view={normalDevLog} />
+          </div>
         </Section>
       </div>
     </div>

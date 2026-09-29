@@ -37,6 +37,8 @@ The milestone that tracks this goal lives on the forge: "Onchain Rewind v1: demo
 
 The setting is one choice for the whole app, not one per page: a light/dark control sits in the story chrome next to the settings gear, `/system` carries the same control, and the choice is remembered on this device, so it holds across routes and reloads. Until a choice is made the app follows the operating system.
 
+**Development log** (`/logs`): this project's own development record (CONTEXT.md), shown as a product surface rather than kept off the site — the milestone's progress, five headline numbers, where the time goes between the developer and the reviewers, the guardrail totals, a live "working on it now" line, and every ticket, each expanding to its round-by-round timeline. Read live on the server (ADR-0004) from GitHub and the Vinaya log, on its own polling interval; times render in the viewer's own time zone, from data that only exists on the client. Ends with "Made with Vinaya", linking to the tool that governs this build.
+
 ## 2. Non-goals (this build)
 
 No WebGL. No signing, swaps or sends. No accounts or backend database. No personality card. No agent or CLI integration. No full wallet UI. Solana is out of scope: `RewindFacts.wallet.address` is EVM (`0x…`).
@@ -66,6 +68,7 @@ routes/index.tsx
 1. **The key stays on the server.** Every Zerion call goes through a TanStack Start server function, so the browser never sees the key.
 2. **Loading is the animation.** The client pages through transactions and feeds each page's count into `ParticleReveal`. The reveal only completes when the data does (minimum 3.2s, 90s timeout → error). The timeout has to hold a full year at the cap, so it is sized for the 23 requests that year costs at one a second rather than for a typical wallet, which still reaches the story in a few seconds.
 3. **The engine is pure and separate from the UI.** Zerion responses → `RewindFacts` in `src/engine/`, unit-tested with recorded fixtures. Components never see raw API data.
+4. **The development log reads two upstreams, server-side, the same way.** `/logs` calls two server functions — one folding GitHub's issues, pull requests and comments, one folding the Vinaya log's own round record — because the round-by-round timeline needs the log's unreduced round list, while the ticket list and headline numbers come from GitHub alone. Neither key nor read token reaches the browser (ADR-0004).
 
 ## 5. Data mapping (Zerion → `RewindFacts`)
 
