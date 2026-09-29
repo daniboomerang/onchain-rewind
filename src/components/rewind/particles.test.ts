@@ -15,8 +15,11 @@ import {
   particleCap,
   placeAt,
   RING_RADIUS,
+  type Roll,
   reseedParticle,
   ringRadius,
+  rollShown,
+  rollTo,
   spawnParticle,
   toneTables,
 } from "./particles";
@@ -199,6 +202,47 @@ test("a token it cannot read falls back to the ink the element already inherits"
   expect(tones[0]?.[ALPHA_STEPS]).toBe("rgba(22,22,26,1)");
   expect(tones[1]?.[ALPHA_STEPS]).toBe("rgba(22,22,26,1)");
   expect(tones[2]?.[ALPHA_STEPS]).toBe("rgba(255,157,28,1)");
+});
+
+const roll = (): Roll => ({ from: 0, to: 0, at: 0, dur: 1, shown: 0 });
+
+test("a roll climbs at a steady, linear pace — not eased — and never passes its own target", () => {
+  const r = roll();
+  rollTo(r, 100, 0, 1000);
+
+  // Linear: halfway through the duration is halfway to the target, unlike an ease-out curve.
+  expect(rollShown(r, 500)).toBeCloseTo(50, 6);
+  expect(rollShown(r, 250)).toBeCloseTo(25, 6);
+  expect(rollShown(r, 0)).toBe(0);
+  expect(rollShown(r, 1000)).toBe(100);
+  // Never overshoots, however far past its own duration the clock has gone.
+  expect(rollShown(r, 5000)).toBe(100);
+});
+
+test("a new page rolls on from wherever the counter has got to, so it never jumps back", () => {
+  const r = roll();
+  rollTo(r, 100, 0, 1000);
+  r.shown = rollShown(r, 400); // partway through the first roll
+
+  rollTo(r, 130, 400, 1000);
+  expect(r.from).toBeCloseTo(40, 6);
+  expect(rollShown(r, 400)).toBeCloseTo(r.from, 6);
+  expect(rollShown(r, 1400)).toBe(130);
+  // Monotonic: sampling forward in time never sees the shown value fall.
+  let previous = rollShown(r, 400);
+  for (let t = 400; t <= 1400; t += 100) {
+    const shown = rollShown(r, t);
+    expect(shown).toBeGreaterThanOrEqual(previous);
+    previous = shown;
+  }
+});
+
+test("a zero or negative duration still resolves to the target rather than dividing by zero", () => {
+  const r = roll();
+  rollTo(r, 42, 0, 0);
+  expect(Number.isFinite(rollShown(r, 0))).toBe(true);
+  // Clamped to a 1ms floor rather than a division by zero, so it reaches the target almost at once.
+  expect(rollShown(r, 1)).toBe(42);
 });
 
 test("with no readable ink at all it still paints, on the last-resort tone", () => {

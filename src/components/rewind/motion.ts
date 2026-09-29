@@ -145,8 +145,16 @@ export const revealMs = {
   fadeIn: 300,
   travelMin: duration.grow * 1000,
   travelMax: 1400,
-  /** The counter rolls to a new total over this. */
+  /** The counter's finishing roll, once paging ends, lands on the final count over this. */
   countRoll: duration.base * 1000,
+  /**
+   * A page's own roll runs at the pace the page before it took to arrive, so the counter keeps
+   * moving between pages instead of snapping to the new total and sitting still. The first page has
+   * no gap to learn from, so it rolls at this instead.
+   */
+  pageRollFallback: 1000,
+  /** The next page hasn't landed this long after the one before it: the reveal names the wait. */
+  latePage: 2000,
   /** A page's particles are born spread across this, so they don't all appear at once. */
   spread: 400,
   /** Reduced motion: the static counter crossfades out over this instead of bursting. */

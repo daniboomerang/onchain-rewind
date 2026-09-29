@@ -104,7 +104,7 @@ Demo wallets: `vitalik.eth` + two unlabeled slots ("Demo wallet 2", "Demo wallet
 
 **Reveal (S04–S06)**
 1. Scatter 0–600ms: particles spawn at random points as tx pages arrive; fade 0 → α, drift 4–12px/s.
-2. Gather 600ms → data complete (min 3200ms total; 12s timeout → API error): each particle eases to a ring slot over 900–1400ms `ease-in-out`, 6px trail; ring rotates 6°/s. Counter inside ring rolls per page (240ms `ease-out`).
+2. Gather 600ms → data complete (min 3200ms total; 12s timeout → API error): each particle eases to a ring slot over 900–1400ms `ease-in-out`, 6px trail; ring rotates 6°/s. Counter inside ring rolls toward each page's total at a steady, linear pace — not eased — over the gap the page before it took to arrive, so it keeps climbing between pages instead of snapping to the new total and sitting still; the first page has no gap to learn from and rolls over 1000ms instead. Once paging ends the counter's finishing roll to the exact total takes the usual 240ms `ease-out`. If the next page hasn't landed within 2000ms of the one before it, a quiet line under the counter reads "Reading older transactions…" until it does, and clears the moment it lands — the dust keeps drifting throughout.
 3. Hold 400ms: "Done", count final.
 4. Burst 700ms `ease-out`: radial outward + fade. Card 1 starts entering at +200ms; chrome fades in with it.
 
@@ -126,7 +126,7 @@ Particle spec: 1 per tx, cap 1500 desktop / 600 mobile; pad with 25%-alpha dust 
 
 **States** — Empty and API error crossfade in over 240ms; particles fade out 480ms before API error.
 
-**Reduced motion** — no canvas: static centered "Reading 1,284 transactions…" (number updates without rolling), crossfade 240ms into card 1. Cards crossfade (no x). Bars, chart and numbers render at final values. Progress segments still fill (timing, not decoration). Press scale off.
+**Reduced motion** — no canvas: static centered "Reading 1,284 transactions…" (number updates without rolling), crossfade 240ms into card 1. The late-page line still appears under it on the same 2000ms threshold. Cards crossfade (no x). Bars, chart and numbers render at final values. Progress segments still fill (timing, not decoration). Press scale off.
 
 ---
 

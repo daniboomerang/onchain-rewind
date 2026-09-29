@@ -1,5 +1,5 @@
 import { useReducedMotion } from "motion/react";
-import { type Ref, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { type Ref, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { countLabel, rollingCountLabel } from "../../lib/capped";
 import { revealMs } from "./motion";
 import {
@@ -13,8 +13,11 @@ import {
   particleCap,
   placeAt,
   RING_OFFSET_Y,
+  type Roll,
   reseedParticle,
   ringRadius,
+  rollShown,
+  rollTo,
   spawnParticle,
   TRAIL_LENGTH,
   toneTables,
@@ -59,18 +62,8 @@ export type ParticleRevealProps = {
 
 type Phase = "gather" | "hold" | "burst" | "failing" | "done";
 
-/** The counter's roll: from `from` to `to`, starting at clock time `at`. */
-type Roll = { from: number; to: number; at: number; shown: number };
-
 /** The reveal's own clock: wall time since mount, minus every millisecond the tab was hidden. */
 const clock = (st: { clock0: number; hiddenMs: number }) => performance.now() - st.clock0 - st.hiddenMs;
-
-/** Rolls the counter on from wherever it has got to, so a new page never makes it jump back. */
-const rollTo = (roll: Roll, to: number, at: number) => {
-  roll.from = roll.shown;
-  roll.to = to;
-  roll.at = at;
-};
 
 export function ParticleReveal({ ref, total, onBurst, onDone, onFailed }: ParticleRevealProps) {
   const reduce = useReducedMotion();
@@ -96,19 +89,39 @@ export function ParticleReveal({ ref, total, onBurst, onDone, onFailed }: Partic
     burstAt: 0,
     failAt: 0,
     failed: false,
-    count: { from: 0, to: 0, at: 0, shown: 0 } as Roll,
+    count: { from: 0, to: 0, at: 0, dur: revealMs.pageRollFallback, shown: 0 } as Roll,
     /** Set by `complete()`: the final count is a lower bound, so the counter lands with a "+". */
     capped: false,
     clock0: 0,
     hiddenAt: 0,
     hiddenMs: 0,
+    /** Clock time the last page landed, or -1 before the first one: what the next roll paces off. */
+    lastPageAt: -1,
+    /** Whether the reveal is currently showing the late-page line. */
+    late: false,
   });
   const [label, setLabel] = useState<"reading" | "done">("reading");
   const [finalTotal, setFinalTotal] = useState<number | undefined>(total);
   const [announced, setAnnounced] = useState(0);
   const [capped, setCapped] = useState(false);
+  const [late, setLate] = useState(false);
   const [reducedCount, setReducedCount] = useState(0);
   const [reducedOut, setReducedOut] = useState(false);
+  const [reducedLate, setReducedLate] = useState(false);
+  const lateTimer = useRef<number | null>(null);
+
+  /** Reduced motion has no frame loop to watch the gap, so a timer re-armed on each page stands in. */
+  const armLateTimer = useCallback(() => {
+    if (lateTimer.current !== null) window.clearTimeout(lateTimer.current);
+    setReducedLate(false);
+    lateTimer.current = window.setTimeout(() => setReducedLate(true), revealMs.latePage);
+  }, []);
+  const clearLateTimer = useCallback(() => {
+    if (lateTimer.current !== null) window.clearTimeout(lateTimer.current);
+    lateTimer.current = null;
+    setReducedLate(false);
+  }, []);
+  useEffect(() => clearLateTimer, [clearLateTimer]);
 
   useImperativeHandle(
     ref,
@@ -118,10 +131,17 @@ export function ParticleReveal({ ref, total, onBurst, onDone, onFailed }: Partic
         st.seen += n;
         if (reduce) {
           setReducedCount(st.seen);
+          armLateTimer();
           return;
         }
         const t = clock(st);
-        rollTo(st.count, st.seen, t);
+        const dur = st.lastPageAt < 0 ? revealMs.pageRollFallback : t - st.lastPageAt;
+        st.lastPageAt = t;
+        if (st.late) {
+          st.late = false;
+          setLate(false);
+        }
+        rollTo(st.count, st.seen, t, dur);
         const add = Math.min(n, st.cap - st.real);
         for (let i = 0; i < add; i++) {
           // Spread the page's particles across `spread` so they don't all appear on one frame.
@@ -146,6 +166,7 @@ export function ParticleReveal({ ref, total, onBurst, onDone, onFailed }: Partic
         st.seen = finalCount;
         st.capped = capped;
         if (reduce) {
+          clearLateTimer();
           setReducedCount(finalCount);
           setLabel("done");
           setReducedOut(true);
@@ -155,24 +176,33 @@ export function ParticleReveal({ ref, total, onBurst, onDone, onFailed }: Partic
           }, revealMs.reducedFade);
           return;
         }
+        if (st.late) {
+          st.late = false;
+          setLate(false);
+        }
         const t = clock(st);
-        rollTo(st.count, finalCount, t);
+        rollTo(st.count, finalCount, t, revealMs.countRoll);
         st.completeAt = t;
       },
       fail() {
         if (reduce) {
+          clearLateTimer();
           setReducedOut(true);
           window.setTimeout(() => cbs.current.onFailed?.(), revealMs.reducedFade);
           return;
         }
         const st = engine.current;
+        if (st.late) {
+          st.late = false;
+          setLate(false);
+        }
         if (st.phase === "done") return;
         st.phase = "failing";
         st.failAt = clock(st);
         st.failed = true;
       },
     }),
-    [reduce],
+    [reduce, armLateTimer, clearLateTimer],
   );
 
   // The live region announces at most once a second, however fast the pages arrive.
@@ -255,13 +285,23 @@ export function ParticleReveal({ ref, total, onBurst, onDone, onFailed }: Partic
         cbs.current.onFailed?.();
       }
 
+      // The next page hasn't landed within the pace the one before it set: name the wait, but only
+      // once a page has actually arrived — the first one is still covered by the "Reading…" label.
+      if (st.phase === "gather" && st.completeAt < 0 && st.lastPageAt >= 0) {
+        const overdue = t - st.lastPageAt > revealMs.latePage;
+        if (overdue !== st.late) {
+          st.late = overdue;
+          setLate(overdue);
+        }
+      }
+
       const bursting = st.phase === "burst" || (st.phase === "done" && !st.failed);
       const b = bursting ? easeOut(clamp01((t - st.burstAt) / revealMs.burst)) : 0;
       const f = st.failed ? clamp01((t - st.failAt) / revealMs.fail) : 0;
       const fade = (1 - b) * (1 - f);
 
       const c = st.count;
-      c.shown = c.from + (c.to - c.from) * easeOut(clamp01((t - c.at) / revealMs.countRoll));
+      c.shown = rollShown(c, t);
       if (countRef.current) {
         countRef.current.textContent = rollingCountLabel(Math.round(c.shown), c.to, st.capped);
       }
@@ -361,6 +401,7 @@ export function ParticleReveal({ ref, total, onBurst, onDone, onFailed }: Partic
         <p className="text-body text-fg-muted" aria-hidden>
           Reading <span className="tabular-nums text-fg">{countLabel(reducedCount, capped)}</span> transactions…
         </p>
+        {reducedLate && <p className="text-small text-fg-subtle">Reading older transactions…</p>}
         <LiveCount announced={announced} done={label === "done"} capped={capped} />
       </div>
     );
@@ -377,6 +418,7 @@ export function ParticleReveal({ ref, total, onBurst, onDone, onFailed }: Partic
               0
             </span>
             <span className="text-small text-fg-muted">transactions</span>
+            {late && <span className="text-small text-fg-subtle">Reading older transactions…</span>}
           </div>
         </div>
         <p className="absolute inset-x-0 bottom-30 text-center text-body text-fg-muted max-sm:bottom-24">{status}</p>
