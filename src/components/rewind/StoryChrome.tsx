@@ -13,11 +13,14 @@ export type StoryChromeProps = {
 };
 
 /**
- * Top chrome shared by the player and state screens: segments, wordmark, wallet name, theme and gear.
+ * Top chrome shared by the player and state screens: segments, the Zerion logo, wordmark, wallet
+ * name, theme and gear.
  *
  * The theme control sits next to the gear because both are settings for the app, and this header is
  * the only chrome every screen has. It switches the whole app, the story included, so on `/` the
- * cards under this header turn with it while they play.
+ * cards under this header turn with it while they play. The Zerion logo is one brand-blue asset,
+ * unlike the wallet chrome around it: it reads the same in both themes, the same way the favicon
+ * does.
  */
 export function StoryChrome({ wallet, onOpenSettings, progress, onClose }: StoryChromeProps) {
   return (
@@ -27,8 +30,19 @@ export function StoryChrome({ wallet, onOpenSettings, progress, onClose }: Story
     >
       {progress}
       <div className="flex items-center justify-between gap-3">
-        <span className="whitespace-nowrap text-[15px] font-medium">
-          Onchain <span className="font-display text-[19px] italic">Rewind</span>
+        <span className="pointer-events-auto flex items-center gap-2">
+          <a
+            className="rounded-sm outline-none focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2"
+            href="https://zerion.io"
+            rel="noopener noreferrer"
+            target="_blank"
+            aria-label="Zerion"
+          >
+            <img src="/zerion-logo.svg" alt="" width={18} height={18} className="shrink-0" />
+          </a>
+          <span className="whitespace-nowrap text-[15px] font-medium">
+            Onchain <span className="font-display text-[19px] italic">Rewind</span>
+          </span>
         </span>
         <div className="pointer-events-auto flex items-center gap-2">
           {wallet && <span className="whitespace-nowrap font-mono text-[13px] text-fg-muted">{wallet}</span>}

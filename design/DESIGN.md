@@ -136,7 +136,7 @@ Particle spec: 1 per tx, cap 1500 desktop / 600 mobile; pad with 25%-alpha dust 
 
 **1440×900**
 - Story fills `100dvh`; content max-width 1440, side padding 120 (content 1200), 12-col grid, 24 gutter.
-- Chrome (absolute, above click zones): progress segments 20 from top, 40 from sides, 3px tall, 6px gaps. Row below (12px gap): wordmark left; wallet name (mono 13) + gear right, 44px tall.
+- Chrome (absolute, above click zones): progress segments 20 from top, 40 from sides, 3px tall, 6px gaps. Row below (12px gap): the Zerion logo (18×18, linking to zerion.io) beside the wordmark, left; wallet name (mono 13) + gear right, 44px tall.
 - Navigation hint: bottom-center, 32px from bottom, 13px `fg-subtle`. Hidden on card 5; fades after first navigation.
 - Click zones: left half = previous, right half = next. Chrome and buttons capture their own clicks.
 - Content vertically centered with 120px top / 80px bottom reserved for chrome.
@@ -209,7 +209,7 @@ This project's own build history (CONTEXT.md), not part of the Rewind story — 
 
 | Component | Props | Notes |
 |---|---|---|
-| **`DevLogPage`** | *(none — the route's component)* | Owns the two polling queries and the client-only mount gate; renders the header, the record, the footer's "Made with Vinaya" link. |
+| **`DevLogPage`** | *(none — the route's component)* | Owns the two polling queries and the client-only mount gate; renders the header, the record, then the shared `SiteFooter` (§8). |
 | **`DevLogRecord`** | `view: DevLogView` | The milestone card, the five headline stats, the time split, the guardrails card and the ticket list. Pure presentational — this is what `/system` renders on fixtures. |
 | **`DegradedLogRecord`** | `view: DegradedLogView` | What the Vinaya log alone can show when GitHub has failed: the live line (no role — GitHub's ticket status is what names it), the time split, the guardrails card and a round-activity list keyed by issue number only, no title, status, size or verdicts. Renders alongside a `StateMessage` naming what's missing and why. |
 | **`StateMessage`** | `state: "loading" \| "rate_limited" \| "token_rejected" \| "unreachable"` | The four clear-message states a read can be in. Names an environment variable (`GITHUB_TOKEN`, `VINAYA_LOG_READ_TOKEN`), never a value. Its copy says what's still shown alongside it, and what isn't — a failed read degrades the page, it never blanks it while the other source still answers. |
@@ -222,3 +222,13 @@ This project's own build history (CONTEXT.md), not part of the Rewind story — 
 **Polling** — the page's two queries refresh every few seconds (`.claude/rules/tanstack-start.md`), the one deliberate exception to the app's half-day `staleTime`. `refetchIntervalInBackground` stays at its TanStack Query default (`false`), so a hidden tab stops polling — the same "hidden tabs pause" rule the story's own tweens follow, just enforced by Query instead of `PlaybackContext`.
 
 **SSR** — the route renders a neutral shell on the server (no ticket data, no local time). `DevLogPage` mounts `DevLogData` (which owns both queries) only after a client-only effect flips a `mounted` flag, the same pattern `useConnectedWallet`'s `loaded` flag uses in `index.tsx`: the server and the first client render agree, so hydration never mismatches. Every local-time string (`LocalTime`, `src/components/logs/format.ts`'s `localStamp`) is therefore only ever rendered after that mount, from data that only exists on the client.
+
+---
+
+## 8. Site chrome
+
+**Zerion logo** — `public/zerion-logo.svg`, sourced verbatim from Zerion's own design system at `https://design.zerion.io/logo` (the "symbol" mark, brand blue `#2461ED`, retrieved 2026-09-29). It is `StoryChrome.tsx`'s to render, beside the wordmark, top left of every screen `/` carries (reveal, cards, error, empty and the start screen alike) — 18×18, linking to `https://zerion.io`, `target="_blank"` with `rel="noopener noreferrer"`, and its own accessible name ("Zerion") on the link rather than the decorative image. One file for both themes, the same as `favicon.svg`: the brand-blue mark reads clearly against both `bg` tokens, so it never needs a second variant.
+
+**`SiteFooter`** (`src/components/ui/Footer.tsx`) — `variant: "overlay" | "inline"` (default `inline`). The one footer the whole site carries: a link to `/system`, "Made with Vinaya" (`https://vinaya.attalabs.dev`), "© 2026 Atta Labs", a link to Atta Labs on GitHub (`https://github.com/atta-labs`) and a link to this demo's own source (`https://github.com/daniboomerang/onchain-rewind`) — every external link `target="_blank"` with `rel="noopener noreferrer"`. Text tokens only (`text-fg-muted`, `text-fg`), so it follows the theme the same as everything else.
+
+It renders in exactly two places: the start screen of `/` (`variant="overlay"`, absolutely positioned to the bottom of that screen's `relative` container, so it adds no scroll height — the start screen's centered wordmark-and-Play-button layout already fits both 1280×800 and 390×844 with room under it) and the end of `/logs` (`variant="inline"`, in normal document flow, replacing `DevLogPage`'s own former "Made with Vinaya" line). It never renders on the reveal, a story card, the error state, the empty state, the share card or the share image — those mount their own chrome (`StoryChrome`) with no footer slot at all.
