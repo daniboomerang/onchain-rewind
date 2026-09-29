@@ -6,6 +6,7 @@ import { ParticleReveal, type ParticleRevealHandle } from "../components/rewind/
 import { RewindPlayer } from "../components/rewind/RewindPlayer";
 import { StoryChrome } from "../components/rewind/StoryChrome";
 import { Button } from "../components/ui/Button";
+import { SiteFooter } from "../components/ui/Footer";
 import { SettingsDialog } from "../components/ui/SettingsDialog";
 import { displayName } from "../engine/types";
 import { demoWalletOptions } from "../lib/demo-wallets";
@@ -149,6 +150,7 @@ function StartScreen({
           <Button onClick={onPlay}>Play</Button>
         </div>
       </div>
+      <SiteFooter variant="overlay" />
     </>
   );
 }

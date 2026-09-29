@@ -13,11 +13,11 @@ import { getGithubDevRecord } from "../../server/github/dev-record.functions";
 import { getDevRecord } from "../../server/vinaya/dev-record.functions";
 import type { VinayaLogResult } from "../../server/vinaya/log-client";
 import { duration, ease, enterCard, enterCardReduced, stagger } from "../rewind/motion";
+import { SiteFooter } from "../ui/Footer";
 import { localStamp, minutes, plural, tokens } from "./format";
 import { RoundTimeline } from "./RoundTimeline";
 
 const REPO = "https://github.com/daniboomerang/onchain-rewind";
-const VINAYA = "https://vinaya.attalabs.dev";
 
 // This page polls every few seconds so a running round shows up live, unlike the rest of the app
 // (`.claude/rules/tanstack-start.md`'s half-day `staleTime`, unchanged): it is watching a loop that
@@ -94,17 +94,7 @@ export function DevLogPage() {
 
         {mounted ? <DevLogData /> : <StateMessage state="loading" />}
 
-        <footer className="border-t border-border pt-6 text-small text-fg-muted">
-          Made with{" "}
-          <a
-            className="font-medium text-fg underline underline-offset-2"
-            href={VINAYA}
-            rel="noreferrer"
-            target="_blank"
-          >
-            Vinaya
-          </a>
-        </footer>
+        <SiteFooter />
       </div>
     </main>
   );
@@ -280,8 +270,8 @@ export function DevLogRecord({ view }: { view: DevLogView }) {
             severity — not every problem stops a merge; some are recorded and fixed later.
           </p>
         </div>
-        <ul className="flex flex-col overflow-hidden rounded-2xl border border-border bg-surface">
-          <li className="grid grid-cols-[minmax(0,3fr)_110px_100px_130px_minmax(0,2fr)_130px] gap-4 border-b border-border px-5 py-3 font-mono text-label text-fg-subtle uppercase max-lg:hidden">
+        <ul className="flex flex-col rounded-2xl border border-border bg-surface">
+          <li className="sticky top-0 z-10 grid grid-cols-[minmax(0,3fr)_110px_100px_130px_minmax(0,2fr)_130px] gap-4 rounded-t-2xl border-b border-border bg-surface px-5 py-3 font-mono text-label text-fg-subtle uppercase max-lg:hidden">
             <span>Ticket</span>
             <span>Time</span>
             <span>Rounds</span>

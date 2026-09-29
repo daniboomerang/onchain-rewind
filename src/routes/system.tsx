@@ -15,6 +15,7 @@ import { StatNumber } from "../components/rewind/StatNumber";
 import { StoryChrome } from "../components/rewind/StoryChrome";
 import { TokenIcon } from "../components/rewind/TokenIcon";
 import { Button } from "../components/ui/Button";
+import { SiteFooter } from "../components/ui/Footer";
 import { IconButton } from "../components/ui/IconButton";
 import { SettingsDialog } from "../components/ui/SettingsDialog";
 import { ThemeToggle } from "../components/ui/ThemeToggle";
@@ -189,6 +190,23 @@ function System() {
         <Section title="StoryChrome">
           <ChromeDemo label="wallet + progress" wallet={displayName(normal.wallet)} progress />
           <ChromeDemo label="no wallet (first visit)" />
+        </Section>
+
+        <Section title="SiteFooter">
+          <p className="text-small text-fg-muted">
+            Shown only on the start screen of / (overlay, bottom of that screen) and at the end of /logs (inline) —
+            never during the reveal or the story.
+          </p>
+          <Row label="inline (/logs)">
+            <div className="w-full max-w-2xl">
+              <SiteFooter />
+            </div>
+          </Row>
+          <Row label="overlay (start screen)">
+            <div className="relative h-40 w-full max-w-2xl overflow-hidden rounded-2xl border border-border bg-bg">
+              <SiteFooter variant="overlay" />
+            </div>
+          </Row>
         </Section>
 
         <Section title="ParticleReveal">
