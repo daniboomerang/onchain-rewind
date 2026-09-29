@@ -96,7 +96,7 @@ All animated components read `PlaybackContext` (paused) and `useReducedMotion()`
 | **WalletCombobox** (Ariakit) | `value`, `onValueChange`, `suggestions`, `status` idle \| resolving \| valid \| invalid, `resolved`, `error`, `disabled` | default, hover, focus-visible, open, resolving (spinner), valid (green short address ✓), invalid (negative border + message, `aria-invalid`), disabled. |
 | **SettingsDialog** (Ariakit) | `open`, `onClose`, `dismissable`, `value`, `status`, `resolved`, `error`, `demoWallets`, `onSubmit`, `saving` | first visit (not dismissable, no Cancel), empty, filled/valid, invalid, saving. Bottom sheet < 640px. |
 
-Demo wallets: `vitalik.eth` + two unlabeled slots ("Demo wallet 2", "Demo wallet 3", disabled until filled with real public wallets). Never invent ENS names.
+Demo wallets: `pranksy.eth` (first, and the first-visit default) and `dingaling.eth`. Never invent ENS names.
 
 ---
 

@@ -33,13 +33,13 @@ import type { ZerionErrorCode, ZerionResult } from "#/server/zerion/client.ts";
 import { getFungible } from "#/server/zerion/fungibles.functions.ts";
 import { getBalanceChart, getTransactionsPage } from "#/server/zerion/wallets.functions.ts";
 
-/** SPEC §5: the cap is 20 pages of 100 transactions. Beyond it, figures read "2,000+". */
-export const MAX_PAGES = 20;
+/** SPEC §5: the cap is 25 pages of 100 transactions. Beyond it, figures read "2,500+". */
+export const MAX_PAGES = 25;
 /**
  * ADR-0002: a run that hasn't finished by here is an error state, not a longer wait.
  *
  * It has to hold a full year at the cap on the Demo plan's one request a second
- * (`.claude/rules/zerion-api.md`): 20 page requests and the three reads that resolve once are 23
+ * (`.claude/rules/zerion-api.md`): 25 page requests and the three reads that resolve once are 28
  * slots a second apart, each slot's upstream latency on top, one failed page's retry, and a 429's
  * own backoffs (500ms, 1s, 2s per call, in `zerionFetch`). That is a little over half a minute for
  * the deepest wallet, so this leaves room for a slow upstream on top of it. The reveal counts
@@ -112,6 +112,7 @@ export type UseRewindOptions = {
   readonly api?: RewindApi;
   /** Overrides for tests. The app takes the cap, the pacing and the timeout above. */
   readonly maxPages?: number;
+  /** Overrides the engine's own default cap. The app takes `maxPages` pages of 100, below. */
   readonly maxTransactions?: number;
   readonly timeoutMs?: number;
   readonly requestIntervalMs?: number;
@@ -145,7 +146,10 @@ export function useRewind({
   onFail,
   api = serverRewindApi,
   maxPages = MAX_PAGES,
-  maxTransactions,
+  // A page is 100 transactions (SPEC §5): the engine's own default cap is sized for the old page
+  // cap, so this keeps the two in sync rather than leaving the engine capped below what paging here
+  // actually reaches.
+  maxTransactions = maxPages * 100,
   timeoutMs = TIMEOUT_MS,
   requestIntervalMs = REQUEST_INTERVAL_MS,
   pageRetryMs = PAGE_RETRY_MS,

@@ -7,7 +7,7 @@ argument-hint: "[route, default /]"
 # Verify the UI in the browser
 
 1. Start the dev server (`bun dev`) if it isn't running. Open the route given as the argument (default `/`) in the browser.
-2. **First visit:** clear `localStorage` for the origin and reload. The settings dialog must open and must not be dismissible. Pick `vitalik.eth`.
+2. **First visit:** clear `localStorage` for the origin and reload. The settings dialog must open, must not be dismissible, and must already show `pranksy.eth` chosen. Click "Play rewind".
 3. **Reveal:** particles appear while the counter rises, and it bursts into card 1. No console errors.
 4. **Story:** let card 1 auto-advance. Then use → and ←, and click the right and left halves. Hold the mouse for more than 200ms, and press Space, to pause: the progress fill freezes and resumes without a jump.
 5. **Keyboard after settings:** open the gear, close the dialog with Escape, and press →. The card must advance (see `design/KNOWN-ISSUES.md`).

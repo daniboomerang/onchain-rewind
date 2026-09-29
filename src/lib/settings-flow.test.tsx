@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test } from "vitest";
 import { Home } from "../routes/index";
@@ -50,6 +50,22 @@ test("the first visit opens settings and will not let go of it until a wallet is
   await user.keyboard("{Escape}");
 
   expect(screen.getByRole("dialog")).toBeInTheDocument();
+});
+
+test("a first visit opens settings with the first demo wallet already chosen, so one click plays it", async () => {
+  const user = userEvent.setup();
+  if (!first) throw new Error("the demo wallets are empty");
+  open();
+
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).getByRole("combobox")).toHaveValue(first.label);
+  expect(screen.getByRole("button", { name: "Play rewind" })).toBeEnabled();
+
+  await user.click(screen.getByRole("button", { name: "Play rewind" }));
+
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(readStoredWallet()).toEqual({ address: first.address, name: first.label });
+  expect(reading()).toBeInTheDocument();
 });
 
 test("a demo pick is remembered as the connected wallet", async () => {

@@ -486,8 +486,8 @@ test("a full year at the page cap reaches the story well inside the timeout", as
     expect(result.current.capped).toBe(true);
     expect(startedAt).toHaveLength(MAX_PAGES);
     expect(trace).toEqual([...Array.from({ length: MAX_PAGES }, () => "page:1"), `complete:${MAX_PAGES}+`]);
-    // The run costs what the plan charges for it: 20 pages and the three reads that resolve once are
-    // 23 requests a second apart, and the wall clock says so. The timeout still leaves room for an
+    // The run costs what the plan charges for it: 25 pages and the three reads that resolve once are
+    // 28 requests a second apart, and the wall clock says so. The timeout still leaves room for an
     // upstream twice as slow as this one, which is what "holds a full paced year" has to mean.
     const elapsed = (finishedAt ?? Number.NaN) - startedRunAt;
     expect(elapsed).toBeGreaterThan((MAX_PAGES + 2) * REQUEST_INTERVAL_MS);
