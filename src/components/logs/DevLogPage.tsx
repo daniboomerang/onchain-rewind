@@ -280,8 +280,8 @@ export function DevLogRecord({ view }: { view: DevLogView }) {
             severity — not every problem stops a merge; some are recorded and fixed later.
           </p>
         </div>
-        <ul className="flex flex-col overflow-hidden rounded-2xl border border-border bg-surface">
-          <li className="grid grid-cols-[minmax(0,3fr)_110px_100px_130px_minmax(0,2fr)_130px] gap-4 border-b border-border px-5 py-3 font-mono text-label text-fg-subtle uppercase max-lg:hidden">
+        <ul className="flex flex-col rounded-2xl border border-border bg-surface">
+          <li className="sticky top-0 z-10 grid grid-cols-[minmax(0,3fr)_110px_100px_130px_minmax(0,2fr)_130px] gap-4 rounded-t-2xl border-b border-border bg-surface px-5 py-3 font-mono text-label text-fg-subtle uppercase max-lg:hidden">
             <span>Ticket</span>
             <span>Time</span>
             <span>Rounds</span>
