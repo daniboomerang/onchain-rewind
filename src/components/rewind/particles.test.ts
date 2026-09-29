@@ -4,8 +4,10 @@ import {
   ALPHA_STEPS,
   alphaIndex,
   alphaTable,
+  type ColorTokens,
   easeInOut,
   easeOut,
+  LAST_RESORT_RGB,
   MOBILE_BREAKPOINT,
   PARTICLE_CAP,
   type Point,
@@ -16,6 +18,7 @@ import {
   reseedParticle,
   ringRadius,
   spawnParticle,
+  toneTables,
 } from "./particles";
 
 /**
@@ -161,4 +164,49 @@ test("alphaIndex clamps to the table it indexes", () => {
   expect(alphaIndex(-5)).toBe(0);
   expect(alphaIndex(5)).toBe(ALPHA_STEPS);
   expect(alphaIndex(0.5)).toBe(ALPHA_STEPS / 2);
+});
+
+/** The two resolved palettes the canvas can be handed, as the tokens themselves declare them. */
+const resolved = (tokens: Record<string, string>, color: string): ColorTokens => ({
+  color,
+  getPropertyValue: (name) => tokens[name] ?? "",
+});
+
+test("the tones are read from the theme the element resolves, so the field turns with the page", () => {
+  const dark = toneTables(resolved({ "--fg": "#ffffff", "--primary": "#00a3f5", "--notice": "#ff9d1c" }, "#ffffff"));
+  const light = toneTables(resolved({ "--fg": "#16161a", "--primary": "#2962ef", "--notice": "#ff9d1c" }, "#16161a"));
+
+  expect(dark.map((tone) => tone[ALPHA_STEPS])).toEqual([
+    "rgba(255,255,255,1)",
+    "rgba(0,163,245,1)",
+    "rgba(255,157,28,1)",
+  ]);
+  expect(light.map((tone) => tone[ALPHA_STEPS])).toEqual([
+    "rgba(22,22,26,1)",
+    "rgba(41,98,239,1)",
+    "rgba(255,157,28,1)",
+  ]);
+  // Every alpha the loop can ask for is waiting in each theme's tables, not only the last.
+  for (const tables of [dark, light]) {
+    expect(tables).toHaveLength(3);
+    for (const tone of tables) expect(tone).toHaveLength(ALPHA_STEPS + 1);
+  }
+});
+
+test("a token it cannot read falls back to the ink the element already inherits", () => {
+  const tones = toneTables(resolved({ "--fg": "var(--missing)", "--primary": "", "--notice": "#ff9d1c" }, "#16161a"));
+
+  expect(tones[0]?.[ALPHA_STEPS]).toBe("rgba(22,22,26,1)");
+  expect(tones[1]?.[ALPHA_STEPS]).toBe("rgba(22,22,26,1)");
+  expect(tones[2]?.[ALPHA_STEPS]).toBe("rgba(255,157,28,1)");
+});
+
+test("with no readable ink at all it still paints, on the last-resort tone", () => {
+  const tones = toneTables(resolved({}, ""));
+
+  expect(tones.map((tone) => tone[ALPHA_STEPS])).toEqual([
+    `rgba(${LAST_RESORT_RGB},1)`,
+    `rgba(${LAST_RESORT_RGB},1)`,
+    `rgba(${LAST_RESORT_RGB},1)`,
+  ]);
 });

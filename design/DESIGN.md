@@ -1,6 +1,6 @@
 # Onchain Rewind — DESIGN.md
 
-A wallet's year, played back as five story cards after a particle reveal. Dark first: the story always renders dark, while the app chrome around it — settings dialog, wordmark shell, empty and error screens, `/system` — follows the operating system's light or dark setting (§1, Theme). Desktop 1440×900, mobile 390 wide.
+A wallet's year, played back as five story cards after a particle reveal. Dark first, but not dark only: the whole app — the story, the share image and the chrome around them — follows one light or dark setting (§1, Theme). Desktop 1440×900, mobile 390 wide.
 
 Files: `tokens.css` (Tailwind v4), `components/*.tsx` (reference code), `Rewind Design System.dc.html` (component sheet), `Rewind Screens.dc.html` (screens S01–S16, M01–M02).
 
@@ -30,7 +30,9 @@ Colors come from the Zerion app palette. "Derived" = interpolated, confirm again
 | `track` | #fff @16% | #16161a @12% | Unfilled segments / bars |
 | `overlay` | #0a0a0c @72% | #16161a @40% | Dialog backdrop |
 
-**Theme** — dark is the bare `:root` default; `data-theme="light"` or `data-theme="dark"` on any element re-declares the palette for that element and everything inside it, `color` included, so a dark root inside a light page draws light text rather than inheriting the page's dark text. The root document resolves the setting into `data-theme` on `<html>` before the first paint — the choice stored on this device if there is one, the operating system's otherwise — and the story's own roots, the particle reveal, the story surface and the share card, carry `data-theme="dark"`, so the story keeps its palette inside a light page.
+**Theme** — dark is the bare `:root` default; `data-theme="light"` or `data-theme="dark"` on any element re-declares the palette for that element and everything inside it, `color` included, so a subtree that re-declares the palette draws its own ink rather than inheriting the outer theme's resolved colour. The root document resolves the setting into `data-theme` on `<html>` before the first paint — the choice stored on this device if there is one, the operating system's otherwise — and it is the only element that sets the attribute: the story pins no palette of its own, so the particle reveal, the story surface, the cards and the share card all follow that one choice, and a story already playing turns with it.
+
+Two surfaces are painted on a canvas, which inherits no CSS, so the theme has to be handed to them: the reveal reads its three tones off its own resolved styles and reads them again whenever `data-theme` changes, and the share image is painted from the palette for the theme it is given.
 
 The choice is made with `ThemeToggle`, which the story chrome and `/system` both carry. It is one setting for the whole app: it switches the document, not a subtree, and holds across routes and reloads.
 
@@ -144,7 +146,7 @@ Particle spec: 1 per tx, cap 1500 desktop / 600 mobile; pad with 25%-alpha dust 
 - Tap zones: left 30% previous / right 70% next.
 - Dialog becomes a bottom sheet (< 640px): full width, radius 24 top, bottom padding `max(34px, safe-area)`, full-width 52px primary button.
 
-**Share image** 1200×630 @2×, always dark, 64px padding; wordmark top, name 112px serif (72px if > 14 chars), 4 stats bottom; particle ring at (960, 250) r 170. Canvas 2D after `document.fonts.ready`; `navigator.share({ files })` or download.
+**Share image** 1200×630 @2×, in the theme the visitor chose, 64px padding; wordmark top, name 112px serif (72px if > 14 chars), 4 stats bottom; particle ring at (960, 250) r 170. Its ground, ink, quieter ink and the ring's three tones are that theme's `bg`, `fg`, `fg-muted`, `fg`/`primary`/`notice`. Canvas 2D after `document.fonts.ready`; `navigator.share({ files })` or download.
 
 ---
 
@@ -173,7 +175,7 @@ Don't
 
 **`fixtures.ts`** — `normal` (vitalik.eth, 5 of 6 chains, +38.4%), `empty` (0 tx), `negative` (address only, 1 chain, PEPE −42.7%, falling balance). Sample numbers, not real data.
 
-**`components/ParticleReveal.tsx`** — Canvas 2D, one rAF loop, DPR ≤ 2, ResizeObserver. Ref API: `addTransactions(n)`, `complete(finalCount)`, `fail()`. Callbacks: `onBurst` (burst start; mount the story 200ms later), `onDone` (burst end; unmount), `onFailed` (after the 480ms fade; show ErrorState). Starts with 240 dust particles; each real transaction converts one dust particle, then spawns new ones up to the cap (1500, or 600 below 640px). The clock excludes hidden-tab time, so every phase pauses. The 12s timeout belongs to the data layer: call `fail()`. Reduced motion: no canvas, a static line with a live count, 240ms fade.
+**`components/ParticleReveal.tsx`** — Canvas 2D, one rAF loop, DPR ≤ 2, ResizeObserver. Ref API: `addTransactions(n)`, `complete(finalCount)`, `fail()`. Callbacks: `onBurst` (burst start; mount the story 200ms later), `onDone` (burst end; unmount), `onFailed` (after the 480ms fade; show ErrorState). Starts with 240 dust particles; each real transaction converts one dust particle, then spawns new ones up to the cap (1500, or 600 below 640px). The clock excludes hidden-tab time, so every phase pauses. Its tones come from the resolved tokens, re-read on every theme change, because a canvas inherits no CSS. The 12s timeout belongs to the data layer: call `fail()`. Reduced motion: no canvas, a static line with a live count, 240ms fade.
 
 **`components/RewindPlayer.tsx`** — Props: `facts`, `onReplay`, `onOpenSettings`. Owns `current`, `direction` and `paused`, and provides `PlaybackContext`. A pointer press shorter than 200ms navigates (left half goes back, right half forward; 30/70 below 640px). Holding 200ms or longer pauses, and releasing resumes without navigating. Keys: ← and → navigate, holding Space pauses. Keys are ignored inside inputs, buttons and dialogs. Auto-advance comes from `ProgressSegments.onComplete`, and the last card holds. "Share image" calls `renderShareImage` → `shareOrDownload` with a loading state.
 
@@ -185,7 +187,7 @@ Don't
 
 **`StoryCard`** gained three optional props: `media` (card 3 icon), `lead` (card 2 summary line) and `headlineSize` (`"lg"` for card 4). Nothing else changed.
 
-**`renderShareImage.ts`** — `renderShareImage(facts): Promise<Blob>` renders 2400×1260 PNG, following §4 (always dark, particle ring seeded by the address so each wallet's image stays the same). It loads the fonts it needs, then waits for `document.fonts.ready`. `shareOrDownload(blob, filename)` uses `navigator.share({ files })` when available and downloads otherwise; returns `"shared" | "downloaded" | "cancelled"`.
+**`renderShareImage.ts`** — `renderShareImage(facts, capped, theme): Promise<Blob>` renders 2400×1260 PNG, following §4 (the palette of the theme it is handed, particle ring seeded by the address so each wallet's image stays the same). `shareImagePalette(theme)` is that palette, and `shareImageStats(facts, capped)` the four pairs it draws. It loads the fonts it needs, then waits for `document.fonts.ready`. `shareOrDownload(blob, filename)` uses `navigator.share({ files })` when available and downloads otherwise; returns `"shared" | "downloaded" | "cancelled"`.
 
 **`Playground.tsx`** — The `/system` page: every component in every state (hover, focus and press are live), a replay control for animated components, and full-screen runs of each fixture (reveal → story, reveal → error, empty, error). A fake data stream sends 120 tx every 350ms.
 

@@ -4,14 +4,12 @@ import { countLabel, rollingCountLabel } from "../../lib/capped";
 import { revealMs } from "./motion";
 import {
   alphaIndex,
-  alphaTable,
   clamp01,
   DUST_COUNT,
   easeOut,
   PARTICLE_CAP,
   type Particle,
   type Point,
-  parseRgb,
   particleCap,
   placeAt,
   RING_OFFSET_Y,
@@ -19,6 +17,7 @@ import {
   ringRadius,
   spawnParticle,
   TRAIL_LENGTH,
+  toneTables,
 } from "./particles";
 
 /**
@@ -59,12 +58,6 @@ export type ParticleRevealProps = {
 };
 
 type Phase = "gather" | "hold" | "burst" | "failing" | "done";
-
-/**
- * Only reachable where the document exposes no computed styles at all, so no colour token can be
- * read — never in a browser painting this canvas.
- */
-const LAST_RESORT_RGB = "255,255,255";
 
 /** The counter's roll: from `from` to `to`, starting at clock time `at`. */
 type Roll = { from: number; to: number; at: number; shown: number };
@@ -199,12 +192,15 @@ export function ParticleReveal({ ref, total, onBurst, onDone, onFailed }: Partic
     const st = engine.current;
     st.clock0 = performance.now();
 
-    // Colour tokens, read once and prebaked into every alpha the loop can paint with, so the hot
-    // loop allocates no strings.
-    const root = getComputedStyle(document.documentElement);
-    const fallback = parseRgb(getComputedStyle(canvas).color) ?? LAST_RESORT_RGB;
-    const token = (name: string) => parseRgb(root.getPropertyValue(name)) ?? fallback;
-    const tones = [token("--fg"), token("--primary"), token("--notice")].map(alphaTable);
+    // Colour tokens, prebaked into every alpha the loop can paint with, so the hot loop allocates no
+    // strings. They are read off the canvas itself rather than the document, so whatever theme the
+    // element sits under is the one it paints in, and read again whenever that theme changes: a
+    // canvas inherits no CSS, so the tables are the only place the palette reaches it.
+    let tones = toneTables(getComputedStyle(canvas));
+    const themeWatch = new MutationObserver(() => {
+      tones = toneTables(getComputedStyle(canvas));
+    });
+    themeWatch.observe(document.documentElement, { attributeFilter: ["data-theme"] });
 
     const resize = () => {
       // DPR is capped at 2: a 3x phone would cost three times the fill for no visible gain.
@@ -340,6 +336,7 @@ export function ParticleReveal({ ref, total, onBurst, onDone, onFailed }: Partic
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
+      themeWatch.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [reduce]);
@@ -353,12 +350,11 @@ export function ParticleReveal({ ref, total, onBurst, onDone, onFailed }: Partic
         : "Reading transactions…";
 
   // Reduced motion: no canvas, a static count, then a crossfade out — DESIGN.md §3.
-  // Both roots carry `data-theme="dark"`: the reveal is the story's first frame, and the story is
-  // designed dark only, so it re-declares the dark palette inside a page the system set to light.
+  // Neither root declares a theme: the reveal is the story's first frame, and the whole app follows
+  // the one setting, so both branches inherit the page's palette through the token utilities.
   if (reduce) {
     return (
       <div
-        data-theme="dark"
         className="fixed inset-0 grid place-items-center bg-bg px-5 text-center transition-opacity duration-(--duration-base) ease-in-out"
         style={{ opacity: reducedOut ? 0 : 1 }}
       >
@@ -371,7 +367,7 @@ export function ParticleReveal({ ref, total, onBurst, onDone, onFailed }: Partic
   }
 
   return (
-    <div data-theme="dark" className="fixed inset-0 bg-bg" aria-busy={label !== "done"}>
+    <div className="fixed inset-0 bg-bg" aria-busy={label !== "done"}>
       <canvas ref={canvasRef} aria-hidden className="absolute inset-0 size-full" />
       <div ref={overlayRef} className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 grid place-items-center">

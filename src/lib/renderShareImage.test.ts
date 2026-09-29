@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, expect, test, vi } from "vitest";
 import { normalWallet } from "../engine/fixtures";
-import { renderShareImage, shareImageStats } from "./renderShareImage";
+import { renderShareImage, shareImagePalette, shareImageStats } from "./renderShareImage";
 
 /**
  * happy-dom has no font loading API and no Canvas 2D context, so this proves the one thing that
@@ -39,7 +39,7 @@ test("requests every font and awaits document.fonts.ready before it creates the 
   });
 
   // No 2D context in happy-dom, so the draw step is the documented failure rather than a Blob.
-  await expect(renderShareImage(normalWallet, false)).rejects.toThrow("Canvas 2D unavailable");
+  await expect(renderShareImage(normalWallet, false, "dark")).rejects.toThrow("Canvas 2D unavailable");
 
   expect(fonts.load).toHaveBeenCalledTimes(4);
   const readyAt = trace.indexOf("ready");
@@ -64,4 +64,28 @@ test("the image's stats read the same as the share card, for a complete year and
     ["ETH", "top token"],
     ["Mar 2022", "onchain by"],
   ]);
+});
+
+test("the image is painted in the theme it is handed, from that theme's own tokens", () => {
+  const dark = shareImagePalette("dark");
+  const light = shareImagePalette("light");
+
+  // `tokens.css`'s `bg`, `fg` and `fg-muted` for each theme, and the ring's fg/primary/notice tones.
+  expect(dark).toEqual({
+    bg: "#16161a",
+    fg: "#ffffff",
+    muted: "#9c9ca3",
+    tones: ["255,255,255", "0,163,245", "255,157,28"],
+  });
+  expect(light).toEqual({
+    bg: "#ffffff",
+    fg: "#16161a",
+    muted: "#6e6e76",
+    tones: ["22,22,26", "41,98,239", "255,157,28"],
+  });
+
+  // Nothing is shared between the two: a light image on a dark ground is the bug this guards.
+  expect(light.bg).not.toBe(dark.bg);
+  expect(light.fg).not.toBe(dark.fg);
+  expect(light.tones[0]).not.toBe(dark.tones[0]);
 });

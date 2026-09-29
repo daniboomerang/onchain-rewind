@@ -10,10 +10,15 @@ import { RewindPlayer } from "./RewindPlayer";
 import { ShareCard } from "./ShareCard";
 
 /**
- * The story is designed dark only, while the page around it follows the system's light or dark
- * setting, so each story root re-declares the dark palette for its own subtree — the attribute the
- * tokens key that palette on. These are the roots: the reveal (both of its branches), the story
- * surface the cards and their chrome sit on, and the share card.
+ * The whole app follows one light/dark setting, the story included, so no story root may pin a palette
+ * of its own: the reveal (both of its branches), the story surface the cards and their chrome sit on,
+ * and the share card all inherit the theme the document resolved. A pinned `data-theme` anywhere in
+ * here is the regression these tests exist for — it is what made the toggle look like a dead control
+ * while the story played.
+ *
+ * The theme the canvas paints its particles in is read from the resolved tokens and re-read on every
+ * change; no test environment has a 2D context, so that half is `toneTables` in `particles.test.ts`
+ * plus the browser pass.
  */
 
 // Same swap as the reveal's own test: Motion reads the preference once into a module singleton.
@@ -29,33 +34,46 @@ vi.mock("./ProgressSegments", () => ({ ProgressSegments: () => null }));
 const noop = () => {};
 const play = (children: ReactNode) => render(<MotionConfig skipAnimations>{children}</MotionConfig>);
 
+/** Both themes, because a root that pins one of them reads as correct under that one. */
+const themes = ["light", "dark"] as const;
+
 beforeEach(() => {
   preference.reduce = false;
 });
 
-afterEach(cleanup);
-
-test("the reveal's canvas branch holds the dark palette", () => {
-  const { container } = play(<ParticleReveal onBurst={noop} onDone={noop} onFailed={noop} />);
-
-  expect(container.querySelector("[data-theme]")).toHaveAttribute("data-theme", "dark");
+afterEach(() => {
+  cleanup();
+  document.documentElement.removeAttribute("data-theme");
 });
 
-test("the reveal's reduced-motion branch holds the dark palette too", () => {
+test.each(themes)("the reveal's canvas branch follows the page's theme (%s)", (theme) => {
+  document.documentElement.dataset.theme = theme;
+  const { container } = play(<ParticleReveal onBurst={noop} onDone={noop} onFailed={noop} />);
+
+  expect(container.querySelector("canvas")).not.toBeNull();
+  expect(container.querySelector("[data-theme]")).toBeNull();
+});
+
+test.each(themes)("the reveal's reduced-motion branch follows it too (%s)", (theme) => {
+  document.documentElement.dataset.theme = theme;
   preference.reduce = true;
   const { container } = play(<ParticleReveal onBurst={noop} onDone={noop} onFailed={noop} />);
 
   expect(container.querySelector("canvas")).toBeNull();
-  expect(container.querySelector("[data-theme]")).toHaveAttribute("data-theme", "dark");
+  expect(container.querySelector("[data-theme]")).toBeNull();
 });
 
-test("the story surface holds the dark palette, so the cards and the chrome over them stay dark", () => {
+test.each(themes)("the story surface follows it, so the cards and the chrome turn with it (%s)", (theme) => {
+  document.documentElement.dataset.theme = theme;
   play(<RewindPlayer facts={normalWallet} capped={false} onReplay={noop} onOpenSettings={noop} />);
 
-  expect(screen.getByRole("region", { name: "Rewind story" })).toHaveAttribute("data-theme", "dark");
+  const story = screen.getByRole("region", { name: "Rewind story" });
+  expect(story).not.toHaveAttribute("data-theme");
+  expect(story.querySelector("[data-theme]")).toBeNull();
 });
 
-test("the share card holds the dark palette, so it stays the on-screen twin of the share image", () => {
+test.each(themes)("the share card follows it, staying the on-screen twin of the share image (%s)", (theme) => {
+  document.documentElement.dataset.theme = theme;
   play(
     <ShareCard
       name="vitalik.eth"
@@ -69,5 +87,5 @@ test("the share card holds the dark palette, so it stays the on-screen twin of t
     />,
   );
 
-  expect(screen.getByRole("article")).toHaveAttribute("data-theme", "dark");
+  expect(screen.getByRole("article")).not.toHaveAttribute("data-theme");
 });

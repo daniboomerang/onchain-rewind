@@ -39,11 +39,10 @@ export function ShareCard({ name, address, stats }: ShareCardProps) {
   // twins only stay in step while one place owns both. `hidden` is where the server leaves this
   // element, so `show` is the only thing that makes the card readable.
   const card = reduce ? enterCardReduced : enterCard;
-  // Dark whatever the page's theme is: this card is the on-screen twin of the share image, which is
-  // always dark, and the two have to look like the same card.
+  // No theme of its own: this card is the on-screen twin of the share image, which is painted in the
+  // theme the visitor chose, so following the page is what keeps the two looking like the same card.
   return (
     <motion.article
-      data-theme="dark"
       variants={card}
       initial="hidden"
       animate="show"

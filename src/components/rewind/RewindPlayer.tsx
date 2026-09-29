@@ -4,6 +4,7 @@ import { displayName, fmt, type RewindFacts, shortAddress } from "../../engine/t
 import { countLabel, onchainSinceLabel, originKicker, rollingCountLabel } from "../../lib/capped";
 import { renderShareImage, shareOrDownload } from "../../lib/renderShareImage";
 import { Button } from "../ui/Button";
+import { readTheme } from "../ui/theme";
 import { ChainBar } from "./ChainBar";
 import { ChainIcon } from "./ChainIcon";
 import { EmptyState } from "./EmptyState";
@@ -48,7 +49,8 @@ export function RewindPlayer({ facts, capped, onReplay, onOpenSettings }: Rewind
   const share = useCallback(async () => {
     setSharing(true);
     try {
-      const blob = await renderShareImage(facts, capped);
+      // Read at the moment of the press, not at render: the theme can have turned while the story played.
+      const blob = await renderShareImage(facts, capped, readTheme());
       await shareOrDownload(blob, `onchain-rewind-${facts.wallet.name ?? shortAddress(facts.wallet.address)}.png`);
     } finally {
       setSharing(false);
@@ -158,12 +160,12 @@ export function RewindPlayer({ facts, capped, onReplay, onOpenSettings }: Rewind
        * gesture has a keyboard equivalent on `window` — ← → navigate, Space pauses — so nothing
        * here is reachable by pointer alone.
        *
-       * `data-theme="dark"` re-declares the dark palette for the whole story, so the cards, the
-       * chrome over them and the share panel stay dark inside a page the system set to light.
+       * The surface declares no theme of its own: the story follows the app's one light/dark setting,
+       * so the cards, the chrome over them and the share panel all paint from the page's palette and
+       * turn with the toggle mid-play.
        */}
       <section
         aria-label="Rewind story"
-        data-theme="dark"
         className="fixed inset-0 touch-none select-none overflow-hidden bg-bg text-fg"
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}
