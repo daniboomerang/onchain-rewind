@@ -274,13 +274,15 @@ test("changing the wallet restarts the Rewind", async () => {
   expect(readStoredWallet()).toEqual({ address: second.address, name: second.label });
 });
 
-test("Escape leaves the story for the start screen, and Play starts it again", async () => {
+test("Escape leaves the story for the start screen, which carries the site footer the story never shows", async () => {
   const user = userEvent.setup();
   remember(first);
   const { api } = fakeApi();
   open(api);
 
   await screen.findByLabelText(CARD.origin);
+  // The story plays with no footer at all.
+  expect(screen.queryByRole("link", { name: "Vinaya" })).toBeNull();
 
   await user.keyboard("{Escape}");
 
@@ -288,11 +290,16 @@ test("Escape leaves the story for the start screen, and Play starts it again", a
   expect(revealCounter()).toBeNull();
   expect(screen.getByRole("heading", { name: "Onchain Rewind" })).toBeInTheDocument();
   expect(screen.getByText(first.label)).toBeInTheDocument();
+  // The start screen carries the one site footer.
+  expect(screen.getByRole("link", { name: "Vinaya" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Design system" })).toBeInTheDocument();
 
   await user.click(screen.getByRole("button", { name: "Play" }));
 
   await waitFor(() => expect(revealCounter()).toBeInTheDocument());
   expect(await screen.findByLabelText(CARD.origin)).toBeInTheDocument();
+  // Back in the story, the footer is gone again.
+  expect(screen.queryByRole("link", { name: "Vinaya" })).toBeNull();
 });
 
 test("the close button in the story's top bar does the same as Escape", async () => {

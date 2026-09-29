@@ -13,11 +13,11 @@ import { getGithubDevRecord } from "../../server/github/dev-record.functions";
 import { getDevRecord } from "../../server/vinaya/dev-record.functions";
 import type { VinayaLogResult } from "../../server/vinaya/log-client";
 import { duration, ease, enterCard, enterCardReduced, stagger } from "../rewind/motion";
+import { SiteFooter } from "../ui/Footer";
 import { localStamp, minutes, plural, tokens } from "./format";
 import { RoundTimeline } from "./RoundTimeline";
 
 const REPO = "https://github.com/daniboomerang/onchain-rewind";
-const VINAYA = "https://vinaya.attalabs.dev";
 
 // This page polls every few seconds so a running round shows up live, unlike the rest of the app
 // (`.claude/rules/tanstack-start.md`'s half-day `staleTime`, unchanged): it is watching a loop that
@@ -94,17 +94,7 @@ export function DevLogPage() {
 
         {mounted ? <DevLogData /> : <StateMessage state="loading" />}
 
-        <footer className="border-t border-border pt-6 text-small text-fg-muted">
-          Made with{" "}
-          <a
-            className="font-medium text-fg underline underline-offset-2"
-            href={VINAYA}
-            rel="noreferrer"
-            target="_blank"
-          >
-            Vinaya
-          </a>
-        </footer>
+        <SiteFooter />
       </div>
     </main>
   );
