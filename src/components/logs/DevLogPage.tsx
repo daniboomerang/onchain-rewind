@@ -1,7 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "motion/react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { buildDevLogView, type DevLogView, type TicketView } from "../../engine/dev-log-view";
+import {
+  buildDegradedLogView,
+  buildDevLogView,
+  type DegradedLogView,
+  type DevLogView,
+  type TicketView,
+} from "../../engine/dev-log-view";
 import { SEVERITIES, type TaskStatus } from "../../engine/github-dev-record";
 import { getGithubDevRecord } from "../../server/github/dev-record.functions";
 import { getDevRecord } from "../../server/vinaya/dev-record.functions";
@@ -41,15 +47,15 @@ const STATE_MESSAGE: Record<LoadState, { headline: string; body: string } | unde
   loading: undefined,
   rate_limited: {
     headline: "GitHub's rate limit was hit",
-    body: "Anonymous reads are capped at 60 an hour. Set GITHUB_TOKEN on the server to raise it, or wait a few minutes.",
+    body: "Ticket titles, status, size and pull requests need GitHub and are missing below until the limit resets. Set GITHUB_TOKEN on the server to raise it, or wait a few minutes. Round activity from the Vinaya log, where available, still shows.",
   },
   token_rejected: {
     headline: "The Vinaya log rejected its token",
-    body: "VINAYA_LOG_READ_TOKEN on the server is missing or no longer valid. Round-by-round detail and the guardrail totals stay hidden until it's fixed.",
+    body: "VINAYA_LOG_READ_TOKEN on the server is missing or no longer valid, so round-by-round detail and the guardrail totals are missing below until it's fixed. Everything GitHub gives still shows.",
   },
   unreachable: {
-    headline: "The development log couldn't be reached",
-    body: "GitHub or the Vinaya log didn't answer. This refreshes on its own every few seconds — no need to reload.",
+    headline: "Part of the development log couldn't be reached",
+    body: "GitHub or the Vinaya log didn't answer, so some of what's below — ticket detail, or round activity and guardrails — may be missing until it does. This refreshes on its own every few seconds.",
   },
 };
 
@@ -118,28 +124,40 @@ function DevLogData() {
     refetchInterval: POLL_MS,
   });
 
+  const log = vinaya.data?.ok ? { tasks: vinaya.data.data.tasks, guardrails: vinaya.data.data.guardrails } : undefined;
+
   const view = useMemo(() => {
     if (!github.data?.ok) return undefined;
-    const log = vinaya.data?.ok
-      ? { tasks: vinaya.data.data.tasks, guardrails: vinaya.data.data.guardrails }
-      : undefined;
     return buildDevLogView(github.data.data, log);
-  }, [github.data, vinaya.data]);
+  }, [github.data, log]);
 
-  if (github.isPending) return <StateMessage state="loading" />;
-  if (github.data && !github.data.ok) {
-    return <StateMessage state={github.data.error === "rate_limited" ? "rate_limited" : "unreachable"} />;
-  }
-  if (!view) return <StateMessage state="loading" />;
+  // GitHub failing must not blank the page: the Vinaya log's own round record still has rounds,
+  // time, size and guardrails per ticket, just no title, status or pull request (GitHub's alone).
+  const degraded = useMemo(() => (log ? buildDegradedLogView(log) : undefined), [log]);
 
   const vinayaProblem = vinayaState(vinaya);
 
-  return (
-    <>
-      <DevLogRecord view={view} />
-      {vinayaProblem && <StateMessage state={vinayaProblem} />}
-    </>
-  );
+  if (view) {
+    return (
+      <>
+        <DevLogRecord view={view} />
+        {vinayaProblem && <StateMessage state={vinayaProblem} />}
+      </>
+    );
+  }
+
+  if (github.data && !github.data.ok) {
+    const githubProblem: LoadState = github.data.error === "rate_limited" ? "rate_limited" : "unreachable";
+    return (
+      <>
+        {degraded && <DegradedLogRecord view={degraded} />}
+        <StateMessage state={githubProblem} />
+        {!degraded && vinayaProblem && <StateMessage state={vinayaProblem} />}
+      </>
+    );
+  }
+
+  return <StateMessage state="loading" />;
 }
 
 /**
@@ -206,7 +224,7 @@ export function DevLogRecord({ view }: { view: DevLogView }) {
           {view.workingNow.map((w) => (
             <p key={w.issue} className="flex items-center gap-2 text-small text-notice">
               <span aria-hidden className="size-2 animate-pulse rounded-full bg-notice" />
-              {w.role === "developer" ? "The developer" : "Reviewers"} are working on ticket #{w.issue} — {w.title} —
+              {w.role === "developer" ? "The developer is" : "Reviewers are"} working on ticket #{w.issue} — {w.title} —
               right now.
             </p>
           ))}
@@ -491,6 +509,84 @@ function Guardrails({ guardrails }: { guardrails: NonNullable<DevLogView["guardr
         The rules are enforced by code, not by asking the AI politely. Live from the Vinaya log, refreshed every few
         seconds.
       </p>
+    </Reveal>
+  );
+}
+
+/** Everything the Vinaya log alone can show, for when GitHub has failed: no title, status, size or verdicts — those are GitHub's alone. Also used by `/system`. */
+export function DegradedLogRecord({ view }: { view: DegradedLogView }) {
+  const scaleMs = Math.max(
+    1,
+    ...view.tickets.flatMap((t) => t.timeline.map((r) => (r.developerMs ?? 0) + (r.reviewerMs ?? 0))),
+  );
+  const running = view.tickets.filter((t) => t.running);
+
+  return (
+    <>
+      {running.length > 0 && (
+        <Reveal index={0} className="flex flex-col gap-2">
+          {running.map((t) => (
+            <p key={t.issue} className="flex items-center gap-2 text-small text-notice">
+              <span aria-hidden className="size-2 animate-pulse rounded-full bg-notice" />
+              Ticket #{t.issue} is being worked on right now.
+            </p>
+          ))}
+        </Reveal>
+      )}
+
+      {view.timeSplit && <DegradedTimeSplit timeSplit={view.timeSplit} />}
+      <Guardrails guardrails={view.guardrails} />
+
+      {view.tickets.length > 0 && (
+        <Reveal index={3} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="font-display text-title">Round activity, from the Vinaya log</h2>
+            <p className="text-small text-fg-muted">
+              GitHub is unavailable, so ticket titles and status aren't shown here — only what the round-by-round log
+              itself recorded.
+            </p>
+          </div>
+          <ul className="flex flex-col overflow-hidden rounded-2xl border border-border bg-surface">
+            {view.tickets.map((t) => (
+              <li key={t.issue} className="flex flex-col gap-4 border-b border-border p-5 last:border-b-0">
+                <span className="font-mono text-small text-fg-subtle">Ticket #{t.issue}</span>
+                <RoundTimeline timeline={t.timeline} scaleMs={scaleMs} humanRulings={0} />
+              </li>
+            ))}
+          </ul>
+        </Reveal>
+      )}
+    </>
+  );
+}
+
+function DegradedTimeSplit({ timeSplit }: { timeSplit: NonNullable<DegradedLogView["timeSplit"]> }) {
+  const { developerMs, reviewerMs } = timeSplit;
+  const total = developerMs + reviewerMs;
+  if (total === 0) return null;
+  const devShare = Math.round((developerMs / total) * 100);
+  return (
+    <Reveal index={2} className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-6">
+      <p className="font-mono text-label text-fg-subtle uppercase">Where the time goes</p>
+      <div
+        role="img"
+        aria-label={`${devShare}% developer, ${100 - devShare}% reviewers`}
+        className="flex h-3 overflow-hidden rounded-full bg-track"
+      >
+        <span className="h-full bg-primary" style={{ width: `${devShare}%` }} />
+        <span className="h-full bg-notice" style={{ width: `${100 - devShare}%` }} />
+      </div>
+      <p className="flex flex-wrap gap-x-6 gap-y-1 text-small text-fg-muted">
+        <span>
+          <span className="mr-1.5 inline-block size-2 rounded-full bg-primary align-middle" aria-hidden />
+          Developer writes the code: {minutes(developerMs)} ({devShare}%)
+        </span>
+        <span>
+          <span className="mr-1.5 inline-block size-2 rounded-full bg-notice align-middle" aria-hidden />
+          Reviewers check it: {minutes(reviewerMs)} ({100 - devShare}%)
+        </span>
+      </p>
+      <p className="text-small text-fg-subtle">From the Vinaya log alone, while GitHub is unavailable.</p>
     </Reveal>
   );
 }

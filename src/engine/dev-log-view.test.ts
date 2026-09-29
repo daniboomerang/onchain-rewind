@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDevLogView } from "#/engine/dev-log-view.ts";
+import { buildDegradedLogView, buildDevLogView } from "#/engine/dev-log-view.ts";
 import type { RoundRecord as LogRoundRecord, TaskRecord as LogTaskRecord } from "#/engine/dev-record.ts";
 import type { DevelopmentRecord as GithubDevelopmentRecord, TaskDevRecord } from "#/engine/github-dev-record.ts";
 
@@ -128,5 +128,49 @@ describe("buildDevLogView", () => {
     );
     expect(view.tickets[0]?.tokensIn).toBe(150);
     expect(view.tickets[0]?.tokensOut).toBe(25);
+  });
+});
+
+describe("buildDegradedLogView", () => {
+  it("shows the guardrails and a ticket's timeline from the log alone, with no GitHub data at all", () => {
+    const view = buildDegradedLogView({
+      tasks: [logTask({ rounds: [logRound({ developerMs: 1000, reviewerMs: 500 })] })],
+      guardrails: { checks: 3, runs: 40, stopped: 2 },
+    });
+    expect(view.guardrails).toEqual({ checks: 3, runs: 40, stopped: 2 });
+    expect(view.tickets).toEqual([{ issue: 22, running: false, timeline: expect.any(Array) }]);
+    expect(view.tickets[0]?.timeline).toHaveLength(1);
+  });
+
+  it("sums developer and reviewer time across every round of every ticket", () => {
+    const view = buildDegradedLogView({
+      tasks: [
+        logTask({ issue: 1, rounds: [logRound({ developerMs: 1000, reviewerMs: 500 })] }),
+        logTask({ issue: 2, rounds: [logRound({ developerMs: 2000, reviewerMs: 100 })] }),
+      ],
+      guardrails: { checks: 0, runs: 0, stopped: 0 },
+    });
+    expect(view.timeSplit).toEqual({ developerMs: 3000, reviewerMs: 600 });
+  });
+
+  it("leaves the time split out when no round has recorded time", () => {
+    const view = buildDegradedLogView({ tasks: [logTask()], guardrails: { checks: 0, runs: 0, stopped: 0 } });
+    expect(view.timeSplit).toBeUndefined();
+  });
+
+  it("includes a running ticket even with no rounds yet, and excludes an idle ticket with none", () => {
+    const view = buildDegradedLogView({
+      tasks: [logTask({ issue: 1, running: true }), logTask({ issue: 2, running: false })],
+      guardrails: { checks: 0, runs: 0, stopped: 0 },
+    });
+    expect(view.tickets.map((t) => t.issue)).toEqual([1]);
+  });
+
+  it("sorts tickets by issue number", () => {
+    const view = buildDegradedLogView({
+      tasks: [logTask({ issue: 30, rounds: [logRound()] }), logTask({ issue: 5, rounds: [logRound()] })],
+      guardrails: { checks: 0, runs: 0, stopped: 0 },
+    });
+    expect(view.tickets.map((t) => t.issue)).toEqual([5, 30]);
   });
 });

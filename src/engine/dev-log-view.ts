@@ -264,3 +264,45 @@ export function buildDevLogView(github: GithubDevelopmentRecord, log?: LogDevelo
     tickets,
   };
 }
+
+/** One ticket's round-by-round timeline, degraded: everything the Vinaya log alone can say about an issue, with no title, status, size or verdict — those are GitHub's alone. */
+export type DegradedTicket = {
+  readonly issue: number;
+  readonly timeline: readonly RoundTimelineEntry[];
+  readonly running: boolean;
+};
+
+/** The whole page, degraded to what the Vinaya log alone can show — for when GitHub has failed but the log hasn't. No milestone progress, ticket titles, status, size, verdicts or tokens: those are GitHub's alone. */
+export type DegradedLogView = {
+  readonly guardrails: GuardrailTotals;
+  readonly timeSplit?: { readonly developerMs: number; readonly reviewerMs: number };
+  readonly tickets: readonly DegradedTicket[];
+};
+
+/**
+ * Builds a `/logs` view from the Vinaya log alone, for when GitHub has failed. The log's own
+ * round record already carries developer/reviewer time, outcome, confidence, findings and size
+ * per round — everything `RoundTimeline` needs — so a GitHub outage still shows the loop working,
+ * just without the ticket titles, status, pull request or tokens only GitHub knows.
+ */
+export function buildDegradedLogView(log: LogDevelopmentRecord): DegradedLogView {
+  const tickets: DegradedTicket[] = log.tasks
+    .filter((task) => task.rounds.length > 0 || task.running)
+    .map((task) => ({ issue: task.issue, timeline: buildTimeline(task.rounds), running: task.running }))
+    .sort((a, b) => a.issue - b.issue);
+
+  let developerMs = 0;
+  let reviewerMs = 0;
+  for (const task of log.tasks) {
+    for (const round of task.rounds) {
+      developerMs += round.developerMs ?? 0;
+      reviewerMs += round.reviewerMs ?? 0;
+    }
+  }
+
+  return {
+    guardrails: log.guardrails,
+    timeSplit: developerMs + reviewerMs > 0 ? { developerMs, reviewerMs } : undefined,
+    tickets,
+  };
+}

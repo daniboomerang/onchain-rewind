@@ -3,14 +3,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { emptyDevLog, normalDevLog } from "../../engine/__fixtures__/dev-log";
+import { degradedDevLog, emptyDevLog, normalDevLog } from "../../engine/__fixtures__/dev-log";
 
 vi.mock("../../server/github/dev-record.functions", () => ({ getGithubDevRecord: vi.fn() }));
 vi.mock("../../server/vinaya/dev-record.functions", () => ({ getDevRecord: vi.fn() }));
 
 import { getGithubDevRecord } from "../../server/github/dev-record.functions";
 import { getDevRecord } from "../../server/vinaya/dev-record.functions";
-import { DevLogPage, DevLogRecord, StateMessage } from "./DevLogPage";
+import { DegradedLogRecord, DevLogPage, DevLogRecord, StateMessage } from "./DevLogPage";
 
 const emptyGithubRecord = {
   ok: true as const,
@@ -81,9 +81,11 @@ describe("DevLogRecord", () => {
     expect(screen.getByText("Model tokens")).toBeInTheDocument();
   });
 
-  it("names the ticket working on right now, and who", () => {
+  it("names the ticket working on right now, and who, with subject-verb agreement", () => {
     render(<DevLogRecord view={normalDevLog} />);
     expect(screen.getByText(/Reviewers are working on ticket #25/)).toBeInTheDocument();
+    expect(screen.getByText(/The developer is working on ticket #28/)).toBeInTheDocument();
+    expect(screen.queryByText(/The developer are/)).not.toBeInTheDocument();
   });
 
   it("expands a ticket's round-by-round timeline via its native <details>, closed until clicked", async () => {
@@ -116,6 +118,56 @@ describe("DevLogRecord", () => {
   it("shows zero tickets and zero merged for an empty milestone", () => {
     render(<DevLogRecord view={emptyDevLog} />);
     expect(screen.getByText((_, element) => element?.textContent === "0 of 0 tickets merged")).toBeInTheDocument();
+  });
+});
+
+describe("DegradedLogRecord", () => {
+  it("shows guardrails, round activity and the live line from the Vinaya log alone, with no ticket titles", () => {
+    render(<DegradedLogRecord view={degradedDevLog} />);
+    expect(screen.getByText("Ticket #25 is being worked on right now.")).toBeInTheDocument();
+    expect(screen.getByText("Ticket #20")).toBeInTheDocument();
+    expect(screen.getByText("Where the time goes")).toBeInTheDocument();
+    expect(screen.getByText("Guardrails")).toBeInTheDocument();
+    // No GitHub-only data (titles, status pills, pull requests) exists on this view at all.
+    expect(screen.queryByText(/Merged|Planned|Being built|In review/)).not.toBeInTheDocument();
+  });
+});
+
+describe("DevLogPage — GitHub failing doesn't blank a page the Vinaya log can still fill", () => {
+  afterEach(() => {
+    vi.mocked(getGithubDevRecord).mockReset();
+    vi.mocked(getDevRecord).mockReset();
+  });
+
+  it("renders guardrails and round activity from the Vinaya log when GitHub is rate limited", async () => {
+    vi.mocked(getGithubDevRecord).mockResolvedValue({ ok: false, error: "rate_limited" });
+    vi.mocked(getDevRecord).mockResolvedValue({
+      ok: true,
+      data: {
+        tasks: [
+          {
+            issue: 20,
+            rounds: [{ round: 1, findings: [] }],
+            resumed: false,
+            paused: false,
+            recovered: false,
+            running: false,
+          },
+        ],
+        guardrails: { checks: 6, runs: 214, stopped: 9 },
+      },
+    });
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <DevLogPage />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText("Guardrails")).toBeInTheDocument();
+    expect(screen.getByText("Ticket #20")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("GitHub's rate limit was hit");
   });
 });
 

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { DevLogRecord, StateMessage } from "../components/logs/DevLogPage";
+import { DegradedLogRecord, DevLogRecord, StateMessage } from "../components/logs/DevLogPage";
 import { ChainBar } from "../components/rewind/ChainBar";
 import { ChainIcon } from "../components/rewind/ChainIcon";
 import { EmptyState } from "../components/rewind/EmptyState";
@@ -20,7 +20,7 @@ import { SettingsDialog } from "../components/ui/SettingsDialog";
 import { ThemeToggle } from "../components/ui/ThemeToggle";
 import { Tooltip } from "../components/ui/Tooltip";
 import { type DemoWallet, WalletCombobox, type WalletStatus } from "../components/ui/WalletCombobox";
-import { emptyDevLog, normalDevLog } from "../engine/__fixtures__/dev-log";
+import { degradedDevLog, emptyDevLog, normalDevLog } from "../engine/__fixtures__/dev-log";
 import { type FixtureName, fixtures } from "../engine/fixtures";
 import { displayName, fmt, type RewindFacts, shortAddress } from "../engine/types";
 import { PAGE_INTERVAL_MS, pageTick } from "./-paging";
@@ -217,6 +217,13 @@ function System() {
           </Row>
           <div className="flex flex-col gap-8">
             <DevLogRecord view={normalDevLog} />
+          </div>
+          <p className="text-small text-fg-muted">
+            When GitHub fails but the Vinaya log hasn't: no ticket titles or status, just the round activity, time and
+            guardrails the log alone can give.
+          </p>
+          <div className="flex flex-col gap-8">
+            <DegradedLogRecord view={degradedDevLog} />
           </div>
         </Section>
       </div>

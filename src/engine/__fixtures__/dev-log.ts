@@ -4,7 +4,7 @@
  * development history and change every time a ticket merges.
  */
 
-import type { DevLogView } from "#/engine/dev-log-view.ts";
+import type { DegradedLogView, DevLogView } from "#/engine/dev-log-view.ts";
 
 const MINUTE = 60_000;
 
@@ -23,7 +23,10 @@ export const normalDevLog: DevLogView = {
   },
   timeSplit: { developerMs: 165 * MINUTE, reviewerMs: 58 * MINUTE, humanRulings: 1, recoveredTickets: 1 },
   guardrails: { checks: 6, runs: 214, stopped: 9 },
-  workingNow: [{ issue: 25, title: "The share panel handles a wallet with no balance history", role: "reviewers" }],
+  workingNow: [
+    { issue: 25, title: "The share panel handles a wallet with no balance history", role: "reviewers" },
+    { issue: 28, title: "A retired demo wallet is replaced with one that still tells a story", role: "developer" },
+  ],
   tickets: [
     {
       issue: 21,
@@ -220,4 +223,46 @@ export const emptyDevLog: DevLogView = {
   },
   workingNow: [],
   tickets: [],
+};
+
+/** GitHub is down; the Vinaya log alone still has round activity, time and guardrails. */
+export const degradedDevLog: DegradedLogView = {
+  guardrails: { checks: 6, runs: 214, stopped: 9 },
+  timeSplit: { developerMs: 165 * MINUTE, reviewerMs: 58 * MINUTE },
+  tickets: [
+    {
+      issue: 20,
+      running: false,
+      timeline: [
+        {
+          round: 1,
+          repeat: false,
+          developerMs: 21 * MINUTE,
+          reviewerMs: 8 * MINUTE,
+          outcome: "green",
+          confidence: { value: 82, reason: "One high finding from the security reviewer, fixed before merge." },
+          filesChanged: 3,
+          insertions: 140,
+          deletions: 8,
+          findings: { blocker: 0, major: 1, minor: 1, critical: 0, high: 1, medium: 1, low: 1 },
+        },
+      ],
+    },
+    {
+      issue: 25,
+      running: true,
+      timeline: [
+        {
+          round: 1,
+          repeat: false,
+          developerMs: 18 * MINUTE,
+          outcome: undefined,
+          filesChanged: 2,
+          insertions: 60,
+          deletions: 4,
+          findings: { blocker: 0, major: 0, minor: 1, critical: 0, high: 0, medium: 0, low: 0 },
+        },
+      ],
+    },
+  ],
 };

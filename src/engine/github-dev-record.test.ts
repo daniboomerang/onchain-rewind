@@ -244,6 +244,35 @@ describe("foldGithubTasks — rounds, verdicts, tokens and rulings", () => {
     expect(task?.humanRulings).toEqual(["Ruling: overturn the blocker, ship it."]);
   });
 
+  it("also collects a ruling posted with the aeg:principal:ruling marker instead of the word Ruling", () => {
+    const body = "<!-- aeg:principal:ruling:52-1 -->\nRuling — four defects to fix.";
+    const comments = [comment(50, "2026-09-28T13:00:00Z", body)];
+    const [task] = foldGithubTasks(issues, comments, pullDetails, firstCommits);
+    expect(task?.humanRulings).toEqual([body]);
+  });
+
+  it("also collects a ruling posted on the task Issue itself, not just on its pull request", () => {
+    const comments = [comment(35, "2026-09-28T13:00:00Z", "Ruling: fix these before merge.")];
+    const [task] = foldGithubTasks(issues, comments, pullDetails, firstCommits);
+    expect(task?.humanRulings).toEqual(["Ruling: fix these before merge."]);
+  });
+
+  it("counts a ruling on the pull request and a ruling on the Issue as two, not one", () => {
+    const comments = [
+      rulingComment(50, "2026-09-28T13:00:00Z", "Ruling: on the pull request."),
+      comment(35, "2026-09-28T13:05:00Z", "Ruling: on the issue."),
+    ];
+    const [task] = foldGithubTasks(issues, comments, pullDetails, firstCommits);
+    expect(task?.humanRulings).toHaveLength(2);
+  });
+
+  it("counts a ruling posted on a task Issue that has no pull request yet", () => {
+    const comments = [comment(35, "2026-09-28T13:00:00Z", "Ruling: reconsider before opening a pull request.")];
+    const [task] = foldGithubTasks([taskIssue(35)], comments, new Map(), new Map());
+    expect(task?.status).toBe("planned");
+    expect(task?.humanRulings).toEqual(["Ruling: reconsider before opening a pull request."]);
+  });
+
   it("times a task with no round record from the first commit to the last verdict", () => {
     const comments = [verdictComment(50, "2026-09-28T12:00:00Z", "APPROVE", "review", 1, 1)];
     const [task] = foldGithubTasks(issues, comments, pullDetails, firstCommits);

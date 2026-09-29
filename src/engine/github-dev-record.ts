@@ -319,8 +319,10 @@ function parseDeveloperTokens(body: string | null): TokenRow[] {
   return rows;
 }
 
+/** A human ruling opens with the word `Ruling`, or with the marker `vinaya task dispatch` posts on one. */
 function isHumanRuling(body: string): boolean {
-  return /^Ruling\b/.test(body.trim());
+  const trimmed = body.trim();
+  return /^Ruling\b/.test(trimmed) || trimmed.startsWith("<!-- aeg:principal:ruling");
 }
 
 /** The issue or pull request number a comment's `issue_url` ends in. */
@@ -419,6 +421,11 @@ export function foldGithubTasks(
     const detail = hasPull ? pullDetails.get(pull.number) : undefined;
     const firstCommit = hasPull ? firstCommits.get(pull.number) : undefined;
     const pullComments = hasPull ? (commentsByPull.get(pull.number) ?? []) : [];
+    // A ruling can land on the task Issue itself (before a pull request exists, or alongside one) —
+    // distinct from `pullComments`, which review tables, verdicts and tokens read only from the pull
+    // request. `commentsByPull` is keyed by any issue/PR number GitHub comments attach to, so the
+    // same map already holds the Issue's own thread under its own number.
+    const issueComments = commentsByPull.get(issueNumber) ?? [];
 
     const roundsByNumber = new Map<number, RoundSummary>();
     let codeVerdict: { readonly verdict: Verdict; readonly isSecurity: boolean } | undefined;
@@ -437,6 +444,9 @@ export function foldGithubTasks(
         else codeVerdict = parsed;
       }
 
+      if (isHumanRuling(comment.body)) humanRulings.push(comment.body);
+    }
+    for (const comment of issueComments) {
       if (isHumanRuling(comment.body)) humanRulings.push(comment.body);
     }
 
