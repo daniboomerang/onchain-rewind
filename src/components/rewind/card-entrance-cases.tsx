@@ -40,7 +40,7 @@ export function stillRunning(card: HTMLElement) {
  */
 export function everyStoryCard() {
   return (Object.keys(fixtures) as FixtureName[]).flatMap((name) => {
-    const cards = buildCards(fixtures[name], { share: noop, sharing: false, onReplay: noop });
+    const cards = buildCards(fixtures[name], { share: noop, sharing: false, onReplay: noop, capped: false });
     return cards.map((card, i) => [`${name} wallet, ${card.eyebrow}`, card.render(i + 1, cards.length)] as const);
   });
 }

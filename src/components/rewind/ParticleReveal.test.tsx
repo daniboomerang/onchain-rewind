@@ -63,6 +63,34 @@ test("reduced motion still announces the count, and no more than once a second",
   expect(live(container)).toBe("480 transactions read so far");
 });
 
+test("a cut-short year is counted with a plus, and announced as at least that many", () => {
+  preference.reduce = true;
+  const ref = createRef<ParticleRevealHandle>();
+  const { container } = render(<ParticleReveal ref={ref} />);
+
+  act(() => ref.current?.addTransactions(1600));
+  // Still paging: the count is what has landed, with no claim yet about what it means.
+  expect(container.textContent).toContain("1,600");
+  expect(container.textContent).not.toContain("1,600+");
+
+  act(() => ref.current?.complete(1600, true));
+  expect(container.textContent).toContain("1,600+");
+  tick();
+  expect(live(container)).toBe("At least 1,600 transactions read");
+});
+
+test("a complete year is counted exactly, and announced without a bound", () => {
+  preference.reduce = true;
+  const ref = createRef<ParticleRevealHandle>();
+  const { container } = render(<ParticleReveal ref={ref} />);
+
+  act(() => ref.current?.complete(1284, false));
+  expect(container.textContent).toContain("1,284");
+  expect(container.textContent).not.toContain("1,284+");
+  tick();
+  expect(live(container)).toBe("1,284 transactions read");
+});
+
 test("the announced count is throttled with a canvas too", () => {
   const ref = createRef<ParticleRevealHandle>();
   const { container } = render(<ParticleReveal ref={ref} />);
@@ -85,7 +113,7 @@ test("reduced motion crossfades into the story instead of bursting", () => {
   const ref = createRef<ParticleRevealHandle>();
   render(<ParticleReveal ref={ref} onBurst={onBurst} onDone={onDone} />);
 
-  act(() => ref.current?.complete(1284));
+  act(() => ref.current?.complete(1284, false));
   expect(onBurst).not.toHaveBeenCalled();
   act(() => {
     vi.advanceTimersByTime(revealMs.reducedFade);
@@ -124,7 +152,7 @@ test("the handle is safe to drive where no 2D context exists", () => {
   expect(() =>
     act(() => {
       ref.current?.addTransactions(120);
-      ref.current?.complete(120);
+      ref.current?.complete(120, false);
       ref.current?.fail();
     }),
   ).not.toThrow();

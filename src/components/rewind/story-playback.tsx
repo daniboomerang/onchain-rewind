@@ -59,13 +59,13 @@ export function installPendingAnimations() {
 
 /** The cards the player builds for a wallet, by the accessible name each one's stage carries. */
 export function cardLabels(facts: RewindFacts) {
-  const cards = buildCards(facts, { share: noop, sharing: false, onReplay: noop });
+  const cards = buildCards(facts, { share: noop, sharing: false, onReplay: noop, capped: false });
   return cards.map((card, i) => `${i + 1} of ${cards.length}: ${card.eyebrow}`);
 }
 
 /** The player as the app mounts it, with the callbacks a test never needs to see. */
 export function story(facts: RewindFacts): ReactNode {
-  return <RewindPlayer facts={facts} onReplay={noop} onOpenSettings={noop} />;
+  return <RewindPlayer facts={facts} capped={false} onReplay={noop} onOpenSettings={noop} />;
 }
 
 /**

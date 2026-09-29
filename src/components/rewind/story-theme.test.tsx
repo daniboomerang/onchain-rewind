@@ -50,7 +50,7 @@ test("the reveal's reduced-motion branch holds the dark palette too", () => {
 });
 
 test("the story surface holds the dark palette, so the cards and the chrome over them stay dark", () => {
-  play(<RewindPlayer facts={normalWallet} onReplay={noop} onOpenSettings={noop} />);
+  play(<RewindPlayer facts={normalWallet} capped={false} onReplay={noop} onOpenSettings={noop} />);
 
   expect(screen.getByRole("region", { name: "Rewind story" })).toHaveAttribute("data-theme", "dark");
 });
