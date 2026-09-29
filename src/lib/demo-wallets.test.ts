@@ -2,8 +2,9 @@ import { expect, test } from "vitest";
 import { demoWalletOptions, demoWallets } from "./demo-wallets";
 import { asAddress } from "./wallet-store";
 
-test("settings offers three demo wallets", () => {
-  expect(demoWallets).toHaveLength(3);
+test("settings offers two demo wallets, pranksy.eth first", () => {
+  expect(demoWallets).toHaveLength(2);
+  expect(demoWallets[0]?.label).toBe("pranksy.eth");
 });
 
 test("every demo wallet carries the address its name resolved to, so none waits on ENS", () => {

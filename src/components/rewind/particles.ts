@@ -133,6 +133,26 @@ export function reseedParticle(p: Particle, dust: boolean, born: number): void {
   p.hasTrail = false;
 }
 
+/** The counter's roll: from `from` to `to` at a steady pace, starting at clock time `at` and lasting `dur`. */
+export type Roll = { from: number; to: number; at: number; dur: number; shown: number };
+
+/** Rolls the counter on from wherever it has got to, so a new page never makes it jump back. */
+export function rollTo(roll: Roll, to: number, at: number, dur: number): void {
+  roll.from = roll.shown;
+  roll.to = to;
+  roll.at = at;
+  roll.dur = Math.max(dur, 1);
+}
+
+/**
+ * The roll's value at clock time `t`: a steady pace, not eased. An eased roll jumps most of the way
+ * there and then sits still, which is exactly the pause between pages the counter must never show.
+ * It never passes `to` and never goes below `from`, so it can only sit at the newest total it knows.
+ */
+export function rollShown(roll: Roll, t: number): number {
+  return roll.from + (roll.to - roll.from) * clamp01((t - roll.at) / roll.dur);
+}
+
 export type Point = { x: number; y: number };
 
 /**

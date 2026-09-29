@@ -5,7 +5,7 @@
 **Goal:** ship a demo-ready Onchain Rewind. A public URL plays any vetted wallet's last 365 days as the full Rewind (reveal, five cards, share image) on real Zerion data, at production quality (craft, accessibility, performance, clean architecture), built through governed AI agents.
 
 **Success criteria** (the Milestone is done when all of these hold):
-1. The deployed URL plays the Rewind end to end for 3 vetted demo wallets, and handles an empty wallet, an invalid address and an API error gracefully.
+1. The deployed URL plays the Rewind end to end for 2 vetted demo wallets, and handles an empty wallet, an invalid address and an API error gracefully.
 2. The quality bar in §7 holds: checks, tests and build are green, keyboard and reduced motion work, and the key doesn't appear in the client bundle.
 3. `/system` shows every component in every state on fixtures.
 4. Every task merged through a PR with Vinaya's gates and a human Test Plan tick.
@@ -64,7 +64,7 @@ routes/index.tsx
 
 **Key decisions** (recorded as ADRs in [`docs/adr/`](docs/adr/)):
 1. **The key stays on the server.** Every Zerion call goes through a TanStack Start server function, so the browser never sees the key.
-2. **Loading is the animation.** The client pages through transactions and feeds each page's count into `ParticleReveal`. The reveal only completes when the data does (minimum 3.2s, 90s timeout → error). The timeout has to hold a full year at the cap, so it is sized for the 23 requests that year costs at one a second rather than for a typical wallet, which still reaches the story in a few seconds.
+2. **Loading is the animation.** The client pages through transactions and feeds each page's count into `ParticleReveal`. The reveal only completes when the data does (minimum 3.2s, 90s timeout → error). The timeout has to hold a full year at the cap, so it is sized for the 28 requests that year costs at one a second rather than for a typical wallet, which still reaches the story in a few seconds.
 3. **The engine is pure and separate from the UI.** Zerion responses → `RewindFacts` in `src/engine/`, unit-tested with recorded fixtures. Components never see raw API data.
 
 ## 5. Data mapping (Zerion → `RewindFacts`)
@@ -81,17 +81,17 @@ Base URL `https://api.zerion.io`. Auth is HTTP Basic, with the API key as the us
 | `topToken` | transactions + `GET /v1/fungibles/{id}` | Most frequent fungible across `trade` operations. Fall back to transfers if there are no trades. `timesTraded` counts those transactions, a fungible counting once per transaction however many transfers carry it. Equal counts go to the higher USD transfer volume, then alphabetically by symbol. `changePct`: **verified** — `data.attributes.market_data.changes.percent_365d`, the fungible's price change over the last year in percent (market data, not the price chart), so the copy reads "past year". It is nullable: when Zerion has no yearly change — or when the fungible fetched back isn't the one the transactions named — `topToken` is left out and card 3 hides rather than showing a made-up number. |
 | `balance` | `GET /v1/wallets/{a}/charts/year` | **Verified:** the period is the `year` value of the `chart_period` enum — one point per day over the last 365 days (366 points, `begin_at` and `end_at` exactly a year apart). `points` are `[unix seconds, value]` tuples, oldest first, counting simple token and native-coin balances. `series` becomes daily points, `high`/`low` are max/min points of the series, `current` is the last value, and `changePct` compares first and last, to one decimal. Fewer than two points — or a first point of `0`, where a change has no meaning — leaves `balance` out and hides card 4. |
 
-**Window:** the last 365 days (`filter[min_mined_at]`). **Cap:** page size 100, at most 20 pages (2,000 transactions).
+**Window:** the last 365 days (`filter[min_mined_at]`). **Cap:** page size 100, at most 25 pages (2,500 transactions).
 
-**A year cut short.** Paging can stop before the window is exhausted: at the cap, or on a page that fails for good after earlier pages have landed (below). Either way the facts describe the newest slice of the year rather than all of it, so every figure counted off them is a lower bound and every screen says so. The reveal's counter, the share card and the share image write the transaction count with a "+" — "2,000+" at the cap, "1,600+" where a page failed — and the counter's live region announces "at least" rather than the bare figure, because a "+" is not something a screen reader reads.
+**A year cut short.** Paging can stop before the window is exhausted: at the cap, or on a page that fails for good after earlier pages have landed (below). Either way the facts describe the newest slice of the year rather than all of it, so every figure counted off them is a lower bound and every screen says so. The reveal's counter, the share card and the share image write the transaction count with a "+" — "2,500+" at the cap, "1,600+" where a page failed — and the counter's live region announces "at least" rather than the bare figure, because a "+" is not something a screen reader reads.
 
 The oldest transaction that happened to arrive is never presented as the day the wallet's year started, because it is not: it is only the oldest one paging reached. Card 1's kicker and the share card's fourth label read "onchain by" instead of "It started on" and "onchain since", over the same date, and the days-onchain figure carries the same "+". A complete year is unchanged: the counts are exact, the kicker reads "It started on", and the label reads "onchain since".
 
-**Pacing and the timeout:** every request one run makes — each page, and each of the three reads that resolve once — goes out at least a second after the one before it, because the key's plan allows one request a second and a burst of two is throttled whatever the two are. One per-run scheduler reserves those slots, so the chain list and the balance chart queue behind the first page rather than firing alongside it: the reveal starts counting on page one. A wallet at the cap therefore costs 23 paced requests, a little over twenty seconds of wall clock; a run that hasn't produced its facts within 90s is the error state, which leaves room for an upstream twice as slow. The reveal keeps counting the pages that have landed throughout.
+**Pacing and the timeout:** every request one run makes — each page, and each of the three reads that resolve once — goes out at least a second after the one before it, because the key's plan allows one request a second and a burst of two is throttled whatever the two are. One per-run scheduler reserves those slots, so the chain list and the balance chart queue behind the first page rather than firing alongside it: the reveal starts counting on page one. A wallet at the cap therefore costs 28 paced requests, close to thirty seconds of wall clock; a run that hasn't produced its facts within 90s is the error state, which leaves room for an upstream twice as slow. The reveal keeps counting the pages that have landed throughout.
 
 **A page that fails:** it is asked for once more, half a second later, because a throttled page and the 500 Zerion returns for some deep pages of a very active wallet both usually answer on the next attempt. If it fails again, what happens depends on how far the year got: the **first** page failing is the error state, while a **later** page failing ends paging there and the Rewind plays the year that did arrive, marked the same way the cap marks it. A counted year is worth more than a perfect one.
 
-**Budget:** the key's organization is on Zerion's free **Demo plan**, and its limits are the plan's own, read from the response headers (`ratelimit-org-tier: demo`, `ratelimit-org-second-limit: 1`, `ratelimit-org-day-limit: 300`): **one request a second, and 300 a day**. One Rewind of a wallet at the cap spends 23 of them, so the day holds roughly a dozen.
+**Budget:** the key's organization is on Zerion's free **Demo plan**, and its limits are the plan's own, read from the response headers (`ratelimit-org-tier: demo`, `ratelimit-org-second-limit: 1`, `ratelimit-org-day-limit: 300`): **one request a second, and 300 a day**. One Rewind of a wallet at the cap spends 28 of them, so the day holds around ten.
 - Keep an in-memory server cache per `(address, endpoint, params)` with a TTL of half a day — hours, not minutes, so replaying or re-opening a wallet the same day costs no new requests. The window is 365 days long, so nothing on a card reads differently for the drift.
 - On the client, TanStack Query uses the same `staleTime` of half a day.
 - On 429 with calls left in the day, retry with exponential backoff (at most 3 tries), then show the error state.
@@ -99,11 +99,10 @@ The oldest transaction that happened to arrive is never presented as the day the
 
 ## 6. Demo wallets
 
-`src/lib/demo-wallets.ts` holds three **real public wallets**, each stored with the address its name resolved to, so a demo pick never waits on ENS:
+`src/lib/demo-wallets.ts` holds two **real public wallets**, each stored with the address its name resolved to, so a demo pick never waits on ENS. `pranksy.eth` is listed first, so a first visit opens settings with it already chosen:
 
 | Name | Address |
 |---|---|
-| `vitalik.eth` | `0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045` |
 | `pranksy.eth` | `0xD387A6E4e84a6C86bd90C158C6028A58CC8Ac459` |
 | `dingaling.eth` | `0x54BE3a794282C030b15E43aE2bB182E14c409C5e` |
 
@@ -111,7 +110,7 @@ Before listing a wallet, check that it produces a good story (enough transaction
 
 ## 7. Quality bar (definition of done for the whole build)
 
-- The flow works on real data for all three demo wallets, plus an empty wallet and an invalid address.
+- The flow works on real data for both demo wallets, plus an empty wallet and an invalid address.
 - Typecheck, lint, tests and build are green.
 - No console errors. The key doesn't appear in the client bundle: `grep` the build output for it.
 - Reduced motion checked in the browser, and keyboard-only navigation works (including after closing settings; see KNOWN-ISSUES).
@@ -156,7 +155,7 @@ Settled, so the Planner doesn't stop to ask:
 - **Deploy target:** Vercel (TanStack Start supports it; the key goes in Vercel's environment variables).
 - **Network scope:** EVM only (`0x` addresses). No Solana.
 - **ENS:** resolved on the server with viem on mainnet through its default public transport. If resolution fails, show the invalid state and suggest pasting an address. Demo wallets store their resolved address, so they never depend on ENS at runtime.
-- **Window:** the last 365 days, capped at 2,000 transactions.
+- **Window:** the last 365 days, capped at 2,500 transactions.
 
 Open, to verify during the Zerion server work (research, not a Principal decision; record the answers in §5): none left. All four are answered, against the OpenAPI spec at <https://developers.zerion.io> (`openapi: 3.0.3`, `info.version: 1.0.0`) and a live response for `vitalik.eth`:
 1. ~~The exact Basic-auth header format.~~ **Answered:** `Authorization: Basic base64(KEY + ":")` — the key is the username, the password is empty. Recorded in §5.

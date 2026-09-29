@@ -146,6 +146,70 @@ test("an unknown total says so rather than guessing a number", () => {
   expect(container.textContent).toContain("Reading transactions…");
 });
 
+const late = (container: HTMLElement) => container.textContent?.includes("Reading older transactions…") ?? false;
+
+test("reduced motion names a page more than two seconds overdue, and clears it once it lands", () => {
+  preference.reduce = true;
+  const ref = createRef<ParticleRevealHandle>();
+  const { container } = render(<ParticleReveal ref={ref} />);
+
+  act(() => ref.current?.addTransactions(100));
+  expect(late(container)).toBe(false);
+  act(() => {
+    vi.advanceTimersByTime(revealMs.latePage);
+  });
+  expect(late(container)).toBe(true);
+
+  act(() => ref.current?.addTransactions(50));
+  expect(late(container)).toBe(false);
+  act(() => {
+    vi.advanceTimersByTime(revealMs.latePage - 1);
+  });
+  expect(late(container)).toBe(false);
+  act(() => {
+    vi.advanceTimersByTime(1);
+  });
+  expect(late(container)).toBe(true);
+});
+
+test("reduced motion drops the late-page line once the run completes", () => {
+  preference.reduce = true;
+  const ref = createRef<ParticleRevealHandle>();
+  const { container } = render(<ParticleReveal ref={ref} />);
+
+  act(() => ref.current?.addTransactions(100));
+  act(() => {
+    vi.advanceTimersByTime(revealMs.latePage);
+  });
+  expect(late(container)).toBe(true);
+
+  act(() => ref.current?.complete(100, false));
+  expect(late(container)).toBe(false);
+  act(() => {
+    vi.advanceTimersByTime(revealMs.latePage);
+  });
+  expect(late(container)).toBe(false);
+});
+
+test("reduced motion drops the late-page line once the run fails", () => {
+  preference.reduce = true;
+  const ref = createRef<ParticleRevealHandle>();
+  const { container } = render(<ParticleReveal ref={ref} />);
+
+  act(() => ref.current?.addTransactions(100));
+  act(() => {
+    vi.advanceTimersByTime(revealMs.latePage);
+  });
+  expect(late(container)).toBe(true);
+
+  act(() => ref.current?.fail());
+  expect(late(container)).toBe(false);
+  act(() => {
+    vi.advanceTimersByTime(revealMs.latePage);
+  });
+  expect(late(container)).toBe(false);
+});
+
 test("the handle is safe to drive where no 2D context exists", () => {
   const ref = createRef<ParticleRevealHandle>();
   const { unmount } = render(<ParticleReveal ref={ref} />);

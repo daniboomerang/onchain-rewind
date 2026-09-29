@@ -28,6 +28,8 @@ export type RewindPlayerProps = {
   capped: boolean;
   onReplay: () => void;
   onOpenSettings: () => void;
+  /** Escape does the same; both leave the story for the start screen. Omitted where there isn't one. */
+  onClose?: () => void;
 };
 
 /** Below this width the pointer split is 30/70 rather than 50/50 — DESIGN.md §3. */
@@ -37,7 +39,7 @@ const MOBILE_BP = 640;
 export type Card = { key: string; eyebrow: string; render: (index: number, total: number) => ReactNode };
 
 /** Plays the story: chrome, cards, navigation, pause. Card 5 (Share) doesn't auto-advance. */
-export function RewindPlayer({ facts, capped, onReplay, onOpenSettings }: RewindPlayerProps) {
+export function RewindPlayer({ facts, capped, onReplay, onOpenSettings, onClose }: RewindPlayerProps) {
   const reduce = useReducedMotion();
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
@@ -191,6 +193,7 @@ export function RewindPlayer({ facts, capped, onReplay, onOpenSettings }: Rewind
         <StoryChrome
           wallet={displayName(facts.wallet)}
           onOpenSettings={onOpenSettings}
+          onClose={onClose}
           progress={
             <ProgressSegments
               count={cards.length}

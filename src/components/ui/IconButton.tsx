@@ -28,3 +28,11 @@ export function GearIcon() {
     </svg>
   );
 }
+
+export function CloseIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
+      <path d="M6 6L18 18M18 6L6 18" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
