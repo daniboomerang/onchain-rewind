@@ -9,10 +9,10 @@ export type SiteFooterProps = {
 };
 
 /**
- * The one footer the whole site carries: a link to the design system, credit to Vinaya and Atta
- * Labs, and a link to this demo's own source. Shown only on the start screen of `/` and at the end
- * of `/logs` — never while the reveal or the story is playing, and never on the share card or the
- * share image.
+ * The one footer the whole site carries: a link to the design system, a link to the development
+ * stats at `/logs`, credit to Vinaya and Atta Labs, and a link to this demo's own source. Shown only
+ * on the start screen of `/` and at the end of `/logs` — never while the reveal or the story is
+ * playing, and never on the share card or the share image.
  */
 export function SiteFooter({ variant = "inline" }: SiteFooterProps) {
   return (
@@ -28,6 +28,9 @@ export function SiteFooter({ variant = "inline" }: SiteFooterProps) {
       >
         <a className="underline underline-offset-2 hover:text-fg" href="/system">
           Design system
+        </a>
+        <a className="underline underline-offset-2 hover:text-fg" href="/logs">
+          Development stats
         </a>
         <span>
           Made with{" "}

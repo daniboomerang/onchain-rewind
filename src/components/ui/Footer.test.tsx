@@ -3,10 +3,11 @@ import { render, screen } from "@testing-library/react";
 import { expect, test } from "vitest";
 import { SiteFooter } from "#/components/ui/Footer.tsx";
 
-test("carries all five links, each external one opening a new tab safely", () => {
+test("carries all six links, each external one opening a new tab safely", () => {
   render(<SiteFooter />);
 
   expect(screen.getByRole("link", { name: "Design system" })).toHaveAttribute("href", "/system");
+  expect(screen.getByRole("link", { name: "Development stats" })).toHaveAttribute("href", "/logs");
 
   const vinaya = screen.getByRole("link", { name: "Vinaya" });
   expect(vinaya).toHaveAttribute("href", "https://vinaya.attalabs.dev");
