@@ -15,9 +15,10 @@ import { Home } from "#/routes/index.tsx";
 import type { ZerionResult } from "#/server/zerion/client.ts";
 
 /**
- * The Rewind on `/`, played end to end without a network: a stored wallet autoplays, each page's
- * transactions reach the reveal as it arrives, the reveal hands over to the story, and a failure
- * lands in the error state with a retry that runs again.
+ * The Rewind on `/`, played end to end without a network: a stored wallet lands the start screen,
+ * pressing "Play" pages a wallet's year, each page's transactions reach the reveal as it arrives,
+ * the reveal hands over to the story, and a failure lands in the error state with a retry that runs
+ * again.
  *
  * Reduced motion is the preference these tests run under, and not for coverage's sake: with it the
  * reveal draws no canvas, and no test environment has a 2D context, so it is the only branch whose
@@ -149,7 +150,12 @@ function fakeApi({ pages = PAGES, gated = false, failFirstRun = false, budgetSpe
     });
   };
 
-  return { api, release };
+  return { api, release, callCount: () => calls };
+}
+
+/** Every scripted test starts from the start screen: this is the one place that leaves it. */
+async function play(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: "Play" }));
 }
 
 function remember(wallet: { label: string; address: Address }) {
@@ -180,9 +186,11 @@ const CARD = {
 } as const;
 
 test("each page's transactions reach the reveal, and only the last page hands over to the story", async () => {
+  const user = userEvent.setup();
   remember(first);
   const { api, release } = fakeApi({ gated: true });
   open(api);
+  await play(user);
 
   // The reveal is up before any page has landed, counting nothing yet.
   expect(await screen.findByText("0")).toBeInTheDocument();
@@ -207,9 +215,11 @@ test("each page's transactions reach the reveal, and only the last page hands ov
 });
 
 test("a wallet with no transactions ends on the empty state", async () => {
+  const user = userEvent.setup();
   remember(first);
   const { api } = fakeApi({ pages: [[]] });
   open(api);
+  await play(user);
 
   expect(await screen.findByText("This wallet hasn't made its first move yet")).toBeInTheDocument();
 });
@@ -219,6 +229,7 @@ test("a failed run ends in the error state, and Try again plays the Rewind", asy
   remember(first);
   const { api } = fakeApi({ failFirstRun: true });
   open(api);
+  await play(user);
 
   // The failed page is retried once before the run gives up, so the error state is a moment later.
   const alert = await screen.findByRole("alert", undefined, { timeout: 4000 });
@@ -230,9 +241,11 @@ test("a failed run ends in the error state, and Try again plays the Rewind", asy
 });
 
 test("a spent daily budget ends on the error state saying so, and when to come back", async () => {
+  const user = userEvent.setup();
   remember(first);
   const { api } = fakeApi({ budgetSpent: true });
   open(api);
+  await play(user);
 
   const alert = await screen.findByRole("alert");
   expect(alert).toHaveTextContent("Today's data budget is spent");
@@ -253,6 +266,7 @@ test("changing the wallet restarts the Rewind", async () => {
   remember(first);
   const { api } = fakeApi();
   open(api);
+  await play(user);
 
   await screen.findByLabelText(CARD.origin);
   // Somewhere past card 1, so a restart is visible as a return to it.
@@ -265,6 +279,10 @@ test("changing the wallet restarts the Rewind", async () => {
   expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: new RegExp(second.label) }));
   await user.click(screen.getByRole("button", { name: "Play rewind" }));
+
+  // Settings closes onto the start screen for the new wallet, not straight back into the reveal.
+  expect(screen.queryByLabelText(CARD.chain)).toBeNull();
+  await play(user);
 
   // The new wallet's run starts at the reveal again, and its story starts at card 1.
   await waitFor(() => expect(revealCounter()).toBeInTheDocument());
@@ -279,6 +297,7 @@ test("Escape leaves the story for the start screen, which carries the site foote
   remember(first);
   const { api } = fakeApi();
   open(api);
+  await play(user);
 
   await screen.findByLabelText(CARD.origin);
   // The story plays with no footer at all.
@@ -293,6 +312,7 @@ test("Escape leaves the story for the start screen, which carries the site foote
   // The start screen carries the one site footer.
   expect(screen.getByRole("link", { name: "Vinaya" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Design system" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Development stats" })).toHaveAttribute("href", "/logs");
 
   await user.click(screen.getByRole("button", { name: "Play" }));
 
@@ -307,6 +327,7 @@ test("the close button in the story's top bar does the same as Escape", async ()
   remember(first);
   const { api } = fakeApi();
   open(api);
+  await play(user);
 
   await screen.findByLabelText(CARD.origin);
 
@@ -321,6 +342,7 @@ test("Escape closes the open settings dialog instead of leaving the story", asyn
   remember(first);
   const { api } = fakeApi();
   open(api);
+  await play(user);
 
   await screen.findByLabelText(CARD.origin);
 
@@ -339,6 +361,7 @@ test("the arrow keys still move the story after the settings dialog closes", asy
   remember(first);
   const { api } = fakeApi();
   open(api);
+  await play(user);
 
   await screen.findByLabelText(CARD.origin);
 
@@ -350,4 +373,17 @@ test("the arrow keys still move the story after the settings dialog closes", asy
   await user.keyboard("[ArrowRight]");
 
   expect(await screen.findByLabelText(CARD.chain)).toBeInTheDocument();
+});
+
+test("a remembered wallet lands the start screen with nothing loading, until Play is pressed", async () => {
+  remember(first);
+  const { api, callCount } = fakeApi({ gated: true });
+  open(api);
+
+  expect(await screen.findByRole("button", { name: "Play" })).toBeInTheDocument();
+  expect(revealCounter()).toBeNull();
+  // The site footer only ever shows on the start screen and on `/logs`, never mid-story: its
+  // presence here is itself proof nothing has started.
+  expect(screen.getByRole("link", { name: "Design system" })).toBeInTheDocument();
+  expect(callCount()).toBe(0);
 });

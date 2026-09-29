@@ -126,7 +126,7 @@ Particle spec: 1 per tx, cap 1500 desktop / 600 mobile; pad with 25%-alpha dust 
 
 **States** — Empty and API error crossfade in over 240ms; particles fade out 480ms before API error.
 
-**Start screen** — Escape, or the close button in the story's top bar (next to the gear, its own accessible name "Close"), leaves the reveal, a card or the error state for this screen instead: the wordmark, the connected wallet (chrome carries both already), and a centered Play button that starts a fresh Rewind. Escape is inert while the settings dialog is open — that dialog owns it instead — and every load still autoplays regardless of where a previous visit left off.
+**Start screen** — The landing state of `/`: the wordmark, the connected wallet (chrome carries both already), a centered Play button that starts a fresh Rewind, and the site footer. Opening `/` with a remembered wallet lands here — nothing loads and the reveal does not start until Play is pressed — and choosing a wallet in settings, first visit or not, closes onto this screen rather than straight into the reveal. Escape, or the close button in the story's top bar (next to the gear, its own accessible name "Close", present during the reveal as well as a card or the error state), leaves the reveal, a card or the error state for this screen instead. Escape is inert while the settings dialog is open — that dialog owns it instead.
 
 **Reduced motion** — no canvas: static centered "Reading 1,284 transactions…" (number updates without rolling), crossfade 240ms into card 1. The late-page line still appears under it on the same 2000ms threshold. Cards crossfade (no x). Bars, chart and numbers render at final values. Progress segments still fill (timing, not decoration). Press scale off.
 

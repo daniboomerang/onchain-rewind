@@ -11,17 +11,17 @@ import { readStoredWallet } from "./wallet-store";
 
 /**
  * The settings flow as a visitor meets it: nothing stored, so the dialog opens itself and holds, and
- * a demo pick is remembered and starts the Rewind at once.
+ * a demo pick is remembered and lands the start screen, one "Play" away from the Rewind.
  *
- * The reveal covers the screen for as long as it is reading, with no chrome of its own — chrome
- * enters with card 1 — so the gear, and everything reached through it, belongs to a suite that plays
- * the Rewind far enough for the story to own the screen. That suite is `routes/-rewind-flow`.
+ * The reveal itself, and everything reached through the gear once the story owns the screen, belongs
+ * to a suite that plays the Rewind that far. That suite is `routes/-rewind-flow`.
  */
 
 const [first] = demoWallets;
 
-/** The reveal, which is what a wallet's page load autoplays into. */
+/** The reveal, which is what pressing "Play" on the start screen starts. */
 const reading = () => screen.getByText("Reading transactions…");
+const playButton = () => screen.getByRole("button", { name: "Play" });
 
 // Vitest runs without global test APIs, so Testing Library never registers its own cleanup.
 afterEach(() => {
@@ -52,7 +52,7 @@ test("the first visit opens settings and will not let go of it until a wallet is
   expect(screen.getByRole("dialog")).toBeInTheDocument();
 });
 
-test("a first visit opens settings with the first demo wallet already chosen, so one click plays it", async () => {
+test("a first visit opens settings with the first demo wallet already chosen, so one click lands the start screen", async () => {
   const user = userEvent.setup();
   if (!first) throw new Error("the demo wallets are empty");
   open();
@@ -65,6 +65,12 @@ test("a first visit opens settings with the first demo wallet already chosen, so
 
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(readStoredWallet()).toEqual({ address: first.address, name: first.label });
+  // Settings closes onto the start screen, not straight into the reveal: nothing has loaded yet.
+  expect(playButton()).toBeInTheDocument();
+  expect(screen.queryByText("Reading transactions…")).toBeNull();
+
+  await user.click(playButton());
+
   expect(reading()).toBeInTheDocument();
 });
 
@@ -79,17 +85,18 @@ test("a demo pick is remembered as the connected wallet", async () => {
 
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(readStoredWallet()).toEqual({ address: first.address, name: first.label });
-  // Choosing a wallet is what starts the Rewind: the dialog closes onto the reveal, not onto a shell.
-  expect(reading()).toBeInTheDocument();
+  // Choosing a wallet lands the start screen; it never starts the Rewind by itself.
+  expect(playButton()).toBeInTheDocument();
 });
 
-test("a remembered wallet means no dialog, and the page load plays the Rewind", async () => {
+test("a remembered wallet means no dialog, and the page load lands the start screen with nothing loading", async () => {
   if (!first) throw new Error("the demo wallets are empty");
   localStorage.setItem("onchain-rewind:wallet", JSON.stringify({ address: first.address, name: first.label }));
   open();
 
-  await waitFor(() => expect(reading()).toBeInTheDocument());
+  await waitFor(() => expect(playButton()).toBeInTheDocument());
   expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByText("Reading transactions…")).toBeNull();
 });
 
 test("a pasted address that isn't one cannot be submitted, and says to paste an address", async () => {

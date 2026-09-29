@@ -12,8 +12,8 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { demoWallets } from "./demo-wallets";
 import type { Address } from "../engine/types";
+import { demoWallets } from "./demo-wallets";
 
 /** Namespaced, because a demo shares its origin with whatever else is deployed there. */
 export const WALLET_STORAGE_KEY = "onchain-rewind:wallet";
