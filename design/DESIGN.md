@@ -126,6 +126,8 @@ Particle spec: 1 per tx, cap 1500 desktop / 600 mobile; pad with 25%-alpha dust 
 
 **States** — Empty and API error crossfade in over 240ms; particles fade out 480ms before API error.
 
+**Start screen** — Escape, or the close button in the story's top bar (next to the gear, its own accessible name "Close"), leaves the reveal, a card or the error state for this screen instead: the wordmark, the connected wallet (chrome carries both already), and a centered Play button that starts a fresh Rewind. Escape is inert while the settings dialog is open — that dialog owns it instead — and every load still autoplays regardless of where a previous visit left off.
+
 **Reduced motion** — no canvas: static centered "Reading 1,284 transactions…" (number updates without rolling), crossfade 240ms into card 1. The late-page line still appears under it on the same 2000ms threshold. Cards crossfade (no x). Bars, chart and numbers render at final values. Progress segments still fill (timing, not decoration). Press scale off.
 
 ---
@@ -179,7 +181,7 @@ Don't
 
 **`components/RewindPlayer.tsx`** — Props: `facts`, `onReplay`, `onOpenSettings`. Owns `current`, `direction` and `paused`, and provides `PlaybackContext`. A pointer press shorter than 200ms navigates (left half goes back, right half forward; 30/70 below 640px). Holding 200ms or longer pauses, and releasing resumes without navigating. Keys: ← and → navigate, holding Space pauses. Keys are ignored inside inputs, buttons and dialogs. Auto-advance comes from `ProgressSegments.onComplete`, and the last card holds. "Share image" calls `renderShareImage` → `shareOrDownload` with a loading state.
 
-**`components/StoryChrome.tsx`** — The top bar (segments slot, wordmark, wallet name, theme toggle, gear), split out so the player and the state screens share it.
+**`components/StoryChrome.tsx`** — The top bar (segments slot, wordmark, wallet name, theme toggle, gear, and an optional close button next to the gear), split out so the player and the state screens share it. The close button only renders where there's a story to leave.
 
 **`components/EmptyState.tsx` / `ErrorState.tsx`** — Match S12 and S13. ErrorState props: `onRetry`, `onChangeWallet`, `retrying`, and `reason`. `reason` picks the screen: `"unavailable"` (the default) reads as S13 does — "The rewind got stuck", with focus on "Try again" — while `"budget-spent"` is the day's data budget being spent on the free API plan, which is nothing the visitor did and which resolves when the day resets: its own eyebrow and headline ("Today's data budget is spent"), its own paragraph saying when to come back, and no "Try again" at all, because no retry succeeds before the reset. Focus then goes to "Change wallet".
 

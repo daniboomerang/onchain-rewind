@@ -274,6 +274,59 @@ test("changing the wallet restarts the Rewind", async () => {
   expect(readStoredWallet()).toEqual({ address: second.address, name: second.label });
 });
 
+test("Escape leaves the story for the start screen, and Play starts it again", async () => {
+  const user = userEvent.setup();
+  remember(first);
+  const { api } = fakeApi();
+  open(api);
+
+  await screen.findByLabelText(CARD.origin);
+
+  await user.keyboard("{Escape}");
+
+  expect(screen.queryByLabelText(CARD.origin)).toBeNull();
+  expect(revealCounter()).toBeNull();
+  expect(screen.getByRole("heading", { name: "Onchain Rewind" })).toBeInTheDocument();
+  expect(screen.getByText(first.label)).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Play" }));
+
+  await waitFor(() => expect(revealCounter()).toBeInTheDocument());
+  expect(await screen.findByLabelText(CARD.origin)).toBeInTheDocument();
+});
+
+test("the close button in the story's top bar does the same as Escape", async () => {
+  const user = userEvent.setup();
+  remember(first);
+  const { api } = fakeApi();
+  open(api);
+
+  await screen.findByLabelText(CARD.origin);
+
+  await user.click(screen.getByRole("button", { name: "Close" }));
+
+  expect(screen.queryByLabelText(CARD.origin)).toBeNull();
+  expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
+});
+
+test("Escape closes the open settings dialog instead of leaving the story", async () => {
+  const user = userEvent.setup();
+  remember(first);
+  const { api } = fakeApi();
+  open(api);
+
+  await screen.findByLabelText(CARD.origin);
+
+  await user.click(screen.getByRole("button", { name: "Change wallet" }));
+  await screen.findByRole("dialog");
+
+  await user.keyboard("{Escape}");
+
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  // The dialog owned that Escape: the story never reset to the start screen underneath it.
+  expect(screen.getByLabelText(CARD.origin)).toBeInTheDocument();
+});
+
 test("the arrow keys still move the story after the settings dialog closes", async () => {
   const user = userEvent.setup();
   remember(first);

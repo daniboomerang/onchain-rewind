@@ -5,6 +5,7 @@ import { revealMs } from "../components/rewind/motion";
 import { ParticleReveal, type ParticleRevealHandle } from "../components/rewind/ParticleReveal";
 import { RewindPlayer } from "../components/rewind/RewindPlayer";
 import { StoryChrome } from "../components/rewind/StoryChrome";
+import { Button } from "../components/ui/Button";
 import { SettingsDialog } from "../components/ui/SettingsDialog";
 import { displayName } from "../engine/types";
 import { demoWalletOptions } from "../lib/demo-wallets";
@@ -30,14 +31,19 @@ export type HomeProps = {
 export function Home({ api, requestIntervalMs }: HomeProps) {
   const { loaded, wallet, connect } = useConnectedWallet();
   const [open, setOpen] = useState(false);
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(demoWalletOptions[0]?.label ?? "");
   const input = useWalletInput(value);
-  // Bumped by "Replay" and by "Try again": re-keying the run below is what starts a fresh Rewind,
-  // because the reveal, the stage and the player all reset together when they remount.
+  // Bumped by "Replay", "Try again" and "Play": re-keying the run below is what starts a fresh
+  // Rewind, because the reveal, the stage and the player all reset together when they remount.
   const [run, setRun] = useState(0);
+  // Escape or the story's close button lands here: the run stops and the start screen shows instead,
+  // until "Play" sends the visitor back into a fresh Rewind. A first visit never starts here — every
+  // load autoplays.
+  const [stopped, setStopped] = useState(false);
 
-  // First visit: the browser has been read, nothing was stored, so settings opens itself. It stays
-  // open until a wallet is chosen, because there is no Rewind to show behind it.
+  // First visit: the browser has been read, nothing was stored, so settings opens itself, already on
+  // the first demo wallet. It stays open until a wallet is chosen, because there is no Rewind to show
+  // behind it.
   useEffect(() => {
     if (loaded && !wallet) setOpen(true);
   }, [loaded, wallet]);
@@ -47,7 +53,23 @@ export function Home({ api, requestIntervalMs }: HomeProps) {
     setOpen(true);
   }, [wallet]);
 
-  const restart = useCallback(() => setRun((n) => n + 1), []);
+  const restart = useCallback(() => {
+    setStopped(false);
+    setRun((n) => n + 1);
+  }, []);
+
+  const stop = useCallback(() => setStopped(true), []);
+
+  // Escape leaves the story for the start screen, wherever the run is — the reveal, a card or the
+  // error state. The settings dialog owns Escape while it's open, so this yields to it.
+  useEffect(() => {
+    if (!wallet || open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") stop();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [wallet, open, stop]);
 
   return (
     <main className="relative min-h-dvh bg-bg text-fg">
@@ -65,6 +87,8 @@ export function Home({ api, requestIntervalMs }: HomeProps) {
             </h1>
           </div>
         </>
+      ) : stopped ? (
+        <StartScreen wallet={wallet} onPlay={restart} onOpenSettings={openSettings} />
       ) : (
         // A different wallet, a replay or a retry is a different run: the key remounts the reveal,
         // which cancels its rAF loop and its clock, and the story starts over from card 1.
@@ -75,6 +99,7 @@ export function Home({ api, requestIntervalMs }: HomeProps) {
           {...(requestIntervalMs !== undefined ? { requestIntervalMs } : {})}
           onRestart={restart}
           onOpenSettings={openSettings}
+          onClose={stop}
         />
       )}
 
@@ -94,11 +119,37 @@ export function Home({ api, requestIntervalMs }: HomeProps) {
           onSubmit={() => {
             if (!input.wallet) return;
             connect(input.wallet);
+            setStopped(false);
             setOpen(false);
           }}
         />
       )}
     </main>
+  );
+}
+
+/** The wordmark, the connected wallet, a Play button and settings — where Escape or the story's own close button lands. */
+function StartScreen({
+  wallet,
+  onPlay,
+  onOpenSettings,
+}: {
+  wallet: ConnectedWallet;
+  onPlay: () => void;
+  onOpenSettings: () => void;
+}) {
+  return (
+    <>
+      <StoryChrome wallet={displayName(wallet)} onOpenSettings={onOpenSettings} />
+      <div className="grid min-h-dvh place-items-center px-5">
+        <div className="flex flex-col items-center gap-8 text-center">
+          <h1 className="font-display text-headline">
+            Onchain <em>Rewind</em>
+          </h1>
+          <Button onClick={onPlay}>Play</Button>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -109,6 +160,8 @@ type RewindProps = {
   /** "Replay", and "Try again" on the error state: both are a fresh run of the whole Rewind. */
   onRestart: () => void;
   onOpenSettings: () => void;
+  /** Escape and the close button in the story's top bar both call this: it leaves for the start screen. */
+  onClose: () => void;
 };
 
 /**
@@ -125,7 +178,7 @@ type Stage = "reveal" | "burst" | "story" | "error";
  * arrives, the last page completes the reveal, and a failure fades the field out. Nothing about the
  * count travels through React state: that is what `ParticleReveal`'s imperative handle is for.
  */
-function Rewind({ wallet, api, requestIntervalMs, onRestart, onOpenSettings }: RewindProps) {
+function Rewind({ wallet, api, requestIntervalMs, onRestart, onOpenSettings, onClose }: RewindProps) {
   const reveal = useRef<ParticleRevealHandle>(null);
   /** The 200ms between the burst starting and card 1 entering, cleared if this run is dropped. */
   const handoff = useRef<number | null>(null);
@@ -151,7 +204,13 @@ function Rewind({ wallet, api, requestIntervalMs, onRestart, onOpenSettings }: R
     <>
       {/* The empty wallet is a story the player tells itself: no transactions, no cards. */}
       {facts && (stage === "burst" || stage === "story") && (
-        <RewindPlayer facts={facts} capped={capped} onReplay={onRestart} onOpenSettings={onOpenSettings} />
+        <RewindPlayer
+          facts={facts}
+          capped={capped}
+          onReplay={onRestart}
+          onOpenSettings={onOpenSettings}
+          onClose={onClose}
+        />
       )}
       {(stage === "reveal" || stage === "burst") && (
         <ParticleReveal

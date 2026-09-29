@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { IconButton } from "../ui/IconButton";
+import { CloseIcon, IconButton } from "../ui/IconButton";
 import { ThemeToggle } from "../ui/ThemeToggle";
 
 export type StoryChromeProps = {
@@ -8,6 +8,8 @@ export type StoryChromeProps = {
   onOpenSettings: () => void;
   /** ProgressSegments slot — omitted on reveal / empty / error. */
   progress?: ReactNode;
+  /** Shown as a close button, top-right. Omitted where there's no story to leave. */
+  onClose?: () => void;
 };
 
 /**
@@ -17,7 +19,7 @@ export type StoryChromeProps = {
  * the only chrome every screen has. It switches the whole app, the story included, so on `/` the
  * cards under this header turn with it while they play.
  */
-export function StoryChrome({ wallet, onOpenSettings, progress }: StoryChromeProps) {
+export function StoryChrome({ wallet, onOpenSettings, progress, onClose }: StoryChromeProps) {
   return (
     <header
       data-chrome
@@ -32,6 +34,7 @@ export function StoryChrome({ wallet, onOpenSettings, progress }: StoryChromePro
           {wallet && <span className="whitespace-nowrap font-mono text-[13px] text-fg-muted">{wallet}</span>}
           <ThemeToggle />
           <IconButton label="Change wallet" onClick={onOpenSettings} />
+          {onClose && <IconButton label="Close" icon={<CloseIcon />} onClick={onClose} />}
         </div>
       </div>
     </header>
