@@ -95,51 +95,57 @@ type PullReadResult =
   | { readonly ok: false; readonly error: GithubErrorCode };
 
 /**
- * `/pulls/{n}` and `/pulls/{n}/commits?per_page=1`, once per task's pull request — skipped
+ * `/pulls/{n}` and `/pulls/{n}/commits?per_page=1`, once per candidate pull request — every pull
+ * request that has ever closed a task, not just the first one seen, so the engine's `selectPull`
+ * can tell a fresh merged attempt from a stale abandoned one by their actual merge status. Skipped
  * entirely for a pull request already known merged, whose details never change.
  */
 async function readPullDetails(issues: readonly RawGithubIssue[]): Promise<PullReadResult> {
   const pullDetails = new Map<number, RawGithubPull>();
   const firstCommits = new Map<number, RawGithubCommit | undefined>();
 
-  for (const { issue, pull } of matchTasksToPulls(issues).values()) {
-    if (pull === issue) continue; // no pull request yet
-    const number = pull.number;
-    if (pullDetails.has(number)) continue; // two tasks never share a pull request in practice
+  for (const { pulls } of matchTasksToPulls(issues).values()) {
+    for (const pull of pulls) {
+      const number = pull.number;
+      if (pullDetails.has(number)) continue; // already read for another task's candidate list
 
-    const known = pull.state === "closed" ? heldMergedPulls.get(number) : undefined;
-    if (known) {
-      pullDetails.set(number, {
-        number,
-        html_url: `https://github.com/${GITHUB_REPO}/pull/${number}`,
-        state: "closed",
-        merged: true,
-        changed_files: known.filesChanged,
-        additions: known.insertions,
-        deletions: known.deletions,
+      const known = pull.state === "closed" ? heldMergedPulls.get(number) : undefined;
+      if (known) {
+        pullDetails.set(number, {
+          number,
+          html_url: `https://github.com/${GITHUB_REPO}/pull/${number}`,
+          state: "closed",
+          merged: true,
+          changed_files: known.filesChanged,
+          additions: known.insertions,
+          deletions: known.deletions,
+        });
+        firstCommits.set(
+          number,
+          known.firstCommitAt ? { commit: { author: { date: known.firstCommitAt } } } : undefined,
+        );
+        continue;
+      }
+
+      const detail = await githubGet<RawGithubPull>(`/repos/${GITHUB_REPO}/pulls/${number}`);
+      if (!detail.ok) return { ok: false, error: detail.error };
+      pullDetails.set(number, detail.data);
+
+      const commits = await githubGet<RawGithubCommit[]>(`/repos/${GITHUB_REPO}/pulls/${number}/commits`, {
+        per_page: 1,
       });
-      firstCommits.set(number, known.firstCommitAt ? { commit: { author: { date: known.firstCommitAt } } } : undefined);
-      continue;
-    }
+      if (!commits.ok) return { ok: false, error: commits.error };
+      const firstCommit = commits.data[0];
+      firstCommits.set(number, firstCommit);
 
-    const detail = await githubGet<RawGithubPull>(`/repos/${GITHUB_REPO}/pulls/${number}`);
-    if (!detail.ok) return { ok: false, error: detail.error };
-    pullDetails.set(number, detail.data);
-
-    const commits = await githubGet<RawGithubCommit[]>(`/repos/${GITHUB_REPO}/pulls/${number}/commits`, {
-      per_page: 1,
-    });
-    if (!commits.ok) return { ok: false, error: commits.error };
-    const firstCommit = commits.data[0];
-    firstCommits.set(number, firstCommit);
-
-    if (detail.data.merged) {
-      heldMergedPulls.set(number, {
-        filesChanged: detail.data.changed_files,
-        insertions: detail.data.additions,
-        deletions: detail.data.deletions,
-        firstCommitAt: firstCommit?.commit.author?.date ?? firstCommit?.commit.committer?.date,
-      });
+      if (detail.data.merged) {
+        heldMergedPulls.set(number, {
+          filesChanged: detail.data.changed_files,
+          insertions: detail.data.additions,
+          deletions: detail.data.deletions,
+          firstCommitAt: firstCommit?.commit.author?.date ?? firstCommit?.commit.committer?.date,
+        });
+      }
     }
   }
 

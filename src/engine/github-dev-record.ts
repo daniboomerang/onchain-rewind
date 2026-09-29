@@ -58,7 +58,27 @@ export type RawGithubComment = {
   readonly created_at: string;
   /** Ends in the issue or pull request number the comment sits on. */
   readonly issue_url: string;
+  /**
+   * GitHub's own relationship of the commenter to this repository (`OWNER`, `MEMBER`,
+   * `COLLABORATOR`, `CONTRIBUTOR`, `NONE`, …). This repo's issues and pull requests are public, so
+   * anyone can post a comment — only a write-access association is ever trusted as a real review
+   * artifact; see `isTrustedComment`.
+   */
+  readonly author_association: string;
 };
+
+/** Author associations with write access to this repo — the only comments trusted as review artifacts. */
+const TRUSTED_ASSOCIATIONS = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
+
+/**
+ * Whether a comment's author is trusted to post a reviewer summary table, a verdict or a human
+ * ruling. This repo's tracker is public: without this check, any GitHub user could comment a
+ * forged `VERDICT: APPROVE`, a fabricated round table or a fake `Ruling` and have it folded into
+ * the public development record as if it were authentic.
+ */
+function isTrustedComment(comment: RawGithubComment): boolean {
+  return TRUSTED_ASSOCIATIONS.has(comment.author_association);
+}
 
 /** The immutable per-pull-request facts a merged pull request never needs re-read for. */
 export type MergedPullDetails = {
@@ -293,29 +313,52 @@ function issueUrlNumber(issueUrl: string): number | undefined {
   return match?.[1] !== undefined ? Number(match[1]) : undefined;
 }
 
-export type PullMatch = { readonly issue: RawGithubIssue; readonly pull: RawGithubIssue };
+/** Every pull request whose body closes the issue — normally one, but a task can be reattempted. */
+export type PullMatch = { readonly issue: RawGithubIssue; readonly pulls: readonly RawGithubIssue[] };
 
 /**
- * Every milestone task issue, paired with the pull request (if any) whose body closes it —
- * `pull === issue` is the sentinel for "no pull request yet". Exported so the server layer can
- * learn which pull request numbers it needs `/pulls/{n}` and `/pulls/{n}/commits` for, without
- * repeating the `Closes #N` parsing — knowledge of GitHub's shapes belongs to the engine alone.
+ * Every milestone task issue, paired with every pull request whose body closes it. Exported so
+ * the server layer can learn which pull request numbers it needs `/pulls/{n}` and
+ * `/pulls/{n}/commits` for, without repeating the `Closes #N` parsing — knowledge of GitHub's
+ * shapes belongs to the engine alone. `selectPull` below picks the one that actually represents
+ * the task once their merge status is known.
  */
 export function matchTasksToPulls(issues: readonly RawGithubIssue[]): Map<number, PullMatch> {
   const tasks = issues.filter(isMilestoneTaskIssue);
   const pulls = issues.filter((issue) => "pull_request" in issue && issue.pull_request !== undefined);
 
   const byIssueNumber = new Map<number, PullMatch>();
-  for (const task of tasks) byIssueNumber.set(task.number, { issue: task, pull: task });
+  for (const task of tasks) byIssueNumber.set(task.number, { issue: task, pulls: [] });
 
   for (const pull of pulls) {
     const closes = closesIssue(pull.body);
     if (closes === undefined) continue;
     const existing = byIssueNumber.get(closes);
-    if (existing) byIssueNumber.set(closes, { issue: existing.issue, pull });
+    if (existing) byIssueNumber.set(closes, { issue: existing.issue, pulls: [...existing.pulls, pull] });
   }
 
   return byIssueNumber;
+}
+
+/**
+ * The pull request that represents a task, when more than one has closed it over its life (an
+ * abandoned attempt followed by a fresh one, say). GitHub's issue/pull request numbers only ever
+ * increase repo-wide, so the highest number is always the most recent. Preference: a merged pull
+ * request first (there is only ever one, once merging closes the issue for good); otherwise the
+ * most recently opened one still open; otherwise the most recent closed-unmerged attempt.
+ * `undefined` when the task has no pull request at all yet.
+ */
+function selectPull(
+  pulls: readonly RawGithubIssue[],
+  pullDetails: ReadonlyMap<number, RawGithubPull>,
+): RawGithubIssue | undefined {
+  if (pulls.length === 0) return undefined;
+  const byRecency = [...pulls].sort((a, b) => b.number - a.number);
+  return (
+    byRecency.find((pull) => pullDetails.get(pull.number)?.merged) ??
+    byRecency.find((pull) => pull.state === "open") ??
+    byRecency[0]
+  );
 }
 
 /**
@@ -331,7 +374,9 @@ export function foldGithubTasks(
   firstCommits: ReadonlyMap<number, RawGithubCommit | undefined>,
 ): readonly TaskDevRecord[] {
   const matches = matchTasksToPulls(issues);
-  const orderedComments = [...comments].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+  const orderedComments = comments
+    .filter(isTrustedComment)
+    .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
 
   const commentsByPull = new Map<number, RawGithubComment[]>();
   for (const comment of orderedComments) {
@@ -343,7 +388,8 @@ export function foldGithubTasks(
   }
 
   const records: TaskDevRecord[] = [];
-  for (const [issueNumber, { issue, pull }] of [...matches].sort(([a], [b]) => a - b)) {
+  for (const [issueNumber, { issue, pulls }] of [...matches].sort(([a], [b]) => a - b)) {
+    const pull = selectPull(pulls, pullDetails) ?? issue;
     const hasPull = pull !== issue;
     const detail = hasPull ? pullDetails.get(pull.number) : undefined;
     const firstCommit = hasPull ? firstCommits.get(pull.number) : undefined;

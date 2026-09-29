@@ -57,6 +57,7 @@ function reviewComment(
   createdAt: string,
   round: number,
   overrides: Partial<Record<string, string>> = {},
+  authorAssociation = "OWNER",
 ) {
   const cells = {
     blocker: "0",
@@ -75,7 +76,7 @@ function reviewComment(
     "|---|---|---|---|---|---|---|---|---|---|",
     `| ${round} | ${cells.blocker} | ${cells.major} | ${cells.minor} | ${cells.critical} | ${cells.high} | ${cells.medium} | ${cells.low} | ${cells.confidence} | ${cells.outcome} |`,
   ].join("\n");
-  return comment(prNumber, createdAt, body);
+  return comment(prNumber, createdAt, body, authorAssociation);
 }
 
 function verdictComment(
@@ -85,20 +86,27 @@ function verdictComment(
   phase: string,
   tokensIn: number,
   tokensOut: number,
+  authorAssociation = "OWNER",
 ) {
   const body = `VERDICT: ${result}\n\nLooks good.\n\nTokens: 1: ${phase} — Reviewer — claude-sonnet-5 — ${tokensIn}/${tokensOut}/—`;
-  return comment(prNumber, createdAt, body);
+  return comment(prNumber, createdAt, body, authorAssociation);
 }
 
-function rulingComment(prNumber: number, createdAt: string, body = "Ruling: overturn the blocker, ship it.") {
-  return comment(prNumber, createdAt, body);
+function rulingComment(
+  prNumber: number,
+  createdAt: string,
+  body = "Ruling: overturn the blocker, ship it.",
+  authorAssociation = "OWNER",
+) {
+  return comment(prNumber, createdAt, body, authorAssociation);
 }
 
-function comment(prNumber: number, createdAt: string, body: string): RawGithubComment {
+function comment(prNumber: number, createdAt: string, body: string, authorAssociation = "OWNER"): RawGithubComment {
   return {
     body,
     created_at: createdAt,
     issue_url: `https://api.github.com/repos/daniboomerang/onchain-rewind/issues/${prNumber}`,
+    author_association: authorAssociation,
   };
 }
 
@@ -238,6 +246,72 @@ describe("foldGithubTasks — rounds, verdicts, tokens and rulings", () => {
     const comments = [verdictComment(50, "2026-09-28T12:00:00Z", "APPROVE", "review", 1, 1)];
     const [task] = foldGithubTasks(issues, comments, pullDetails, firstCommits);
     expect(task?.timeMs).toBe(Date.parse("2026-09-28T12:00:00Z") - Date.parse("2026-09-28T09:00:00Z"));
+  });
+});
+
+describe("foldGithubTasks — untrusted comments are never treated as review artifacts", () => {
+  const issues = [taskIssue(35), pullIssue(50, 35)];
+  const pullDetails = new Map([[50, pullDetail(50)]]);
+  const firstCommits = new Map<number, RawGithubCommit>();
+
+  it("ignores a reviewer summary table posted by a commenter with no write access", () => {
+    const comments = [reviewComment(50, "2026-09-28T10:00:00Z", 1, { blocker: "9" }, "NONE")];
+    const [task] = foldGithubTasks(issues, comments, pullDetails, firstCommits);
+    expect(task?.rounds).toEqual([]);
+  });
+
+  it("ignores a forged VERDICT: APPROVE from a first-time contributor", () => {
+    const comments = [verdictComment(50, "2026-09-28T12:00:00Z", "APPROVE", "review", 1, 1, "CONTRIBUTOR")];
+    const [task] = foldGithubTasks(issues, comments, pullDetails, firstCommits);
+    expect(task?.codeVerdict).toBeUndefined();
+    expect(task?.reviewerTokens).toEqual([]);
+  });
+
+  it("ignores a Ruling comment posted by anyone but an owner, member or collaborator", () => {
+    const comments = [rulingComment(50, "2026-09-28T13:00:00Z", "Ruling: ship it anyway.", "NONE")];
+    const [task] = foldGithubTasks(issues, comments, pullDetails, firstCommits);
+    expect(task?.humanRulings).toEqual([]);
+  });
+
+  it("still trusts OWNER, MEMBER and COLLABORATOR comments", () => {
+    for (const association of ["OWNER", "MEMBER", "COLLABORATOR"]) {
+      const comments = [rulingComment(50, "2026-09-28T13:00:00Z", "Ruling: ship it.", association)];
+      const [task] = foldGithubTasks(issues, comments, pullDetails, firstCommits);
+      expect(task?.humanRulings).toEqual(["Ruling: ship it."]);
+    }
+  });
+});
+
+describe("foldGithubTasks — a task with more than one pull request", () => {
+  it("picks the merged pull request over an earlier abandoned attempt, whichever was matched last", () => {
+    const issues = [taskIssue(35), pullIssue(40, 35, { state: "closed" }), pullIssue(50, 35)];
+    const pullDetails = new Map([
+      [40, pullDetail(40, { merged: false })],
+      [50, pullDetail(50, { merged: true })],
+    ]);
+    const [task] = foldGithubTasks(issues, [], pullDetails, new Map());
+    expect(task?.pullRequest?.number).toBe(50);
+    expect(task?.status).toBe("merged");
+  });
+
+  it("picks the merged pull request even when it is the numerically earlier one", () => {
+    const issues = [taskIssue(35), pullIssue(50, 35, { state: "closed" }), pullIssue(40, 35)];
+    const pullDetails = new Map([
+      [50, pullDetail(50, { merged: false })],
+      [40, pullDetail(40, { merged: true })],
+    ]);
+    const [task] = foldGithubTasks(issues, [], pullDetails, new Map());
+    expect(task?.pullRequest?.number).toBe(40);
+  });
+
+  it("falls back to the most recent still-open attempt when none is merged yet", () => {
+    const issues = [taskIssue(35), pullIssue(40, 35, { state: "closed" }), pullIssue(50, 35, { state: "open" })];
+    const pullDetails = new Map([
+      [40, pullDetail(40, { merged: false })],
+      [50, pullDetail(50, { state: "open", merged: false })],
+    ]);
+    const [task] = foldGithubTasks(issues, [], pullDetails, new Map());
+    expect(task?.pullRequest?.number).toBe(50);
   });
 });
 
