@@ -12,6 +12,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { demoWallets } from "./demo-wallets";
 import type { Address } from "../engine/types";
 
 /** Namespaced, because a demo shares its origin with whatever else is deployed there. */
@@ -19,9 +20,6 @@ export const WALLET_STORAGE_KEY = "onchain-rewind:wallet";
 
 /** Retired demo wallet address that gets migrated to pranksy.eth on read. */
 const RETIRED_VITALIK_ADDRESS = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
-
-/** Pranksy address from demo-wallets.ts, used for migrating away from vitalik.eth. */
-const PRANKSY_ADDRESS = "0xD387A6E4e84a6C86bd90C158C6028A58CC8Ac459" as Address;
 
 export type ConnectedWallet = {
   readonly address: Address;
@@ -65,8 +63,9 @@ export function readStoredWallet(): ConnectedWallet | null {
     if (!parsed) return null;
 
     // Migrate retired vitalik.eth to pranksy.eth
-    if (parsed.address.toLowerCase() === RETIRED_VITALIK_ADDRESS.toLowerCase()) {
-      const migrated: ConnectedWallet = { address: PRANKSY_ADDRESS };
+    const pranksy = demoWallets[0];
+    if (pranksy && parsed.address.toLowerCase() === RETIRED_VITALIK_ADDRESS.toLowerCase()) {
+      const migrated: ConnectedWallet = { address: pranksy.address, name: pranksy.label };
       writeStoredWallet(migrated);
       return migrated;
     }

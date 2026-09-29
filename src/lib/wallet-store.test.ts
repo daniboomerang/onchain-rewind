@@ -77,12 +77,12 @@ test("choosing another wallet replaces the one stored", async () => {
   expect(readStoredWallet()).toEqual({ address: another });
 });
 
-test("reading a stored vitalik.eth migrates it to pranksy.eth", () => {
+test("reading a stored vitalik.eth migrates it to pranksy.eth, name and all", () => {
   writeStoredWallet({ address: VITALIK_ADDRESS, name: "vitalik.eth" });
 
   const migrated = readStoredWallet();
   expect(migrated?.address).toBe(demoWallets[0]?.address);
-  expect(migrated?.name).toBeUndefined();
+  expect(migrated?.name).toBe(demoWallets[0]?.label);
 });
 
 test("migration to pranksy.eth rewrites storage", () => {
@@ -91,15 +91,15 @@ test("migration to pranksy.eth rewrites storage", () => {
   readStoredWallet();
 
   const stored = localStorage.getItem(WALLET_STORAGE_KEY);
-  expect(stored).toBe(JSON.stringify({ address: demoWallets[0]?.address }));
+  expect(stored).toBe(JSON.stringify({ address: demoWallets[0]?.address, name: demoWallets[0]?.label }));
 });
 
-test("vitalik.eth without name also gets migrated to pranksy.eth", () => {
+test("vitalik.eth without name also gets migrated to pranksy.eth, name and all", () => {
   writeStoredWallet({ address: VITALIK_ADDRESS });
 
   const migrated = readStoredWallet();
   expect(migrated?.address).toBe(demoWallets[0]?.address);
-  expect(migrated?.name).toBeUndefined();
+  expect(migrated?.name).toBe(demoWallets[0]?.label);
 });
 
 test("other stored wallets are not affected by migration", () => {
