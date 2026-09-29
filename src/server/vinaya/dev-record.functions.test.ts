@@ -1,8 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearDevRecordCache, readDevRecord } from "#/server/vinaya/dev-record.functions.ts";
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return { ok: status >= 200 && status < 300, status, json: async () => body } as unknown as Response;
+/** Mimics the endpoint's real `content-type: application/x-ndjson` body: one object per line. */
+function ndjsonResponse(lines: readonly unknown[], status = 200): Response {
+  const body = lines.map((line) => JSON.stringify(line)).join("\n") + (lines.length > 0 ? "\n" : "");
+  return { ok: status >= 200 && status < 300, status, text: async () => body } as unknown as Response;
+}
+
+function errorResponse(body: unknown, status: number): Response {
+  return { ok: false, status, text: async () => JSON.stringify(body) } as unknown as Response;
 }
 
 function gateEnvelope(seq: number) {
@@ -38,7 +44,7 @@ afterEach(() => {
 
 describe("readDevRecord", () => {
   it("reads the whole log from after=0 on the first call, and folds it", async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse([gateEnvelope(1)]));
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(ndjsonResponse([gateEnvelope(1)]));
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await readDevRecord();
@@ -50,8 +56,8 @@ describe("readDevRecord", () => {
   it("asks only for events after the last one held on the next read", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
-      .mockResolvedValueOnce(jsonResponse([gateEnvelope(1), gateEnvelope(2)]))
-      .mockResolvedValueOnce(jsonResponse([gateEnvelope(3)]));
+      .mockResolvedValueOnce(ndjsonResponse([gateEnvelope(1), gateEnvelope(2)]))
+      .mockResolvedValueOnce(ndjsonResponse([gateEnvelope(3)]));
     vi.stubGlobal("fetch", fetchMock);
 
     await readDevRecord();
@@ -72,7 +78,7 @@ describe("readDevRecord", () => {
 
     const first = readDevRecord();
     const second = readDevRecord();
-    resolveFetch(jsonResponse([gateEnvelope(1)]));
+    resolveFetch(ndjsonResponse([gateEnvelope(1)]));
 
     const [firstResult, secondResult] = await Promise.all([first, second]);
 
@@ -83,8 +89,8 @@ describe("readDevRecord", () => {
   it("keeps serving what is held when a refresh fails", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
-      .mockResolvedValueOnce(jsonResponse([gateEnvelope(1)]))
-      .mockResolvedValueOnce(jsonResponse({ error: "boom" }, 500));
+      .mockResolvedValueOnce(ndjsonResponse([gateEnvelope(1)]))
+      .mockResolvedValueOnce(errorResponse({ error: "boom" }, 500));
     vi.stubGlobal("fetch", fetchMock);
     vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -96,7 +102,7 @@ describe("readDevRecord", () => {
   });
 
   it("returns the typed error when a failing read has nothing held yet", async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ error: "nope" }, 401));
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(errorResponse({ error: "nope" }, 401));
     vi.stubGlobal("fetch", fetchMock);
     vi.spyOn(console, "error").mockImplementation(() => {});
 

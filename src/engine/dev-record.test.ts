@@ -32,11 +32,26 @@ function gate(seq: number, ts: string, check: string, outcome: "pass" | "fail") 
 describe("foldTaskRecords — round records", () => {
   it("reads developer time, reviewer time, outcome, size, confidence and findings for a normal round", () => {
     const envelopes: RawLogEnvelope[] = [
-      ev(1, "2026-09-01T10:00:00Z", 20, "dev_review_loop", "loop_started"),
-      ev(2, "2026-09-01T10:00:01Z", 20, "dev_review_loop", "round_started", { round: 1 }),
-      ev(3, "2026-09-01T10:05:00Z", 20, "role_attempt", "role_attempt", { role: "developer", duration_ms: 300_000 }),
-      ev(4, "2026-09-01T10:05:01Z", 20, "dispatch", "dispatched", { role: "reviewer", effect_id: "eff-1" }),
-      ev(5, "2026-09-01T10:08:01Z", 20, "dev_review_loop", "round_ended", {
+      ev(1, "2026-09-01T09:54:00Z", 20, "dispatch", "dispatched", {
+        role: "developer",
+        effect_id: "eff-dev-1",
+        round: 1,
+      }),
+      ev(2, "2026-09-01T09:59:00Z", 20, "role_attempt", "role_attempt", {
+        role: "developer",
+        effect_id: "eff-dev-1",
+        duration_ms: 300_000,
+      }),
+      ev(3, "2026-09-01T09:59:01Z", 20, "dispatch", "outcome_received", { effect_id: "eff-dev-1" }),
+      ev(4, "2026-09-01T10:00:00Z", 20, "dev_review_loop", "loop_started"),
+      ev(5, "2026-09-01T10:00:01Z", 20, "dev_review_loop", "round_started", { round: 1 }),
+      ev(6, "2026-09-01T10:00:02Z", 20, "dev_review_loop", "gate_result_read", {
+        green: true,
+        confidence_value: 82,
+        confidence_reason: "no findings",
+      }),
+      ev(7, "2026-09-01T10:00:03Z", 20, "dispatch", "dispatched", { role: "reviewer", effect_id: "eff-rev-1" }),
+      ev(8, "2026-09-01T10:03:03Z", 20, "dev_review_loop", "round_ended", {
         round: 1,
         outcome: "green",
         wall_ms: 300_000,
@@ -44,14 +59,9 @@ describe("foldTaskRecords — round records", () => {
         insertions: 40,
         deletions: 5,
       }),
-      ev(6, "2026-09-01T10:08:02Z", 20, "dispatch", "outcome_received", { effect_id: "eff-1" }),
-      ev(7, "2026-09-01T10:08:03Z", 20, "dev_review_loop", "gate_result_read", {
-        green: true,
-        confidence_value: 82,
-        confidence_reason: "no findings",
-      }),
-      ev(8, "2026-09-01T10:08:04Z", 20, "dev_review_loop", "verdicts_read", { findings: [], blockers: 0 }),
-      ev(9, "2026-09-01T10:08:05Z", 20, "dev_review_loop", "journal_finalized"),
+      ev(9, "2026-09-01T10:03:04Z", 20, "dispatch", "outcome_received", { effect_id: "eff-rev-1" }),
+      ev(10, "2026-09-01T10:03:05Z", 20, "dev_review_loop", "verdicts_read", { findings: [], blockers: 0 }),
+      ev(11, "2026-09-01T10:03:06Z", 20, "dev_review_loop", "journal_finalized"),
     ];
 
     const tasks = foldTaskRecords(envelopes);
@@ -80,6 +90,50 @@ describe("foldTaskRecords — round records", () => {
     expect(round.confidence).toEqual({ value: 82, reason: "no findings" });
     expect(round.findings).toEqual([]);
     expect(round.blockers).toBe(0);
+  });
+
+  it("attaches developer time to the round its dispatch named, not the round open when the attempt ends", () => {
+    // Real event order: a developer's dispatch (carrying `round`) and its role_attempt both land
+    // before that round's own `round_started` — and a round can already be closed by the time the
+    // *next* round's developer attempt ends, so neither "whichever round is open" nor "the previous
+    // round" is the right answer. Only the dispatch's own `round`, threaded through `effect_id`, is.
+    const envelopes: RawLogEnvelope[] = [
+      ev(1, "2026-09-01T09:54:00Z", 33, "dispatch", "dispatched", {
+        role: "developer",
+        effect_id: "eff-d1",
+        round: 1,
+      }),
+      ev(2, "2026-09-01T09:59:00Z", 33, "role_attempt", "role_attempt", {
+        role: "developer",
+        effect_id: "eff-d1",
+        duration_ms: 300_000,
+      }),
+      ev(3, "2026-09-01T09:59:01Z", 33, "dispatch", "outcome_received", { effect_id: "eff-d1" }),
+      ev(4, "2026-09-01T10:00:00Z", 33, "dev_review_loop", "loop_started"),
+      ev(5, "2026-09-01T10:00:01Z", 33, "dev_review_loop", "round_started", { round: 1 }),
+      ev(6, "2026-09-01T10:00:02Z", 33, "dev_review_loop", "gate_result_read", { green: true }),
+      ev(7, "2026-09-01T10:00:03Z", 33, "dispatch", "dispatched", { role: "reviewer", effect_id: "eff-r1" }),
+      ev(8, "2026-09-01T10:05:03Z", 33, "dev_review_loop", "round_ended", { round: 1, outcome: "green" }),
+      ev(9, "2026-09-01T10:05:04Z", 33, "dispatch", "outcome_received", { effect_id: "eff-r1" }),
+      ev(10, "2026-09-01T10:06:00Z", 33, "dispatch", "dispatched", {
+        role: "developer",
+        effect_id: "eff-d2",
+        round: 2,
+      }),
+      ev(11, "2026-09-01T10:08:00Z", 33, "role_attempt", "role_attempt", {
+        role: "developer",
+        effect_id: "eff-d2",
+        duration_ms: 120_000,
+      }),
+      ev(12, "2026-09-01T10:08:01Z", 33, "dispatch", "outcome_received", { effect_id: "eff-d2" }),
+      ev(13, "2026-09-01T10:08:02Z", 33, "dev_review_loop", "round_started", { round: 2 }),
+      ev(14, "2026-09-01T10:10:00Z", 33, "dev_review_loop", "round_ended", { round: 2, outcome: "green" }),
+    ];
+
+    const task = foldTaskRecords(envelopes)[0];
+    expect(task?.rounds).toHaveLength(2);
+    expect(task?.rounds[0]?.developerMs).toBe(300_000);
+    expect(task?.rounds[1]?.developerMs).toBe(120_000);
   });
 
   it("leaves confidence undefined when the round reports confidence_unavailable", () => {
@@ -115,9 +169,18 @@ describe("foldTaskRecords — round records", () => {
 
   it("orders events by meta.ts rather than seq, since machines can disagree on seq order", () => {
     const envelopes: RawLogEnvelope[] = [
-      ev(5, "2026-09-01T10:00:00Z", 23, "dev_review_loop", "round_started", { round: 1 }),
-      ev(2, "2026-09-01T10:05:00Z", 23, "role_attempt", "role_attempt", { role: "developer", duration_ms: 60_000 }),
-      ev(8, "2026-09-01T10:06:00Z", 23, "dev_review_loop", "round_ended", { round: 1, outcome: "green" }),
+      ev(8, "2026-09-01T09:58:00Z", 23, "dispatch", "dispatched", {
+        role: "developer",
+        effect_id: "eff-d1",
+        round: 1,
+      }),
+      ev(2, "2026-09-01T09:59:00Z", 23, "role_attempt", "role_attempt", {
+        role: "developer",
+        effect_id: "eff-d1",
+        duration_ms: 60_000,
+      }),
+      ev(6, "2026-09-01T10:00:00Z", 23, "dev_review_loop", "round_started", { round: 1 }),
+      ev(5, "2026-09-01T10:01:00Z", 23, "dev_review_loop", "round_ended", { round: 1, outcome: "green" }),
     ];
 
     const round = foldTaskRecords(envelopes)[0]?.rounds[0];
@@ -146,6 +209,40 @@ describe("foldTaskRecords — task-level flags", () => {
     expect(task?.rounds[1]?.outcome).toBe("green");
   });
 
+  it("attributes a resumed round's developer time to its own occurrence, never the earlier one", () => {
+    const envelopes: RawLogEnvelope[] = [
+      ev(1, "2026-09-01T10:00:00Z", 31, "dispatch", "dispatched", {
+        role: "developer",
+        effect_id: "eff-d1",
+        round: 1,
+      }),
+      ev(2, "2026-09-01T10:01:00Z", 31, "role_attempt", "role_attempt", {
+        role: "developer",
+        effect_id: "eff-d1",
+        duration_ms: 90_000,
+      }),
+      ev(3, "2026-09-01T10:02:00Z", 31, "dev_review_loop", "round_started", { round: 1 }),
+      ev(4, "2026-09-01T10:03:00Z", 31, "dev_review_loop", "paused", { reason: "human ruling" }),
+      ev(5, "2026-09-02T09:00:00Z", 31, "dispatch", "dispatched", {
+        role: "developer",
+        effect_id: "eff-d2",
+        round: 1,
+      }),
+      ev(6, "2026-09-02T09:01:00Z", 31, "role_attempt", "role_attempt", {
+        role: "developer",
+        effect_id: "eff-d2",
+        duration_ms: 45_000,
+      }),
+      ev(7, "2026-09-02T09:02:00Z", 31, "dev_review_loop", "round_started", { round: 1 }),
+      ev(8, "2026-09-02T09:05:00Z", 31, "dev_review_loop", "round_ended", { round: 1, outcome: "green" }),
+    ];
+
+    const task = foldTaskRecords(envelopes)[0];
+    expect(task?.rounds).toHaveLength(2);
+    expect(task?.rounds[0]?.developerMs).toBe(90_000);
+    expect(task?.rounds[1]?.developerMs).toBe(45_000);
+  });
+
   it("marks a task recovered only when infrastructure_retry actually recovered", () => {
     const recovered = foldTaskRecords([
       ev(1, "2026-09-01T10:00:00Z", 25, "dev_review_loop", "infrastructure_retry", { outcome: "recovered" }),
@@ -169,6 +266,14 @@ describe("foldTaskRecords — task-level flags", () => {
       ev(2, "2026-09-01T10:05:00Z", 28, "dispatch", "outcome_received", { effect_id: "eff-closed" }),
     ]);
     expect(settled[0]?.running).toBe(false);
+  });
+
+  it("resolves a dispatch that ended in dispatch_failed, so it never reads as running", () => {
+    const failed = foldTaskRecords([
+      ev(1, "2026-09-01T10:00:00Z", 32, "dispatch", "dispatched", { effect_id: "eff-failed" }),
+      ev(2, "2026-09-01T10:00:05Z", 32, "dispatch", "dispatch_failed", { effect_id: "eff-failed" }),
+    ]);
+    expect(failed[0]?.running).toBe(false);
   });
 });
 
