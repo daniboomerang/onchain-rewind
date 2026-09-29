@@ -1,6 +1,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type PointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { displayName, fmt, type RewindFacts, shortAddress } from "../../engine/types";
+import { countLabel, onchainSinceLabel, originKicker, rollingCountLabel } from "../../lib/capped";
 import { renderShareImage, shareOrDownload } from "../../lib/renderShareImage";
 import { Button } from "../ui/Button";
 import { ChainBar } from "./ChainBar";
@@ -17,6 +18,13 @@ import { TokenIcon } from "./TokenIcon";
 
 export type RewindPlayerProps = {
   facts: RewindFacts;
+  /**
+   * The facts describe the newest slice of the window rather than all of it (`useRewind`), so every
+   * figure counted off them is a lower bound: the counts carry a "+", and the oldest transaction
+   * that happened to arrive is labelled as a date the wallet was already onchain by, never as the
+   * day its year started.
+   */
+  capped: boolean;
   onReplay: () => void;
   onOpenSettings: () => void;
 };
@@ -28,7 +36,7 @@ const MOBILE_BP = 640;
 export type Card = { key: string; eyebrow: string; render: (index: number, total: number) => ReactNode };
 
 /** Plays the story: chrome, cards, navigation, pause. Card 5 (Share) doesn't auto-advance. */
-export function RewindPlayer({ facts, onReplay, onOpenSettings }: RewindPlayerProps) {
+export function RewindPlayer({ facts, capped, onReplay, onOpenSettings }: RewindPlayerProps) {
   const reduce = useReducedMotion();
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
@@ -40,14 +48,17 @@ export function RewindPlayer({ facts, onReplay, onOpenSettings }: RewindPlayerPr
   const share = useCallback(async () => {
     setSharing(true);
     try {
-      const blob = await renderShareImage(facts);
+      const blob = await renderShareImage(facts, capped);
       await shareOrDownload(blob, `onchain-rewind-${facts.wallet.name ?? shortAddress(facts.wallet.address)}.png`);
     } finally {
       setSharing(false);
     }
-  }, [facts]);
+  }, [facts, capped]);
 
-  const cards = useMemo(() => buildCards(facts, { share, sharing, onReplay }), [facts, share, sharing, onReplay]);
+  const cards = useMemo(
+    () => buildCards(facts, { share, sharing, onReplay, capped }),
+    [facts, share, sharing, onReplay, capped],
+  );
   const last = cards.length - 1;
 
   const go = useCallback(
@@ -231,7 +242,10 @@ export function RewindPlayer({ facts, onReplay, onOpenSettings }: RewindPlayerPr
  * them, then the share card, which every wallet with a transaction gets. Exported for the entrance
  * tests, which mount each card the player would build rather than assembling their own.
  */
-export function buildCards(f: RewindFacts, a: { share: () => void; sharing: boolean; onReplay: () => void }): Card[] {
+export function buildCards(
+  f: RewindFacts,
+  a: { share: () => void; sharing: boolean; onReplay: () => void; capped: boolean },
+): Card[] {
   const cards: Card[] = [];
 
   if (f.firstTx) {
@@ -245,11 +259,17 @@ export function buildCards(f: RewindFacts, a: { share: () => void; sharing: bool
           total={n}
           eyebrow="Origin"
           accent="var(--color-accent-origin)"
-          kicker="It started on"
+          kicker={originKicker(a.capped)}
           headline={fmt.dateLong(first.date)}
         >
           <div className="flex gap-16 pt-6 max-md:gap-8">
-            <StatNumber value={f.daysOnchain} label="days onchain" accent="var(--color-accent-origin)" delay={0.16} />
+            <StatNumber
+              value={f.daysOnchain}
+              format={(n) => rollingCountLabel(n, f.daysOnchain, a.capped)}
+              label="days onchain"
+              accent="var(--color-accent-origin)"
+              delay={0.16}
+            />
             {first.chainName && (
               <div className="flex flex-col gap-1">
                 <span className="text-stat font-medium">{first.chainName}</span>
@@ -364,10 +384,10 @@ export function buildCards(f: RewindFacts, a: { share: () => void; sharing: bool
             name={displayName(f.wallet)}
             address={shortAddress(f.wallet.address)}
             stats={[
-              { value: fmt.int(f.txCount), label: "transactions" },
+              { value: countLabel(f.txCount, a.capped), label: "transactions" },
               { value: fmt.int(f.chainCount), label: f.chainCount === 1 ? "chain" : "chains" },
               { value: f.topToken?.symbol ?? "—", label: "top token" },
-              { value: f.firstTx ? fmt.monthYear(f.firstTx.date) : "—", label: "onchain since" },
+              { value: f.firstTx ? fmt.monthYear(f.firstTx.date) : "—", label: onchainSinceLabel(a.capped) },
             ]}
           />
           <div className="flex gap-3">

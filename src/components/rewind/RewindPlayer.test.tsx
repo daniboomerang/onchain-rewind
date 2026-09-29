@@ -31,7 +31,7 @@ const card = (label: string) => screen.getByLabelText(label);
 
 test("the arrow keys move the story while the gear button has focus", async () => {
   const user = userEvent.setup();
-  play(<RewindPlayer facts={normalWallet} onReplay={noop} onOpenSettings={noop} />);
+  play(<RewindPlayer facts={normalWallet} capped={false} onReplay={noop} onOpenSettings={noop} />);
 
   gear().focus();
   expect(gear()).toHaveFocus();
@@ -48,7 +48,7 @@ test("the arrow keys move the story while the gear button has focus", async () =
 test("Space activates the focused button instead of pausing the story", async () => {
   const user = userEvent.setup();
   const onOpenSettings = vi.fn();
-  play(<RewindPlayer facts={normalWallet} onReplay={noop} onOpenSettings={onOpenSettings} />);
+  play(<RewindPlayer facts={normalWallet} capped={false} onReplay={noop} onOpenSettings={onOpenSettings} />);
 
   gear().focus();
   await user.keyboard("[Space]");
@@ -59,7 +59,7 @@ test("Space activates the focused button instead of pausing the story", async ()
 
 test("Space still pauses the story when no button has focus", async () => {
   const user = userEvent.setup();
-  play(<RewindPlayer facts={normalWallet} onReplay={noop} onOpenSettings={noop} />);
+  play(<RewindPlayer facts={normalWallet} capped={false} onReplay={noop} onOpenSettings={noop} />);
 
   await user.keyboard("[Space>]");
   expect(screen.getByText(/^Paused/)).toBeInTheDocument();

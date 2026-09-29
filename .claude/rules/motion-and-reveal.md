@@ -22,7 +22,7 @@ The spec is `design/DESIGN.md` §1 (motion tokens) and §3 (motion per screen). 
 - Hold ≥200ms or Space pauses. A hold never counts as a click.
 
 ## ParticleReveal (Canvas 2D)
-- **Imperative handle:** `addTransactions(n)` for each page from the paging loop, `complete(finalCount)` when paging ends, `fail()` on error. `onBurst` fires at burst start; the story enters 200ms later.
+- **Imperative handle:** `addTransactions(n)` for each page from the paging loop, `complete(finalCount, capped)` when paging ends, `fail()` on error. `onBurst` fires at burst start; the story enters 200ms later. `capped` is an argument rather than a prop because the counter is written by the frame loop: a flag that only reached it a render later is a flag it never saw.
 - **Phases:** scatter 0–600ms, then gather until `complete()` (at least 3,200ms total; the run's own `TIMEOUT_MS` leads to `fail()` upstream), hold 400ms, burst 700ms. Every one of those lengths is a field of `revealMs`, which reads the millisecond twin of a `duration` token wherever one covers the phase; the rAF loop measures in ms, `duration` is in seconds for Motion.
 - **The maths is separate from the component.** `particles.ts` holds the caps, the easings, the position of a particle at a given moment, and the colour and alpha the loop paints it with — pure and unit-tested, because no test environment has a 2D context. `ParticleReveal.tsx` is the canvas, the handle and the loop around it.
 - **Limits:** 1 particle per transaction, capped at 1500 on desktop and 600 on mobile. Dust pads the count to at least 240.
@@ -37,7 +37,7 @@ The spec is `design/DESIGN.md` §1 (motion tokens) and §3 (motion per screen). 
 ## Driving the reveal from a real run
 The route owns the wiring; the reveal owns the clock. `useRewind`'s three callbacks are the whole
 contract: `onPage` → `addTransactions(n)` for the page that just landed, `onComplete` →
-`complete(finalCount)` when paging ends, `onFail` → `fail()`. None of them goes through React state,
+`complete(finalCount, capped)` when paging ends, `onFail` → `fail()`. None of them goes through React state,
 so a page costs no re-render of the story.
 
 - **One run is one mounted reveal.** A different wallet, a replay or a retry re-keys the run, so the
@@ -53,6 +53,9 @@ so a page costs no re-render of the story.
   second on the API's free plan) and the run's budget is `TIMEOUT_MS`, so a wallet with a full year of
   history pages for tens of seconds. Nothing in the reveal is sized to a shorter run: the gather holds
   until `complete()`, and each page rolls the counter as it lands.
+- **A year cut short reads as a lower bound.** `capped` travels with the final count, and the counter
+  lands on "1,600+" rather than on a figure it cannot stand behind (SPEC §5). The same flag reaches
+  the player as a prop, so the share card, the share image and card 1 agree with the counter.
 - **`fail()` is the only way into the error state**, so the particles fade out before it crossfades
   in. Retry is a fresh run, not a resumed one. A page that fails once the reveal has counted others
   is not a failed run: paging stops there and the run completes, so the burst still happens.

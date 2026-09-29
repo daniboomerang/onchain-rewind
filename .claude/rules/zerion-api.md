@@ -34,8 +34,20 @@ The OpenAPI spec is at `https://developers.zerion.io/openapi-v1.yaml`, and the d
 - Stop when `next` is null, when the window is exhausted, or at the cap of 20 pages (2,000 transactions). Report `capped: true`.
 - Honour `AbortSignal`: a wallet change cancels the loop.
 - Pace it: **every** request one run makes — each page and each of the three reads that resolve once — goes out at least `REQUEST_INTERVAL_MS` after the one before it (`src/lib/useRewind.ts`), because the Demo plan's per-second limit is one request and a burst of two is throttled whatever the two are. One per-run scheduler reserves the slots, so the chain list and the chart queue behind the first page rather than firing alongside it.
-- A failed page is asked for once more (`PAGE_RETRY_MS`) before the run reacts to it. Measured live: a deep page of a very active wallet can answer `429` even when paced, and can answer `500` — twice the same second and then fine — so one retry is what the client owes the upstream. If it fails again, only the *first* page failing is the error state; a later one ends paging and reports `capped: true`.
+- A failed page is asked for once more (`PAGE_RETRY_MS`) before the run reacts to it. Measured live: a deep page of a very active wallet can answer `429` even when paced, and can answer `500` — twice the same second and then fine — so one retry is what the client owes the upstream. Some deep pages answer `500` every time, though (below). If it fails again, only the *first* page failing is the error state; a later one ends paging and reports `capped: true`.
 - **`budget_spent` is never retried**, at either level: no backoff in the client and no second ask in the hook. Every request is refused until the day resets, so a retry spends only the wait.
+
+### A deep page that fails every time
+
+Measured live on `vitalik.eth` at `page[size]=100`: pages 1–16 serve, and page 17 answers `500` with `{"errors":[{"title":"Internal Server Error","detail":""}]}` on every attempt. **It is not this repository's request.**
+
+- Following `links.next` byte for byte — raw, with none of `zerionFetch`'s parameter merging or re-sorting — fails identically.
+- Zerion's own `links.next` appends a `filter[chain_ids]` listing 62 chains, which this app never sends. Removing it still fails.
+- It is not a throttle: the status is `500`, not `429`, and `ratelimit-org-day-remaining` counts down normally right through the run.
+
+It is the data, not the parameters. The *same* cursor at `page[size]=50` succeeds, and the `500` returns a few hundred transactions later, around `2026-05-11T14:56:11Z`, where `page[size]=10` fails and `page[size]=1` succeeds. So a page whose window covers whatever Zerion cannot serialize there fails whatever else is on the request, and narrowing the page size only walks past one such record into the next — at one request per ten transactions, which neither the 20-page cap nor the Demo plan's 300 requests a day can pay for.
+
+The failure is therefore Zerion's own, and within this app's budget it cannot be avoided. **Don't add a narrowing retry for it.** The run stops where the page failed and the Rewind says so: every count reads as a lower bound and the date is a bound too (SPEC §5). Sixteen counted pages with a "+" beat both an error screen and a year the plan cannot afford to finish.
 
 ## Limits, caching, errors
 

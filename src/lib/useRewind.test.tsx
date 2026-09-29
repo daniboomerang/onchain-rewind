@@ -116,13 +116,19 @@ function fakeApi(script: Script): { api: RewindApi; calls: Calls } {
   return { api, calls };
 }
 
-/** The callbacks, recorded as one ordered trace: the order is half of what the reveal depends on. */
+/**
+ * The callbacks, recorded as one ordered trace: the order is half of what the reveal depends on.
+ *
+ * A completion records the "+" the reveal would print, because `capped` travels with the count
+ * rather than only on the result — the counter is written by a frame loop, and a flag that reached
+ * the hook's return value a render later would be a flag the counter never saw.
+ */
 function recorder() {
   const trace: string[] = [];
   return {
     trace,
     onPage: (count: number) => trace.push(`page:${count}`),
-    onComplete: (finalCount: number) => trace.push(`complete:${finalCount}`),
+    onComplete: (finalCount: number, capped: boolean) => trace.push(`complete:${finalCount}${capped ? "+" : ""}`),
     onFail: () => trace.push("fail"),
   };
 }
@@ -360,7 +366,7 @@ test("stops at the page cap, and says so, when a page is still behind it", async
   expect(calls.pages).toHaveLength(3);
   expect(result.current.capped).toBe(true);
   expect(result.current.facts?.txCount).toBe(3);
-  expect(trace).toEqual(["page:1", "page:1", "page:1", "complete:3"]);
+  expect(trace).toEqual(["page:1", "page:1", "page:1", "complete:3+"]);
 });
 
 test("stops at the transaction cap, and the count it completes with is the honest one", async () => {
@@ -391,7 +397,7 @@ test("stops at the transaction cap, and the count it completes with is the hones
   expect(result.current.capped).toBe(true);
   expect(result.current.facts?.txCount).toBe(2);
   // What the reveal counted still adds up to the count it is completed with.
-  expect(trace).toEqual(["page:2", "complete:2"]);
+  expect(trace).toEqual(["page:2", "complete:2+"]);
 });
 
 test("the request floor is the Demo plan's own limit: one request a second", () => {
@@ -465,9 +471,9 @@ test("a full year at the page cap reaches the story well inside the timeout", as
       api,
       requestIntervalMs: REQUEST_INTERVAL_MS,
       onPage,
-      onComplete: (finalCount) => {
+      onComplete: (finalCount, capped) => {
         finishedAt = Date.now();
-        onComplete(finalCount);
+        onComplete(finalCount, capped);
       },
       onFail,
     });
@@ -479,7 +485,7 @@ test("a full year at the page cap reaches the story well inside the timeout", as
     expect(result.current.status).toBe("ready");
     expect(result.current.capped).toBe(true);
     expect(startedAt).toHaveLength(MAX_PAGES);
-    expect(trace).toEqual([...Array.from({ length: MAX_PAGES }, () => "page:1"), `complete:${MAX_PAGES}`]);
+    expect(trace).toEqual([...Array.from({ length: MAX_PAGES }, () => "page:1"), `complete:${MAX_PAGES}+`]);
     // The run costs what the plan charges for it: 20 pages and the three reads that resolve once are
     // 23 requests a second apart, and the wall clock says so. The timeout still leaves room for an
     // upstream twice as slow as this one, which is what "holds a full paced year" has to mean.
@@ -695,7 +701,7 @@ test("a page that fails for good part-way through finishes the run with what lan
   // The page was asked for twice and then let go; the year already counted still becomes a story,
   // and `capped` is what records that the wallet did more than the facts describe.
   expect(calls.pages).toHaveLength(3);
-  expect(trace).toEqual(["page:1", "complete:1"]);
+  expect(trace).toEqual(["page:1", "complete:1+"]);
   expect(result.current.capped).toBe(true);
   expect(result.current.error).toBeUndefined();
   expect(result.current.facts?.txCount).toBe(1);

@@ -361,11 +361,11 @@ function DialogDemo() {
 /** Drives the reveal on its own — no story, no player — so its phases are visible one at a time. */
 function RevealDemo() {
   const [fixture, setFixture] = useState<FixtureName>("normal");
-  const [run, setRun] = useState<{ id: number; fail: boolean } | null>(null);
+  const [run, setRun] = useState<{ id: number; fail: boolean; capped: boolean } | null>(null);
   const [phases, setPhases] = useState<string[]>([]);
-  const start = (fail: boolean) => {
+  const start = (fail: boolean, capped = false) => {
     setPhases([]);
-    setRun((r) => ({ id: (r?.id ?? 0) + 1, fail }));
+    setRun((r) => ({ id: (r?.id ?? 0) + 1, fail, capped }));
   };
   return (
     <div className="flex flex-col gap-4">
@@ -378,6 +378,9 @@ function RevealDemo() {
       </Row>
       <Row label="run">
         <Button onClick={() => start(false)}>Gather → burst</Button>
+        <Button variant="ghost" onClick={() => start(false, true)}>
+          Gather → burst · cut short
+        </Button>
         <Button variant="ghost" onClick={() => start(true)}>
           Gather → fail
         </Button>
@@ -392,6 +395,7 @@ function RevealDemo() {
             key={run.id}
             facts={fixtures[fixture]}
             fail={run.fail}
+            capped={run.capped}
             onPhase={(phase) => setPhases((p) => [...p, phase])}
           />
           <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center p-6">
@@ -406,7 +410,18 @@ function RevealDemo() {
 }
 
 /** Feeds the reveal one page at a time, then either completes it or fails it partway through. */
-function RevealRun({ facts, fail, onPhase }: { facts: RewindFacts; fail: boolean; onPhase: (phase: string) => void }) {
+function RevealRun({
+  facts,
+  fail,
+  capped,
+  onPhase,
+}: {
+  facts: RewindFacts;
+  fail: boolean;
+  /** A year cut short: the counter lands on the count with a "+" rather than as an exact figure. */
+  capped: boolean;
+  onPhase: (phase: string) => void;
+}) {
   const reveal = useRef<ParticleRevealHandle>(null);
 
   useEffect(() => {
@@ -418,10 +433,10 @@ function RevealRun({ facts, fail, onPhase }: { facts: RewindFacts; fail: boolean
       if (next === "continue") return;
       window.clearInterval(id);
       if (next === "fail") reveal.current?.fail();
-      else reveal.current?.complete(facts.txCount);
+      else reveal.current?.complete(facts.txCount, capped);
     }, PAGE_INTERVAL_MS);
     return () => window.clearInterval(id);
-  }, [facts, fail]);
+  }, [facts, fail, capped]);
 
   return (
     <ParticleReveal
@@ -434,7 +449,7 @@ function RevealRun({ facts, fail, onPhase }: { facts: RewindFacts; fail: boolean
   );
 }
 
-type Screen = "flow" | "flow-fail" | "empty" | "error" | "error-retrying" | "error-budget";
+type Screen = "flow" | "flow-capped" | "flow-fail" | "empty" | "error" | "error-retrying" | "error-budget";
 
 /** The whole screen, end to end: the reveal hands over to the player, or a failure ends the run. */
 function FullScreenDemo() {
@@ -452,6 +467,9 @@ function FullScreenDemo() {
       </Row>
       <Row label="open">
         <Button onClick={() => setScreen("flow")}>Reveal → story</Button>
+        <Button variant="ghost" onClick={() => setScreen("flow-capped")}>
+          Reveal → story · cut short
+        </Button>
         <Button variant="ghost" onClick={() => setScreen("flow-fail")}>
           Reveal → API error
         </Button>
@@ -475,6 +493,8 @@ function FullScreenDemo() {
       {screen && (
         <Overlay onClose={close}>
           {screen === "flow" && <Flow fixture={fixture} onExit={close} />}
+          {/* A year the cap or a failed page cut short: every figure it shows is a lower bound. */}
+          {screen === "flow-capped" && <Flow fixture={fixture} capped onExit={close} />}
           {screen === "flow-fail" && <Flow fixture={fixture} fail onExit={close} />}
           {screen === "empty" && (
             <EmptyState wallet={shortAddress(fixtures.empty.wallet.address)} onChangeWallet={close} />
@@ -501,10 +521,27 @@ function FullScreenDemo() {
 }
 
 /** A replay is a fresh run: re-keying it resets the reveal, the stage and the player together. */
-function Flow({ fixture, fail = false, onExit }: { fixture: FixtureName; fail?: boolean; onExit: () => void }) {
+function Flow({
+  fixture,
+  fail = false,
+  capped = false,
+  onExit,
+}: {
+  fixture: FixtureName;
+  fail?: boolean;
+  capped?: boolean;
+  onExit: () => void;
+}) {
   const [run, setRun] = useState(0);
   return (
-    <FlowRun key={run} facts={fixtures[fixture]} fail={fail} onExit={onExit} onReplay={() => setRun((r) => r + 1)} />
+    <FlowRun
+      key={run}
+      facts={fixtures[fixture]}
+      fail={fail}
+      capped={capped}
+      onExit={onExit}
+      onReplay={() => setRun((r) => r + 1)}
+    />
   );
 }
 
@@ -515,11 +552,14 @@ function Flow({ fixture, fail = false, onExit }: { fixture: FixtureName; fail?: 
 function FlowRun({
   facts,
   fail,
+  capped,
   onExit,
   onReplay,
 }: {
   facts: RewindFacts;
   fail: boolean;
+  /** A year cut short: every figure the story shows off these facts is a lower bound. */
+  capped: boolean;
   onExit: () => void;
   onReplay: () => void;
 }) {
@@ -539,18 +579,18 @@ function FlowRun({
       if (next === "continue") return;
       window.clearInterval(id);
       if (next === "fail") reveal.current?.fail();
-      else reveal.current?.complete(facts.txCount);
+      else reveal.current?.complete(facts.txCount, capped);
     }, PAGE_INTERVAL_MS);
     return () => {
       window.clearInterval(id);
       if (handoff.current !== null) window.clearTimeout(handoff.current);
     };
-  }, [facts, fail]);
+  }, [facts, fail, capped]);
 
   return (
     <>
       {(stage === "burst" || stage === "story") && (
-        <RewindPlayer facts={facts} onReplay={onReplay} onOpenSettings={onExit} />
+        <RewindPlayer facts={facts} capped={capped} onReplay={onReplay} onOpenSettings={onExit} />
       )}
       {(stage === "reveal" || stage === "burst") && (
         <ParticleReveal

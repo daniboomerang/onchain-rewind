@@ -131,12 +131,12 @@ function Rewind({ wallet, api, requestIntervalMs, onRestart, onOpenSettings }: R
   const handoff = useRef<number | null>(null);
   const [stage, setStage] = useState<Stage>("reveal");
 
-  const { facts, error } = useRewind({
+  const { facts, capped, error } = useRewind({
     wallet,
     ...(api !== undefined ? { api } : {}),
     ...(requestIntervalMs !== undefined ? { requestIntervalMs } : {}),
     onPage: (count) => reveal.current?.addTransactions(count),
-    onComplete: (finalCount) => reveal.current?.complete(finalCount),
+    onComplete: (finalCount, isCapped) => reveal.current?.complete(finalCount, isCapped),
     onFail: () => reveal.current?.fail(),
   });
 
@@ -151,7 +151,7 @@ function Rewind({ wallet, api, requestIntervalMs, onRestart, onOpenSettings }: R
     <>
       {/* The empty wallet is a story the player tells itself: no transactions, no cards. */}
       {facts && (stage === "burst" || stage === "story") && (
-        <RewindPlayer facts={facts} onReplay={onRestart} onOpenSettings={onOpenSettings} />
+        <RewindPlayer facts={facts} capped={capped} onReplay={onRestart} onOpenSettings={onOpenSettings} />
       )}
       {(stage === "reveal" || stage === "burst") && (
         <ParticleReveal

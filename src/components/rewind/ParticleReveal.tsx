@@ -1,5 +1,6 @@
 import { useReducedMotion } from "motion/react";
 import { type Ref, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { countLabel, rollingCountLabel } from "../../lib/capped";
 import { revealMs } from "./motion";
 import {
   alphaIndex,
@@ -32,8 +33,15 @@ import {
 export type ParticleRevealHandle = {
   /** A page of transactions arrived. */
   addTransactions: (n: number) => void;
-  /** All data loaded. Triggers hold → burst once the minimum reveal time has passed. */
-  complete: (finalCount: number) => void;
+  /**
+   * All data loaded. Triggers hold → burst once the minimum reveal time has passed.
+   *
+   * `capped` is the run's own flag: the facts describe the newest slice of the window rather than
+   * all of it, so the counter lands on "1,600+" instead of claiming the wallet made exactly that
+   * many. It is an argument rather than a prop because the counter is written by the frame loop,
+   * which must not wait a render to learn what the number it has just landed on means.
+   */
+  complete: (finalCount: number, capped: boolean) => void;
   /** Fade particles out, then `onFailed`. */
   fail: () => void;
 };
@@ -57,8 +65,6 @@ type Phase = "gather" | "hold" | "burst" | "failing" | "done";
  * read — never in a browser painting this canvas.
  */
 const LAST_RESORT_RGB = "255,255,255";
-
-const formatCount = (n: number) => n.toLocaleString("en-US");
 
 /** The counter's roll: from `from` to `to`, starting at clock time `at`. */
 type Roll = { from: number; to: number; at: number; shown: number };
@@ -98,6 +104,8 @@ export function ParticleReveal({ ref, total, onBurst, onDone, onFailed }: Partic
     failAt: 0,
     failed: false,
     count: { from: 0, to: 0, at: 0, shown: 0 } as Roll,
+    /** Set by `complete()`: the final count is a lower bound, so the counter lands with a "+". */
+    capped: false,
     clock0: 0,
     hiddenAt: 0,
     hiddenMs: 0,
@@ -105,6 +113,7 @@ export function ParticleReveal({ ref, total, onBurst, onDone, onFailed }: Partic
   const [label, setLabel] = useState<"reading" | "done">("reading");
   const [finalTotal, setFinalTotal] = useState<number | undefined>(total);
   const [announced, setAnnounced] = useState(0);
+  const [capped, setCapped] = useState(false);
   const [reducedCount, setReducedCount] = useState(0);
   const [reducedOut, setReducedOut] = useState(false);
 
@@ -137,10 +146,12 @@ export function ParticleReveal({ ref, total, onBurst, onDone, onFailed }: Partic
           st.real++;
         }
       },
-      complete(finalCount) {
+      complete(finalCount, capped) {
         const st = engine.current;
         setFinalTotal(finalCount);
+        setCapped(capped);
         st.seen = finalCount;
+        st.capped = capped;
         if (reduce) {
           setReducedCount(finalCount);
           setLabel("done");
@@ -255,7 +266,9 @@ export function ParticleReveal({ ref, total, onBurst, onDone, onFailed }: Partic
 
       const c = st.count;
       c.shown = c.from + (c.to - c.from) * easeOut(clamp01((t - c.at) / revealMs.countRoll));
-      if (countRef.current) countRef.current.textContent = formatCount(Math.round(c.shown));
+      if (countRef.current) {
+        countRef.current.textContent = rollingCountLabel(Math.round(c.shown), c.to, st.capped);
+      }
       if (overlayRef.current) overlayRef.current.style.opacity = String(fade);
 
       ctx.clearRect(0, 0, w, h);
@@ -336,7 +349,7 @@ export function ParticleReveal({ ref, total, onBurst, onDone, onFailed }: Partic
     label === "done"
       ? "Done"
       : knownTotal != null
-        ? `Reading ${formatCount(knownTotal)} transactions…`
+        ? `Reading ${countLabel(knownTotal, capped)} transactions…`
         : "Reading transactions…";
 
   // Reduced motion: no canvas, a static count, then a crossfade out — DESIGN.md §3.
@@ -350,9 +363,9 @@ export function ParticleReveal({ ref, total, onBurst, onDone, onFailed }: Partic
         style={{ opacity: reducedOut ? 0 : 1 }}
       >
         <p className="text-body text-fg-muted" aria-hidden>
-          Reading <span className="tabular-nums text-fg">{formatCount(reducedCount)}</span> transactions…
+          Reading <span className="tabular-nums text-fg">{countLabel(reducedCount, capped)}</span> transactions…
         </p>
-        <LiveCount announced={announced} done={label === "done"} />
+        <LiveCount announced={announced} done={label === "done"} capped={capped} />
       </div>
     );
   }
@@ -372,16 +385,22 @@ export function ParticleReveal({ ref, total, onBurst, onDone, onFailed }: Partic
         </div>
         <p className="absolute inset-x-0 bottom-30 text-center text-body text-fg-muted max-sm:bottom-24">{status}</p>
       </div>
-      <LiveCount announced={announced} done={label === "done"} />
+      <LiveCount announced={announced} done={label === "done"} capped={capped} />
     </div>
   );
 }
 
-/** The counter's only announced copy: polite, and updated at most once a second. */
-function LiveCount({ announced, done }: { announced: number; done: boolean }) {
+/**
+ * The counter's only announced copy: polite, and updated at most once a second.
+ *
+ * A cut-short year is announced as "at least", which is the same lower bound the "+" writes on the
+ * counter — a symbol a screen reader would otherwise read out as a plus sign or skip entirely.
+ */
+function LiveCount({ announced, done, capped }: { announced: number; done: boolean; capped: boolean }) {
+  const read = `${countLabel(announced, false)} transactions read`;
   return (
     <p className="sr-only" aria-live="polite">
-      {done ? `${formatCount(announced)} transactions read` : `${formatCount(announced)} transactions read so far`}
+      {done ? (capped ? `At least ${read}` : read) : `${read} so far`}
     </p>
   );
 }

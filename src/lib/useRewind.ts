@@ -99,8 +99,14 @@ export type UseRewindOptions = {
   readonly now?: Date;
   /** The transactions this page added, for `ParticleReveal.addTransactions`. */
   readonly onPage?: (count: number) => void;
-  /** Paging ended and the facts are built, for `ParticleReveal.complete`. */
-  readonly onComplete?: (finalCount: number) => void;
+  /**
+   * Paging ended and the facts are built, for `ParticleReveal.complete`.
+   *
+   * `capped` travels with the count rather than only on the result, because the reveal's counter is
+   * written by a frame loop: it has to know what the number means on the frame it lands on it, not
+   * a render later.
+   */
+  readonly onComplete?: (finalCount: number, capped: boolean) => void;
   /** The run failed, for `ParticleReveal.fail`. The reason is on the result, not the callback. */
   readonly onFail?: () => void;
   readonly api?: RewindApi;
@@ -362,10 +368,9 @@ export function useRewind({
         };
         if (halted()) return;
 
-        if (
-          settle({ status: "ready", facts: finalize(state, extras), capped: state.capped || pageCapHit || partial })
-        ) {
-          handlers.current.onComplete?.(state.txCount);
+        const capped = state.capped || pageCapHit || partial;
+        if (settle({ status: "ready", facts: finalize(state, extras), capped })) {
+          handlers.current.onComplete?.(state.txCount, capped);
         }
       } catch {
         if (halted()) return;

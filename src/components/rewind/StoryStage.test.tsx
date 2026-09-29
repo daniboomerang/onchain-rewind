@@ -90,7 +90,7 @@ test(
     const user = userEvent.setup();
     render(
       <StrictMode>
-        <RewindPlayer facts={normalWallet} onReplay={noop} onOpenSettings={noop} />
+        <RewindPlayer facts={normalWallet} capped={false} onReplay={noop} onOpenSettings={noop} />
       </StrictMode>,
     );
 
@@ -129,7 +129,7 @@ function Interruptible() {
   hide = setHidden;
   return (
     <Activity mode={hidden ? "hidden" : "visible"}>
-      <RewindPlayer facts={normalWallet} onReplay={noop} onOpenSettings={noop} />
+      <RewindPlayer facts={normalWallet} capped={false} onReplay={noop} onOpenSettings={noop} />
     </Activity>
   );
 }
