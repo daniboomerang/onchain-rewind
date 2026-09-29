@@ -1,5 +1,5 @@
 import { displayName, fmt, type RewindFacts } from "../engine/types";
-import { countLabel } from "./capped";
+import { countLabel, onchainSinceLabel } from "./capped";
 
 const W = 1200;
 const H = 630;
@@ -24,15 +24,16 @@ const SANS = "Geist, system-ui, sans-serif";
  * The image's four stats, as `[value, label]` pairs, in the order they are drawn.
  *
  * It is the share card's row, drawn with a canvas instead of the DOM, so the two read the same for
- * the same facts — including when the year was cut short, where the count carries a "+". Exported
- * because no test environment has a 2D context, so this is the part of the image a test can hold.
+ * the same facts — including when the year was cut short, where the count carries a "+" and the
+ * oldest transaction that arrived is a date the wallet was already onchain by. Exported because no
+ * test environment has a 2D context, so this is the part of the image a test can hold.
  */
 export function shareImageStats(facts: RewindFacts, capped: boolean): readonly (readonly [string, string])[] {
   return [
     [countLabel(facts.txCount, capped), "transactions"],
     [fmt.int(facts.chainCount), facts.chainCount === 1 ? "chain" : "chains"],
     [facts.topToken?.symbol ?? "—", "top token"],
-    [facts.firstTx ? fmt.monthYear(facts.firstTx.date) : "—", "onchain since"],
+    [facts.firstTx ? fmt.monthYear(facts.firstTx.date) : "—", onchainSinceLabel(capped)],
   ];
 }
 

@@ -1,7 +1,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type PointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { displayName, fmt, type RewindFacts, shortAddress } from "../../engine/types";
-import { countLabel } from "../../lib/capped";
+import { countLabel, onchainSinceLabel, originKicker, rollingCountLabel } from "../../lib/capped";
 import { renderShareImage, shareOrDownload } from "../../lib/renderShareImage";
 import { Button } from "../ui/Button";
 import { ChainBar } from "./ChainBar";
@@ -20,7 +20,9 @@ export type RewindPlayerProps = {
   facts: RewindFacts;
   /**
    * The facts describe the newest slice of the window rather than all of it (`useRewind`), so every
-   * figure counted off them is a lower bound, so the counts carry a "+".
+   * figure counted off them is a lower bound: the counts carry a "+", and the oldest transaction
+   * that happened to arrive is labelled as a date the wallet was already onchain by, never as the
+   * day its year started.
    */
   capped: boolean;
   onReplay: () => void;
@@ -257,11 +259,17 @@ export function buildCards(
           total={n}
           eyebrow="Origin"
           accent="var(--color-accent-origin)"
-          kicker="It started on"
+          kicker={originKicker(a.capped)}
           headline={fmt.dateLong(first.date)}
         >
           <div className="flex gap-16 pt-6 max-md:gap-8">
-            <StatNumber value={f.daysOnchain} label="days onchain" accent="var(--color-accent-origin)" delay={0.16} />
+            <StatNumber
+              value={f.daysOnchain}
+              format={(n) => rollingCountLabel(n, f.daysOnchain, a.capped)}
+              label="days onchain"
+              accent="var(--color-accent-origin)"
+              delay={0.16}
+            />
             {first.chainName && (
               <div className="flex flex-col gap-1">
                 <span className="text-stat font-medium">{first.chainName}</span>
@@ -379,7 +387,7 @@ export function buildCards(
               { value: countLabel(f.txCount, a.capped), label: "transactions" },
               { value: fmt.int(f.chainCount), label: f.chainCount === 1 ? "chain" : "chains" },
               { value: f.topToken?.symbol ?? "—", label: "top token" },
-              { value: f.firstTx ? fmt.monthYear(f.firstTx.date) : "—", label: "onchain since" },
+              { value: f.firstTx ? fmt.monthYear(f.firstTx.date) : "—", label: onchainSinceLabel(a.capped) },
             ]}
           />
           <div className="flex gap-3">

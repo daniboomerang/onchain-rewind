@@ -55,7 +55,7 @@ so a page costs no re-render of the story.
   until `complete()`, and each page rolls the counter as it lands.
 - **A year cut short reads as a lower bound.** `capped` travels with the final count, and the counter
   lands on "1,600+" rather than on a figure it cannot stand behind (SPEC §5). The same flag reaches
-  the player as a prop, so the share card and the share image agree with the counter.
+  the player as a prop, so the share card, the share image and card 1 agree with the counter.
 - **`fail()` is the only way into the error state**, so the particles fade out before it crossfades
   in. Retry is a fresh run, not a resumed one. A page that fails once the reveal has counted others
   is not a failed run: paging stops there and the run completes, so the burst still happens.

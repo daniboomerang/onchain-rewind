@@ -56,11 +56,12 @@ test("the image's stats read the same as the share card, for a complete year and
     ["Mar 2022", "onchain since"],
   ]);
 
-  // A year cut short by the cap or by a page that failed for good: the count is a lower bound.
+  // A year cut short by the cap or by a page that failed for good: the count is a lower bound, and
+  // the oldest transaction that arrived is a date the wallet was already onchain by.
   expect(shareImageStats(normalWallet, true)).toEqual([
     ["1,284+", "transactions"],
     ["6", "chains"],
     ["ETH", "top token"],
-    ["Mar 2022", "onchain since"],
+    ["Mar 2022", "onchain by"],
   ]);
 });
