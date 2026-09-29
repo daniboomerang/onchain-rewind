@@ -5,20 +5,43 @@ const W = 1200;
 const H = 630;
 const SCALE = 2;
 const PAD = 64;
-/**
- * The share image is always dark, whatever theme the page is in, so its palette is frozen here
- * rather than read from `tokens.css`: these are the dark-theme values, as literals canvas can use.
- */
-const C = {
-  bg: "#16161a",
-  fg: "#ffffff",
-  muted: "#9c9ca3",
-  primary: "0,163,245",
-  notice: "255,157,28",
-  white: "255,255,255",
-};
 const SERIF = '"Instrument Serif", Georgia, serif';
 const SANS = "Geist, system-ui, sans-serif";
+
+/** The theme the image is painted in — the one the visitor chose, the same as the page's. */
+export type ShareImageTheme = "dark" | "light";
+
+export type ShareImagePalette = {
+  /** Ground, ink and the quieter ink the labels are drawn in. */
+  readonly bg: string;
+  readonly fg: string;
+  readonly muted: string;
+  /** The ring's three tones as `r,g,b` triplets — `fg`, `primary`, `notice` — for canvas `rgba()`. */
+  readonly tones: readonly [string, string, string];
+};
+
+/**
+ * Each theme's palette, as literals a canvas can use: it is painted off-document, so no element of it
+ * resolves a CSS token, and the values are `tokens.css`'s own for the theme named. The image follows
+ * the app's one light/dark setting, so it and the share card on screen read as the same card.
+ */
+const PALETTE: Record<ShareImageTheme, ShareImagePalette> = {
+  dark: {
+    bg: "#16161a",
+    fg: "#ffffff",
+    muted: "#9c9ca3",
+    tones: ["255,255,255", "0,163,245", "255,157,28"],
+  },
+  light: {
+    bg: "#ffffff",
+    fg: "#16161a",
+    muted: "#6e6e76",
+    tones: ["22,22,26", "41,98,239", "255,157,28"],
+  },
+};
+
+/** The palette one theme's image is painted in. Exported because no test environment has a 2D context. */
+export const shareImagePalette = (theme: ShareImageTheme): ShareImagePalette => PALETTE[theme];
 
 /**
  * The image's four stats, as `[value, label]` pairs, in the order they are drawn.
@@ -37,8 +60,8 @@ export function shareImageStats(facts: RewindFacts, capped: boolean): readonly (
   ];
 }
 
-/** 1200×630 share image at 2× (2400×1260 PNG). Always dark. Waits for fonts. */
-export async function renderShareImage(facts: RewindFacts, capped: boolean): Promise<Blob> {
+/** 1200×630 share image at 2× (2400×1260 PNG), in the theme the app is in. Waits for fonts. */
+export async function renderShareImage(facts: RewindFacts, capped: boolean, theme: ShareImageTheme): Promise<Blob> {
   await Promise.allSettled([
     document.fonts.load(`400 112px ${SERIF}`),
     document.fonts.load(`italic 400 25px ${SERIF}`),
@@ -54,9 +77,10 @@ export async function renderShareImage(facts: RewindFacts, capped: boolean): Pro
   if (!ctx) throw new Error("Canvas 2D unavailable");
   ctx.scale(SCALE, SCALE);
 
+  const C = shareImagePalette(theme);
   ctx.fillStyle = C.bg;
   ctx.fillRect(0, 0, W, H);
-  drawRing(ctx, 960, 250, 170, facts.wallet.address);
+  drawRing(ctx, 960, 250, 170, facts.wallet.address, C.tones);
 
   ctx.textBaseline = "alphabetic";
 
@@ -96,7 +120,14 @@ export async function renderShareImage(facts: RewindFacts, capped: boolean): Pro
 }
 
 /** Static particle ring, seeded by the address so each wallet's image is stable. */
-function drawRing(ctx: CanvasRenderingContext2D, cx: number, cy: number, R: number, seed: string) {
+function drawRing(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  R: number,
+  seed: string,
+  tones: readonly [string, string, string],
+) {
   let s = [...seed].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) % 2147483647, 7) || 7;
   const rnd = () => {
     s = (s * 16807) % 2147483647;
@@ -104,7 +135,7 @@ function drawRing(ctx: CanvasRenderingContext2D, cx: number, cy: number, R: numb
   };
   for (let i = 0; i < 700; i++) {
     const k = rnd();
-    const rgb = k < 0.88 ? C.white : k < 0.97 ? C.primary : C.notice;
+    const rgb = k < 0.88 ? tones[0] : k < 0.97 ? tones[1] : tones[2];
     const a = rnd() * Math.PI * 2;
     const r = R + ((rnd() + rnd() + rnd() - 1.5) / 1.5) * 14;
     ctx.fillStyle = `rgba(${rgb},${0.3 + rnd() * 0.6})`;

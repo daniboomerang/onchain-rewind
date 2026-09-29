@@ -4,6 +4,7 @@ import { displayName, fmt, type RewindFacts, shortAddress } from "../../engine/t
 import { countLabel, onchainSinceLabel, originKicker, rollingCountLabel } from "../../lib/capped";
 import { renderShareImage, shareOrDownload } from "../../lib/renderShareImage";
 import { Button } from "../ui/Button";
+import { readTheme } from "../ui/theme";
 import { ChainBar } from "./ChainBar";
 import { ChainIcon } from "./ChainIcon";
 import { EmptyState } from "./EmptyState";
@@ -48,7 +49,8 @@ export function RewindPlayer({ facts, capped, onReplay, onOpenSettings }: Rewind
   const share = useCallback(async () => {
     setSharing(true);
     try {
-      const blob = await renderShareImage(facts, capped);
+      // Read at the moment of the press, not at render: the theme can have turned while the story played.
+      const blob = await renderShareImage(facts, capped, readTheme());
       await shareOrDownload(blob, `onchain-rewind-${facts.wallet.name ?? shortAddress(facts.wallet.address)}.png`);
     } finally {
       setSharing(false);
