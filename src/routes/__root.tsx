@@ -1,5 +1,6 @@
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { THEME_COLOR, THEME_SCRIPT } from "../components/ui/theme";
 import appCss from "../styles/app.css?url";
 
 const TITLE = "Onchain Rewind";
@@ -10,7 +11,8 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-      { name: "theme-color", content: "#16161a" },
+      // `ui/theme.ts`'s head script rewrites this to the theme it resolves.
+      { name: "theme-color", content: THEME_COLOR.dark },
       { title: TITLE },
       { name: "description", content: DESCRIPTION },
       { property: "og:title", content: TITLE },
@@ -28,13 +30,14 @@ export const Route = createRootRoute({
       },
       { rel: "stylesheet", href: appCss },
     ],
+    scripts: [{ children: THEME_SCRIPT }],
   }),
   shellComponent: RootDocument,
 });
 
 function RootDocument({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <head>
         <HeadContent />
       </head>

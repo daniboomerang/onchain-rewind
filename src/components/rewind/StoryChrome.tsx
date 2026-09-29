@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { IconButton } from "../ui/IconButton";
+import { ThemeToggle } from "../ui/ThemeToggle";
 
 export type StoryChromeProps = {
   /** Wallet display name (ENS or short address). Empty on first visit. */
@@ -9,7 +10,13 @@ export type StoryChromeProps = {
   progress?: ReactNode;
 };
 
-/** Top chrome shared by the player and state screens: segments, wordmark, wallet name, gear. */
+/**
+ * Top chrome shared by the player and state screens: segments, wordmark, wallet name, theme and gear.
+ *
+ * The theme control sits next to the gear because both are settings for the app around the story, and
+ * this header is the only chrome every screen has. It switches the page the story is played on; the
+ * story itself stays dark, so on `/` the control changes what is behind and around it.
+ */
 export function StoryChrome({ wallet, onOpenSettings, progress }: StoryChromeProps) {
   return (
     <header
@@ -23,6 +30,7 @@ export function StoryChrome({ wallet, onOpenSettings, progress }: StoryChromePro
         </span>
         <div className="pointer-events-auto flex items-center gap-2">
           {wallet && <span className="whitespace-nowrap font-mono text-[13px] text-fg-muted">{wallet}</span>}
+          <ThemeToggle />
           <IconButton label="Change wallet" onClick={onOpenSettings} />
         </div>
       </div>

@@ -1,12 +1,16 @@
 /* Onchain Rewind — design tokens (Tailwind v4).
    Palette: Zerion app tokens (dark default, light override). "derived" = interpolated, confirm against source.
-   Usage: @import "tailwindcss"; @import "./tokens.css";  Set <html data-theme="light"> for light. */
+   Usage: @import "tailwindcss"; @import "./tokens.css";
+   Theme: `data-theme="light"` / `data-theme="dark"` on any element re-declares the palette for that
+   element and everything inside it, so the story can hold the dark values inside a light page. The
+   root document sets one of the two before the first paint; dark stays the bare `:root` default. */
 
 /* Variants: Ariakit focus + disabled work with both native and aria states */
 @custom-variant focus-ring (&:is([data-focus-visible], :focus-visible));
 @custom-variant disabled-any (&:is(:disabled, [aria-disabled="true"]));
 
-:root {
+:root,
+[data-theme="dark"] {
   --bg: #16161a; /* color-white (dark) */
   --surface: #1d1d21; /* z-index-1 */
   --surface-raised: #26262b; /* derived */
@@ -58,6 +62,17 @@
   --shadow-dialog: 0 24px 64px rgb(22 22 26 / 0.18);
   --shadow-popover: 0 0 0 1px rgb(22 22 26 / 0.06), 0 12px 32px rgb(22 22 26 / 0.12);
   color-scheme: light;
+}
+
+/* `color` is the one painted property that inherits an already-resolved value rather than the
+   variable behind it, so an element that re-declares the palette has to re-declare `color` too:
+   without this, the story's dark roots inside a light page draw the page's near-black text on their
+   own dark background and the card reads as blank. In `base`, so a `text-*` utility on the same
+   element still wins. */
+@layer base {
+  [data-theme] {
+    color: var(--fg);
+  }
 }
 
 @theme inline {

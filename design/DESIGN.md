@@ -1,6 +1,6 @@
 # Onchain Rewind — DESIGN.md
 
-A wallet's year, played back as five story cards after a particle reveal. Dark first (light theme exists in the tokens but the story always renders dark). Desktop 1440×900, mobile 390 wide.
+A wallet's year, played back as five story cards after a particle reveal. Dark first: the story always renders dark, while the app chrome around it — settings dialog, wordmark shell, empty and error screens, `/system` — follows the operating system's light or dark setting (§1, Theme). Desktop 1440×900, mobile 390 wide.
 
 Files: `tokens.css` (Tailwind v4), `components/*.tsx` (reference code), `Rewind Design System.dc.html` (component sheet), `Rewind Screens.dc.html` (screens S01–S16, M01–M02).
 
@@ -29,6 +29,10 @@ Colors come from the Zerion app palette. "Derived" = interpolated, confirm again
 | `notice` | #ff9d1c | #ff9d1c | Origin accent |
 | `track` | #fff @16% | #16161a @12% | Unfilled segments / bars |
 | `overlay` | #0a0a0c @72% | #16161a @40% | Dialog backdrop |
+
+**Theme** — dark is the bare `:root` default; `data-theme="light"` or `data-theme="dark"` on any element re-declares the palette for that element and everything inside it, `color` included, so a dark root inside a light page draws light text rather than inheriting the page's dark text. The root document resolves the setting into `data-theme` on `<html>` before the first paint — the choice stored on this device if there is one, the operating system's otherwise — and the story's own roots, the particle reveal, the story surface and the share card, carry `data-theme="dark"`, so the story keeps its palette inside a light page.
+
+The choice is made with `ThemeToggle`, which the story chrome and `/system` both carry. It is one setting for the whole app: it switches the document, not a subtree, and holds across routes and reloads.
 
 **Card accents** (one element per card): Origin `notice` · Home chain `primary` · Top token `positive` (or `negative` if the change is negative) · The ride `primary` · Share `primary`.
 
@@ -173,9 +177,9 @@ Don't
 
 **`components/RewindPlayer.tsx`** — Props: `facts`, `onReplay`, `onOpenSettings`. Owns `current`, `direction` and `paused`, and provides `PlaybackContext`. A pointer press shorter than 200ms navigates (left half goes back, right half forward; 30/70 below 640px). Holding 200ms or longer pauses, and releasing resumes without navigating. Keys: ← and → navigate, holding Space pauses. Keys are ignored inside inputs, buttons and dialogs. Auto-advance comes from `ProgressSegments.onComplete`, and the last card holds. "Share image" calls `renderShareImage` → `shareOrDownload` with a loading state.
 
-**`components/StoryChrome.tsx`** — The top bar (segments slot, wordmark, wallet name, gear), split out so the player and the state screens share it.
+**`components/StoryChrome.tsx`** — The top bar (segments slot, wordmark, wallet name, theme toggle, gear), split out so the player and the state screens share it.
 
-**`components/EmptyState.tsx` / `ErrorState.tsx`** — Match S12 and S13. ErrorState props: `onRetry`, `onChangeWallet`, `retrying`, and `message`; focus goes to "Try again". `message` replaces the generic explanation under the headline for a failure worth naming — the day's data budget being spent on the free API plan, which is nothing the visitor did and resolves when the day resets. Left out, the paragraph reads as S13 does.
+**`components/EmptyState.tsx` / `ErrorState.tsx`** — Match S12 and S13. ErrorState props: `onRetry`, `onChangeWallet`, `retrying`, and `reason`. `reason` picks the screen: `"unavailable"` (the default) reads as S13 does — "The rewind got stuck", with focus on "Try again" — while `"budget-spent"` is the day's data budget being spent on the free API plan, which is nothing the visitor did and which resolves when the day resets: its own eyebrow and headline ("Today's data budget is spent"), its own paragraph saying when to come back, and no "Try again" at all, because no retry succeeds before the reset. Focus then goes to "Change wallet".
 
 **`components/TokenIcon.tsx` / `ChainIcon.tsx`** — `AvatarImage`: the initial renders first with the image layered over it; `onError` keeps the fallback. Lazy loading with async decoding, fixed size, so there's no layout shift.
 

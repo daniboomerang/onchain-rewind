@@ -33,6 +33,10 @@ The milestone that tracks this goal lives on the forge: "Onchain Rewind v1: demo
 
 **Platform:** desktop-first web app (1440×900), working down to 390 wide. It's not a native app.
 
+**Theme:** the app chrome — the settings dialog, the wordmark shell, the empty and error screens and `/system` — runs in light or dark, resolved before the first paint so no load flashes the wrong theme. The story is dark whatever that setting is: the particle reveal, the five cards, the share card and the share image are designed in the dark palette only.
+
+The setting is one choice for the whole app, not one per page: a light/dark control sits in the story chrome next to the settings gear, `/system` carries the same control, and the choice is remembered on this device, so it holds across routes and reloads. Until a choice is made the app follows the operating system.
+
 ## 2. Non-goals (this build)
 
 No WebGL. No signing, swaps or sends. No accounts or backend database. No personality card. No agent or CLI integration. No full wallet UI. Solana is out of scope: `RewindFacts.wallet.address` is EVM (`0x…`).
@@ -108,7 +112,7 @@ Before listing a wallet, check that it produces a good story (enough transaction
 - No console errors. The key doesn't appear in the client bundle: `grep` the build output for it.
 - Reduced motion checked in the browser, and keyboard-only navigation works (including after closing settings; see KNOWN-ISSUES).
 - Deployed to a public URL, working on a phone browser.
-- `/system` shows every component in every state.
+- `/system` shows every component in every state, in both themes.
 
 ## 8. Tasks
 

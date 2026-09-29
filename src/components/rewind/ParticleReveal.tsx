@@ -340,9 +340,12 @@ export function ParticleReveal({ ref, total, onBurst, onDone, onFailed }: Partic
         : "Reading transactions…";
 
   // Reduced motion: no canvas, a static count, then a crossfade out — DESIGN.md §3.
+  // Both roots carry `data-theme="dark"`: the reveal is the story's first frame, and the story is
+  // designed dark only, so it re-declares the dark palette inside a page the system set to light.
   if (reduce) {
     return (
       <div
+        data-theme="dark"
         className="fixed inset-0 grid place-items-center bg-bg px-5 text-center transition-opacity duration-(--duration-base) ease-in-out"
         style={{ opacity: reducedOut ? 0 : 1 }}
       >
@@ -355,7 +358,7 @@ export function ParticleReveal({ ref, total, onBurst, onDone, onFailed }: Partic
   }
 
   return (
-    <div className="fixed inset-0 bg-bg" aria-busy={label !== "done"}>
+    <div data-theme="dark" className="fixed inset-0 bg-bg" aria-busy={label !== "done"}>
       <canvas ref={canvasRef} aria-hidden className="absolute inset-0 size-full" />
       <div ref={overlayRef} className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 grid place-items-center">

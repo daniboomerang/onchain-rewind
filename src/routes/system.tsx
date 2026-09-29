@@ -16,6 +16,7 @@ import { TokenIcon } from "../components/rewind/TokenIcon";
 import { Button } from "../components/ui/Button";
 import { IconButton } from "../components/ui/IconButton";
 import { SettingsDialog } from "../components/ui/SettingsDialog";
+import { ThemeToggle } from "../components/ui/ThemeToggle";
 import { Tooltip } from "../components/ui/Tooltip";
 import { type DemoWallet, WalletCombobox, type WalletStatus } from "../components/ui/WalletCombobox";
 import { type FixtureName, fixtures } from "../engine/fixtures";
@@ -55,6 +56,7 @@ function System() {
           <h1 className="font-display text-display">
             Onchain <i>Rewind</i>
           </h1>
+          <ThemeRow />
         </header>
 
         <Section title="Button">
@@ -200,6 +202,21 @@ function System() {
 }
 
 /* — demos — */
+
+/**
+ * The app's own theme control, on the page that has to be checked in both themes. It is the same
+ * control the story chrome carries on `/`, and the same one setting behind it: a choice made here is
+ * the choice `/` opens in.
+ *
+ * The story's own components stay dark whichever way this is set — that is the design, not a miss.
+ */
+function ThemeRow() {
+  return (
+    <Row label="theme">
+      <ThemeToggle />
+    </Row>
+  );
+}
 
 function ProgressDemo() {
   const [current, setCurrent] = useState(1);
@@ -417,7 +434,7 @@ function RevealRun({ facts, fail, onPhase }: { facts: RewindFacts; fail: boolean
   );
 }
 
-type Screen = "flow" | "flow-fail" | "empty" | "error" | "error-retrying";
+type Screen = "flow" | "flow-fail" | "empty" | "error" | "error-retrying" | "error-budget";
 
 /** The whole screen, end to end: the reveal hands over to the player, or a failure ends the run. */
 function FullScreenDemo() {
@@ -447,6 +464,9 @@ function FullScreenDemo() {
         <Button variant="ghost" onClick={() => setScreen("error-retrying")}>
           Error state · retrying
         </Button>
+        <Button variant="ghost" onClick={() => setScreen("error-budget")}>
+          Error state · budget spent
+        </Button>
       </Row>
       <p className="text-small text-fg-muted">
         Full screen. Press Esc or the gear to come back. ← → move the story, a hold or Space pauses it, and the last
@@ -464,6 +484,15 @@ function FullScreenDemo() {
           )}
           {screen === "error-retrying" && (
             <ErrorState wallet={displayName(normal.wallet)} retrying onRetry={close} onChangeWallet={close} />
+          )}
+          {/* The day's data budget is spent: its own headline, and no retry that could succeed. */}
+          {screen === "error-budget" && (
+            <ErrorState
+              wallet={displayName(normal.wallet)}
+              reason="budget-spent"
+              onRetry={close}
+              onChangeWallet={close}
+            />
           )}
         </Overlay>
       )}
