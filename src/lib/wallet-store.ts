@@ -6,13 +6,20 @@
  * happens in an effect and never during render: the server renders the shell with no wallet, the
  * first client effect loads it, and only then can the shell know whether settings must open. That
  * ordering is also what keeps the markup either side of hydration identical.
+ *
+ * Migration: vitalik.eth (0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045) is retired and migrated to
+ * pranksy.eth when read. Any browser still holding vitalik.eth gets it rewritten on first load.
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { demoWallets } from "./demo-wallets";
 import type { Address } from "../engine/types";
 
 /** Namespaced, because a demo shares its origin with whatever else is deployed there. */
 export const WALLET_STORAGE_KEY = "onchain-rewind:wallet";
+
+/** Retired demo wallet address that gets migrated to pranksy.eth on read. */
+const RETIRED_VITALIK_ADDRESS = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
 
 export type ConnectedWallet = {
   readonly address: Address;
@@ -52,7 +59,18 @@ export function parseStoredWallet(raw: string | null): ConnectedWallet | null {
 /** Browser-only: returns null anywhere `localStorage` is missing or blocked. */
 export function readStoredWallet(): ConnectedWallet | null {
   try {
-    return parseStoredWallet(globalThis.localStorage?.getItem(WALLET_STORAGE_KEY) ?? null);
+    const parsed = parseStoredWallet(globalThis.localStorage?.getItem(WALLET_STORAGE_KEY) ?? null);
+    if (!parsed) return null;
+
+    // Migrate retired vitalik.eth to pranksy.eth
+    const pranksy = demoWallets[0];
+    if (pranksy && parsed.address.toLowerCase() === RETIRED_VITALIK_ADDRESS.toLowerCase()) {
+      const migrated: ConnectedWallet = { address: pranksy.address, name: pranksy.label };
+      writeStoredWallet(migrated);
+      return migrated;
+    }
+
+    return parsed;
   } catch {
     return null;
   }
