@@ -13,9 +13,9 @@ export type StoryChromeProps = {
 /**
  * Top chrome shared by the player and state screens: segments, wordmark, wallet name, theme and gear.
  *
- * The theme control sits next to the gear because both are settings for the app around the story, and
- * this header is the only chrome every screen has. It switches the page the story is played on; the
- * story itself stays dark, so on `/` the control changes what is behind and around it.
+ * The theme control sits next to the gear because both are settings for the app, and this header is
+ * the only chrome every screen has. It switches the whole app, the story included, so on `/` the
+ * cards under this header turn with it while they play.
  */
 export function StoryChrome({ wallet, onOpenSettings, progress }: StoryChromeProps) {
   return (

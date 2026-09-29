@@ -158,12 +158,12 @@ export function RewindPlayer({ facts, capped, onReplay, onOpenSettings }: Rewind
        * gesture has a keyboard equivalent on `window` — ← → navigate, Space pauses — so nothing
        * here is reachable by pointer alone.
        *
-       * `data-theme="dark"` re-declares the dark palette for the whole story, so the cards, the
-       * chrome over them and the share panel stay dark inside a page the system set to light.
+       * The surface declares no theme of its own: the story follows the app's one light/dark setting,
+       * so the cards, the chrome over them and the share panel all paint from the page's palette and
+       * turn with the toggle mid-play.
        */}
       <section
         aria-label="Rewind story"
-        data-theme="dark"
         className="fixed inset-0 touch-none select-none overflow-hidden bg-bg text-fg"
         onPointerDown={onPointerDown}
         onPointerUp={onPointerUp}

@@ -8,7 +8,8 @@ import { type Theme, useTheme } from "./theme";
  * It is a single button rather than a pair, because there are only two themes: it names the one it
  * would switch to, which is also what makes its accessible name say what pressing it does.
  *
- * The story keeps the dark palette whichever way this is set — that is the design, not a miss.
+ * It changes the whole app, the story and the share image included, and a story already playing turns
+ * with it.
  */
 export function ThemeToggle() {
   const { theme, choose } = useTheme();

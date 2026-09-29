@@ -181,3 +181,31 @@ export const alphaTable = (rgb: string): readonly string[] =>
   Array.from({ length: ALPHA_STEPS + 1 }, (_, i) => `rgba(${rgb},${i / ALPHA_STEPS})`);
 
 export const alphaIndex = (alpha: number) => Math.round(clamp01(alpha) * ALPHA_STEPS);
+
+/**
+ * Only reachable where the resolved styles carry no colour at all, so no token can be read — never in
+ * a browser painting the canvas.
+ */
+export const LAST_RESORT_RGB = "255,255,255";
+
+/**
+ * The resolved styles the tones are read out of: `color` as the ink the element already inherits, and
+ * the palette's own custom properties. A `CSSStyleDeclaration` satisfies it, and so does anything else
+ * that can answer those two questions, which is what lets a test hold this without a browser.
+ */
+export type ColorTokens = {
+  readonly color: string;
+  getPropertyValue(name: string): string;
+};
+
+/**
+ * The three tones the field is painted in — `fg`, `primary`, `notice` — each as every `rgba()` string
+ * the loop can need. A canvas inherits no CSS, so handing it these tables is the only way the theme
+ * reaches it: read them off the canvas's own resolved styles, and read them again whenever the theme
+ * changes, or the field keeps painting the palette it was handed.
+ */
+export function toneTables(tokens: ColorTokens): readonly (readonly string[])[] {
+  const fallback = parseRgb(tokens.color) ?? LAST_RESORT_RGB;
+  const tone = (name: string) => parseRgb(tokens.getPropertyValue(name)) ?? fallback;
+  return [tone("--fg"), tone("--primary"), tone("--notice")].map(alphaTable);
+}

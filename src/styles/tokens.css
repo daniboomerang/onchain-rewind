@@ -2,8 +2,9 @@
    Palette: Zerion app tokens (dark default, light override). "derived" = interpolated, confirm against source.
    Usage: @import "tailwindcss"; @import "./tokens.css";
    Theme: `data-theme="light"` / `data-theme="dark"` on any element re-declares the palette for that
-   element and everything inside it, so the story can hold the dark values inside a light page. The
-   root document sets one of the two before the first paint; dark stays the bare `:root` default. */
+   element and everything inside it. The root document sets one of the two before the first paint and
+   is the only element that sets it — the whole app, the story included, follows that one choice —
+   while dark stays the bare `:root` default. */
 
 /* Variants: Ariakit focus + disabled work with both native and aria states */
 @custom-variant focus-ring (&:is([data-focus-visible], :focus-visible));
@@ -66,9 +67,9 @@
 
 /* `color` is the one painted property that inherits an already-resolved value rather than the
    variable behind it, so an element that re-declares the palette has to re-declare `color` too:
-   without this, the story's dark roots inside a light page draw the page's near-black text on their
-   own dark background and the card reads as blank. In `base`, so a `text-*` utility on the same
-   element still wins. */
+   without this, a subtree that re-declares the palette would draw the outer theme's already-resolved
+   text colour on its own background. In `base`, so a `text-*` utility on the same element still
+   wins. */
 @layer base {
   [data-theme] {
     color: var(--fg);

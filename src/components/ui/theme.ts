@@ -1,10 +1,10 @@
 /**
  * The theme the app chrome runs in, and the setting behind it.
  *
- * Dark is the tokens' `:root` default and the story's only palette; light is an override the chrome
- * follows. The setting is one choice for the whole app, remembered on this device like the wallet
- * is, so every route reads the same value and a reload keeps it. With nothing stored the app follows
- * the operating system.
+ * Dark is the tokens' `:root` default; light is an override the whole app follows, the story and the
+ * share image included. The setting is one choice for the whole app, remembered on this device like
+ * the wallet is, so every route reads the same value and a reload keeps it. With nothing stored the
+ * app follows the operating system.
  *
  * This module holds the four things the app needs: the two `theme-color` values, the script that
  * resolves the setting before the first paint, the read and write of that setting, and the hook both
@@ -29,7 +29,7 @@ export const THEME_COLOR: Record<Theme, string> = { light: "#ffffff", dark: "#16
  * runs after it, which is a flash of the dark default on a light system. The stored choice wins over
  * the system setting, on every route and every reload, so the media query listener below can keep
  * following the system without ever undoing a choice. Without JavaScript the page stays dark, which is
- * the palette the story is designed in.
+ * the tokens' own default.
  */
 export const THEME_SCRIPT = [
   '(function(){var r=document.documentElement,m=matchMedia("(prefers-color-scheme: light)");',
