@@ -173,5 +173,5 @@ Open, for the Principal: none. The plan can proceed.
 - Create a free Zerion API key and make it available (§9 step 4), before the Zerion server work starts.
 - Create and link a Vercel project and set `ZERION_API_KEY` in its environment variables, before the deploy.
 - Tick each PR's Test Plan after checking it in the browser.
-- Keep Deployment Protection on for the Vercel project and "auto-assign custom production domains" off, so an unaliased agent build never takes the live domain, and decide which environments the build-time tokens are scoped to (read-only, least privilege).
+- Keep Deployment Protection on for the Vercel project and "auto-assign custom production domains" off, so an unaliased agent build never takes the live domain, and scope `GITHUB_TOKEN` (read-only access to public repository data) and `VINAYA_LOG_READ_TOKEN` (read-only) to the environments the build runs in, and no wider.
 
