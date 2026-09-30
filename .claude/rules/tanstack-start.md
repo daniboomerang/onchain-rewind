@@ -3,6 +3,7 @@ paths:
   - "src/routes/**"
   - "src/server/**"
   - "vite.config.ts"
+  - "vercel.json"
 ---
 
 # TanStack Start
@@ -41,3 +42,10 @@ Zerion's own web app runs on TanStack Start, which is why this repo uses it too.
 - `localStorage`, `canvas`, `matchMedia` and `navigator.share` exist only in the browser. Read them in effects or behind a client-only boundary, never during render on the server.
 - The theme is the one thing an effect is too late for: `__root.tsx`'s head script (`head: () => ({ scripts: [...] })`, rendered by `HeadContent`) reads the stored choice and then `matchMedia` in the browser, and writes `data-theme` on `<html>` before the first paint. React renders no theme attribute, so nothing about it can mismatch at hydration — which is also why a theme control renders the same label on the server whatever is stored, and corrects it in its first effect.
 - The index route renders the shell with no theme attribute, so the server's markup is the dark `:root` default until that script resolves the setting. The settings dialog or reveal mounts on the client, so there's no hydration mismatch.
+
+## Production
+AGENTS.md rule 10 is canonical: production is Principal-only. This section repeats it for the files that configure a deploy. If the two ever differ, AGENTS.md wins.
+- **The only Vercel command an agent may run is `vercel deploy --prod --skip-domain`.** It builds a production-target deployment and does not alias it to the production domain.
+- **Anything not named is denied.** That includes `vercel deploy --prod` without `--skip-domain`, `--target=production`, `promote`, `rollback`, `redeploy`, `alias`, `domains`, `link`, `pull`, `git connect`, `env` and `--prebuilt`, every other Vercel command or flag, the Vercel dashboard and API, and every change to environment variables or project settings. They are the Principal's.
+- **An unaliased build is still production.** It runs with the production environment variables and its URL is reachable. The URL goes to the Principal and is never published.
+- **Enforced by prose and the Principal's project settings, not by a permission rule.** `.claude/settings.json` carries no deny list for Vercel, so nothing blocks a violation. The settings the Principal confirms are in SPEC.md §10. An agent that is unsure stops and asks.
