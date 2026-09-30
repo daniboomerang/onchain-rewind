@@ -1,6 +1,6 @@
 # The development log paints a build-time snapshot first
 
-`/dev-stats` reads the development record live on the server ([ADR-0004](0004-the-development-record-is-read-on-the-server.md)), and on a cold serverless instance that read takes 15 to 20 seconds, all of it a loader. The build now reads the record once through the same server readers and bakes the result into the deploy; a cold visit paints that snapshot at once, stamped with the time it was taken, and the live read replaces it after. This reverses ADR-0004's rejection of a deploy-time snapshot: the rejection assumed the snapshot would be all the page had, and it would go stale between deploys.
+`/dev-stats` reads the development record live on the server ([ADR-0004](0004-the-development-record-is-read-on-the-server.md)), and on a cold serverless instance that read takes 15 to 20 seconds, all of it a loader. The build now reads the record once through the same server readers and bakes the result into the deploy; a cold visit paints that snapshot at once, stamped with the time it was taken, and the live read replaces it after. This reverses ADR-0004's rejection of a deploy-time snapshot, which rested on two reasons: it would go stale between deploys, and it would need its own regeneration job. Both are answered here: the live read replaces the snapshot, so staleness is only ever a first paint, and the build itself is the regeneration, on every deploy, with no separate job.
 
 ## Considered options
 
@@ -12,6 +12,8 @@
 ## Consequences
 
 - The build needs read access to both sources. If it cannot read either, the build still passes and the page falls back to its loader.
-- The snapshot is generated, gitignored and never committed, and holds no token and no raw upstream body.
+- The snapshot is generated, gitignored and never committed, and holds only the mapped record, never a token or a raw upstream body. It lives outside `public/`, is read by a plain server module, and holds nothing the live public page does not already serve.
+- The build script's failure log names the source and the HTTP status only, never an error object, a URL or a header, because a build log is visible to everyone with team access.
+- The ship check greps the snapshot and the client bundle for the token names and values.
 - The page says when the snapshot was taken, so it never overstates that the record is read live.
 - A failed live read keeps the snapshot on screen rather than replacing it with an error.
