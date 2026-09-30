@@ -10,6 +10,11 @@ export type StoryChromeProps = {
   progress?: ReactNode;
   /** Shown as a close button, top-right. Omitted where there's no story to leave. */
   onClose?: () => void;
+  /**
+   * The run plays the recorded snapshot rather than live data (ADR-0005). The note stays for as long
+   * as the chrome does, the reveal and every card alike, so the story never passes it off as live.
+   */
+  recorded?: boolean;
 };
 
 /**
@@ -22,7 +27,7 @@ export type StoryChromeProps = {
  * unlike the wallet chrome around it: it reads the same in both themes, the same way the favicon
  * does.
  */
-export function StoryChrome({ wallet, onOpenSettings, progress, onClose }: StoryChromeProps) {
+export function StoryChrome({ wallet, onOpenSettings, progress, onClose, recorded = false }: StoryChromeProps) {
   return (
     <header
       data-chrome
@@ -51,6 +56,7 @@ export function StoryChrome({ wallet, onOpenSettings, progress, onClose }: Story
           {onClose && <IconButton label="Close" icon={<CloseIcon />} onClick={onClose} />}
         </div>
       </div>
+      {recorded && <p className="self-end text-small text-fg-muted">Showing a recorded snapshot</p>}
     </header>
   );
 }

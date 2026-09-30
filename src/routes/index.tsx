@@ -10,7 +10,7 @@ import { SiteFooter } from "../components/ui/Footer";
 import { SettingsDialog } from "../components/ui/SettingsDialog";
 import { displayName } from "../engine/types";
 import { demoWalletOptions } from "../lib/demo-wallets";
-import type { RewindApi } from "../lib/useRewind";
+import type { RewindApi, RewindWallet } from "../lib/useRewind";
 import { useRewind } from "../lib/useRewind";
 import { useWalletInput } from "../lib/wallet-input";
 import { type ConnectedWallet, useConnectedWallet } from "../lib/wallet-store";
@@ -34,6 +34,9 @@ export function Home({ api, requestIntervalMs }: HomeProps) {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(demoWalletOptions[0]?.label ?? "");
   const input = useWalletInput(value);
+  // Set while settings is open over the recorded snapshot (ADR-0005): the story behind the dialog is
+  // the recording's wallet, not the stored one, and the dialog says so.
+  const [notice, setNotice] = useState<string>();
   // Bumped by "Replay", "Try again" and "Play": re-keying the run below is what starts a fresh
   // Rewind, because the reveal, the stage and the player all reset together when they remount.
   const [run, setRun] = useState(0);
@@ -52,8 +55,22 @@ export function Home({ api, requestIntervalMs }: HomeProps) {
 
   const openSettings = useCallback(() => {
     setValue(wallet?.name ?? wallet?.address ?? "");
+    setNotice(undefined);
     setOpen(true);
   }, [wallet]);
+
+  // Over the recorded snapshot the dialog opens on the wallet whose year is playing, never the stored
+  // one: presenting the stored wallet there would claim the recording as that wallet's year.
+  const openSettingsOver = useCallback(
+    (recording: RewindWallet | undefined) => {
+      if (recording === undefined) return openSettings();
+      const name = displayName(recording);
+      setValue(recording.name ?? recording.address);
+      setNotice(`Zerion's data limit was reached, so the story playing is a recorded snapshot of ${name}.`);
+      setOpen(true);
+    },
+    [openSettings],
+  );
 
   const restart = useCallback(() => {
     setStopped(false);
@@ -100,7 +117,7 @@ export function Home({ api, requestIntervalMs }: HomeProps) {
           {...(api !== undefined ? { api } : {})}
           {...(requestIntervalMs !== undefined ? { requestIntervalMs } : {})}
           onRestart={restart}
-          onOpenSettings={openSettings}
+          onOpenSettings={openSettingsOver}
           onClose={stop}
         />
       )}
@@ -118,6 +135,7 @@ export function Home({ api, requestIntervalMs }: HomeProps) {
           resolved={input.resolved}
           error={input.error}
           demoWallets={demoWalletOptions}
+          {...(notice !== undefined ? { notice } : {})}
           onSubmit={() => {
             if (!input.wallet) return;
             connect(input.wallet);
@@ -164,7 +182,8 @@ type RewindProps = {
   requestIntervalMs?: number;
   /** "Replay", and "Try again" on the error state: both are a fresh run of the whole Rewind. */
   onRestart: () => void;
-  onOpenSettings: () => void;
+  /** Carries the recording's wallet while the recorded snapshot plays, and nothing otherwise. */
+  onOpenSettings: (recording: RewindWallet | undefined) => void;
   /** Escape and the close button in the story's top bar both call this: it leaves for the start screen. */
   onClose: () => void;
 };
@@ -189,7 +208,7 @@ function Rewind({ wallet, api, requestIntervalMs, onRestart, onOpenSettings, onC
   const handoff = useRef<number | null>(null);
   const [stage, setStage] = useState<Stage>("reveal");
 
-  const { facts, capped, error } = useRewind({
+  const { facts, capped, recorded, subject } = useRewind({
     wallet,
     ...(api !== undefined ? { api } : {}),
     ...(requestIntervalMs !== undefined ? { requestIntervalMs } : {}),
@@ -205,6 +224,11 @@ function Rewind({ wallet, api, requestIntervalMs, onRestart, onOpenSettings, onC
     [],
   );
 
+  // A recorded run names the recording's wallet from the switch on, the reveal included: the picked
+  // wallet's name over someone else's year would be the story lying about whose year it is.
+  const playing = recorded && subject !== undefined ? subject : wallet;
+  const openSettings = () => onOpenSettings(recorded ? subject : undefined);
+
   return (
     <>
       {/* The empty wallet is a story the player tells itself: no transactions, no cards. */}
@@ -212,8 +236,9 @@ function Rewind({ wallet, api, requestIntervalMs, onRestart, onOpenSettings, onC
         <RewindPlayer
           facts={facts}
           capped={capped}
+          recorded={recorded}
           onReplay={onRestart}
-          onOpenSettings={onOpenSettings}
+          onOpenSettings={openSettings}
           onClose={onClose}
         />
       )}
@@ -234,15 +259,15 @@ function Rewind({ wallet, api, requestIntervalMs, onRestart, onOpenSettings, onC
       )}
       {/* Once the burst starts, the player is already mounted underneath with its own chrome. */}
       {stage === "reveal" && (
-        <StoryChrome wallet={displayName(wallet)} onOpenSettings={onOpenSettings} onClose={onClose} />
+        <StoryChrome
+          wallet={displayName(playing)}
+          recorded={recorded}
+          onOpenSettings={openSettings}
+          onClose={onClose}
+        />
       )}
       {stage === "error" && (
-        <ErrorState
-          wallet={displayName(wallet)}
-          reason={error === "budget_spent" ? "budget-spent" : "unavailable"}
-          onRetry={onRestart}
-          onChangeWallet={onOpenSettings}
-        />
+        <ErrorState wallet={displayName(wallet)} onRetry={onRestart} onChangeWallet={openSettings} />
       )}
     </>
   );

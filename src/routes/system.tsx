@@ -189,6 +189,7 @@ function System() {
 
         <Section title="StoryChrome">
           <ChromeDemo label="wallet + progress" wallet={displayName(normal.wallet)} progress />
+          <ChromeDemo label="recorded snapshot" wallet={displayName(normal.wallet)} progress recorded />
           <ChromeDemo label="no wallet (first visit)" />
         </Section>
 
@@ -319,7 +320,17 @@ function FactsShareCard({ facts }: { facts: RewindFacts }) {
   );
 }
 
-function ChromeDemo({ label, wallet, progress }: { label: string; wallet?: string; progress?: boolean }) {
+function ChromeDemo({
+  label,
+  wallet,
+  progress,
+  recorded,
+}: {
+  label: string;
+  wallet?: string;
+  progress?: boolean;
+  recorded?: boolean;
+}) {
   const [opened, setOpened] = useState(false);
   return (
     <div className="flex flex-col gap-2">
@@ -332,6 +343,7 @@ function ChromeDemo({ label, wallet, progress }: { label: string; wallet?: strin
           wallet={wallet}
           onOpenSettings={() => setOpened(true)}
           progress={progress ? <ProgressSegments count={5} current={1} /> : undefined}
+          recorded={recorded}
         />
       </div>
     </div>
@@ -497,7 +509,7 @@ function RevealRun({
   );
 }
 
-type Screen = "flow" | "flow-capped" | "flow-fail" | "empty" | "error" | "error-retrying" | "error-budget";
+type Screen = "flow" | "flow-capped" | "flow-fail" | "empty" | "error" | "error-retrying";
 
 /** The whole screen, end to end: the reveal hands over to the player, or a failure ends the run. */
 function FullScreenDemo() {
@@ -530,9 +542,6 @@ function FullScreenDemo() {
         <Button variant="ghost" onClick={() => setScreen("error-retrying")}>
           Error state · retrying
         </Button>
-        <Button variant="ghost" onClick={() => setScreen("error-budget")}>
-          Error state · budget spent
-        </Button>
       </Row>
       <p className="text-small text-fg-muted">
         Full screen. Press Esc or the gear to come back. ← → move the story, a hold or Space pauses it, and the last
@@ -552,15 +561,6 @@ function FullScreenDemo() {
           )}
           {screen === "error-retrying" && (
             <ErrorState wallet={displayName(normal.wallet)} retrying onRetry={close} onChangeWallet={close} />
-          )}
-          {/* The day's data budget is spent: its own headline, and no retry that could succeed. */}
-          {screen === "error-budget" && (
-            <ErrorState
-              wallet={displayName(normal.wallet)}
-              reason="budget-spent"
-              onRetry={close}
-              onChangeWallet={close}
-            />
           )}
         </Overlay>
       )}

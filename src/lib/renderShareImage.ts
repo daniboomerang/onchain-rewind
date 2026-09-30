@@ -60,8 +60,18 @@ export function shareImageStats(facts: RewindFacts, capped: boolean): readonly (
   ];
 }
 
-/** 1200×630 share image at 2× (2400×1260 PNG), in the theme the app is in. Waits for fonts. */
-export async function renderShareImage(facts: RewindFacts, capped: boolean, theme: ShareImageTheme): Promise<Blob> {
+/**
+ * 1200×630 share image at 2× (2400×1260 PNG), in the theme the app is in. Waits for fonts.
+ *
+ * `recorded` marks the image as the recorded snapshot (ADR-0005) beside the wordmark: the image travels
+ * off the site without the chrome's note, so it has to carry the mark itself.
+ */
+export async function renderShareImage(
+  facts: RewindFacts,
+  capped: boolean,
+  theme: ShareImageTheme,
+  recorded = false,
+): Promise<Blob> {
   await Promise.allSettled([
     document.fonts.load(`400 112px ${SERIF}`),
     document.fonts.load(`italic 400 25px ${SERIF}`),
@@ -91,6 +101,12 @@ export async function renderShareImage(facts: RewindFacts, capped: boolean, them
   const wx = PAD + ctx.measureText("Onchain ").width;
   ctx.font = `italic 400 25px ${SERIF}`;
   ctx.fillText("Rewind", wx, PAD + 20);
+  if (recorded) {
+    const mx = wx + ctx.measureText("Rewind").width;
+    ctx.fillStyle = C.muted;
+    ctx.font = `400 20px ${SANS}`;
+    ctx.fillText(" · Recorded snapshot", mx, PAD + 20);
+  }
 
   // Name
   const name = displayName(facts.wallet);

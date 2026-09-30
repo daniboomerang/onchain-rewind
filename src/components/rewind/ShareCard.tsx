@@ -28,10 +28,12 @@ export type ShareCardProps = {
   name: string;
   address: string; // already shortened, e.g. 0xd8dA…6045
   stats: [ShareStat, ShareStat, ShareStat, ShareStat];
+  /** The stats are the recorded snapshot's (ADR-0005), and the card says so, as the share image does. */
+  recorded?: boolean;
 };
 
 /** Summary card on the last story card. Rises 16px + fades; stats stagger one step apart. */
-export function ShareCard({ name, address, stats }: ShareCardProps) {
+export function ShareCard({ name, address, stats, recorded = false }: ShareCardProps) {
   const reduce = useReducedMotion();
   const item = reduce ? enterItemReduced : enterItem;
   // The card's own entrance is a named variant rather than a target written here: the hidden state
@@ -76,7 +78,10 @@ export function ShareCard({ name, address, stats }: ShareCardProps) {
       </motion.dl>
       <footer className="flex items-center justify-between border-t border-border pt-4">
         <span className="whitespace-nowrap font-display text-xl italic">Onchain Rewind</span>
-        <span className="size-2 rounded-full bg-accent-share" />
+        <span className="flex items-center gap-2">
+          {recorded && <span className="text-small text-fg-muted">Recorded snapshot</span>}
+          <span className="size-2 rounded-full bg-accent-share" />
+        </span>
       </footer>
     </motion.article>
   );

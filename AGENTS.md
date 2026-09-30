@@ -77,7 +77,7 @@ Every task must leave these green.
 5. **Tokens only.** No raw hex colours, font sizes or durations in components. Use the Tailwind utilities generated from `tokens.css` and the motion constants in `components/rewind/motion.ts`.
 6. **Reduced motion everywhere.** Every animated component honours `prefers-reduced-motion`, as specified in `design/DESIGN.md` §3.
 7. **Accessibility.** Focus rings on keyboard focus only, accessible names on icon buttons and chart markers, and a polite live region on the reveal counter (at most one update per second).
-8. **Never invent wallet data or ENS names.** Demo wallets are real public wallets listed in `src/lib/demo-wallets.ts`. Fixtures stay in tests and on `/system`.
+8. **Never invent wallet data or ENS names.** Demo wallets are real public wallets listed in `src/lib/demo-wallets.ts`. Fixtures stay in tests and on `/system`, with one exception: the recorded `vitalik.eth` snapshot in `src/engine/__fixtures__/` also plays in production when a quota limit refuses a Rewind's first page, labelled as a recorded snapshot (ADR-0005).
 9. **Scope.** Build what SPEC.md lists, and nothing more. New ideas go in SPEC.md under "Later", never in code.
 10. **Production is Principal-only.** No agent deploys to, changes or reads the production Vercel project, except for one command:
     - **The only Vercel command an agent may run is `vercel deploy --prod --skip-domain`.** It builds a production-target deployment and does not alias it to the production domain. Run it from a clean commit that has been reviewed, never from a dirty tree or an unreviewed branch.

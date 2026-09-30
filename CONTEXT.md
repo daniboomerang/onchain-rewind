@@ -26,6 +26,8 @@ A web app that plays a wallet's onchain year back as an animated story, built on
 
 **Cap**: The paging limit: 20 pages of 100, which is 2,000 transactions. When it's hit, figures show "2,000+". _Avoid_: Limit, max (unqualified)
 
+**Recorded snapshot**: The recorded year of `vitalik.eth` a Rewind plays when Zerion refuses its first page for a quota limit (a rate limit, or the day's budget spent), with a "Showing a recorded snapshot" note in the chrome. Read as of its own day and marked as a year cut short. See [ADR-0005](docs/adr/0005-a-quota-limit-plays-a-recorded-snapshot.md). _Avoid_: Demo data, sample data, mock, cached data, offline mode
+
 **Home chain**: The chain with the largest share of the wallet's transactions in the window. _Avoid_: Main chain, favourite chain, primary network
 
 **Share (of a chain)**: A chain's transactions ÷ `txCount` × 100, rounded by largest remainder so all shares total exactly 100. _Avoid_: Percentage, ratio, weight
@@ -56,3 +58,4 @@ A web app that plays a wallet's onchain year back as an animated story, built on
 - [ADR-0002](docs/adr/0002-loading-is-the-animation.md): Loading is the animation
 - [ADR-0003](docs/adr/0003-pure-engine-between-api-and-ui.md): A pure engine between the API and the UI
 - [ADR-0004](docs/adr/0004-the-development-record-is-read-on-the-server.md): The development record is read on the server
+- [ADR-0005](docs/adr/0005-a-quota-limit-plays-a-recorded-snapshot.md): A quota limit plays a recorded snapshot
