@@ -4,7 +4,8 @@
  * One run pages a wallet's transactions for the window, folds every page into the engine, and
  * reports each page's transactions through `onPage` as it arrives, so the reveal can turn them
  * into particles while the rest is still in flight. When paging ends the run finalizes
- * `RewindFacts` and reports `onComplete(finalCount)`; any failure reports `onFail()`.
+ * `RewindFacts` and reports `onComplete(finalCount)`; any failure reports `onFail()` — except a quota
+ * limit on the first page, which plays the recorded snapshot instead (ADR-0005).
  *
  * The loop is deliberately not a query: a query resolves once, and the reveal needs the count of
  * every page on the way. Query owns only the three reads that resolve once each — the chain list,
@@ -104,9 +105,9 @@ export type UseRewindOptions = {
    *
    * `capped` travels with the count rather than only on the result, because the reveal's counter is
    * written by a frame loop: it has to know what the number means on the frame it lands on it, not
-   * a render later.
+   * a render later. `recorded` travels the same way: the run played the recorded snapshot.
    */
-  readonly onComplete?: (finalCount: number, capped: boolean) => void;
+  readonly onComplete?: (finalCount: number, capped: boolean, recorded: boolean) => void;
   /** The run failed, for `ParticleReveal.fail`. The reason is on the result, not the callback. */
   readonly onFail?: () => void;
   readonly api?: RewindApi;
@@ -128,15 +129,51 @@ export type UseRewindResult = {
    * paging, or a page failed for good after the ones before it had landed.
    */
   capped: boolean;
+  /**
+   * The run plays the recorded snapshot (ADR-0005): Zerion refused the first page for a quota limit.
+   * True from the switch, before a recorded page is counted, so the chrome says so for the whole
+   * reveal as well as the story.
+   */
+  recorded: boolean;
+  /**
+   * Whose year the run plays: the wallet asked for, or on a recorded run the recording's wallet.
+   * What the chrome, the share card and settings name, so the story never claims someone else's year.
+   */
+  subject?: RewindWallet;
   error?: RewindFailure;
   /** Starts a fresh run for the same wallet. Safe while one is in flight: it cancels that one. */
   retry: () => void;
 };
 
 type Outcome =
-  | { readonly status: "idle" | "loading" }
-  | { readonly status: "ready"; readonly facts: RewindFacts; readonly capped: boolean }
+  | { readonly status: "idle" }
+  | { readonly status: "loading"; readonly recorded: boolean; readonly subject: RewindWallet }
+  | {
+      readonly status: "ready";
+      readonly facts: RewindFacts;
+      readonly capped: boolean;
+      readonly recorded: boolean;
+      readonly subject: RewindWallet;
+    }
   | { readonly status: "failed"; readonly error: RewindFailure };
+
+/** Where a run reads its pages from: the wallet asked for, live, or the recorded snapshot. */
+type Source = {
+  readonly api: RewindApi;
+  readonly window: RewindWindow;
+  readonly maxPages: number;
+  /**
+   * The recorded snapshot: its reads cost no budget, so they are never paced, and they never go
+   * through Query, whose cache the live reads share.
+   */
+  readonly recorded: boolean;
+};
+
+/**
+ * The recorded snapshot, loaded on the fallback only: a dynamic import keeps its JSON out of the
+ * bundle every live run downloads.
+ */
+const loadRecordedRewind = () => import("#/lib/recorded-rewind.ts").then((module) => module.recordedRewind);
 
 export function useRewind({
   wallet,
@@ -176,7 +213,8 @@ export function useRewind({
       setOutcome((previous) => (previous.status === "idle" ? previous : { status: "idle" }));
       return;
     }
-    setOutcome({ status: "loading" });
+    const asked: RewindWallet = { address, ...(name !== undefined ? { name } : {}) };
+    setOutcome({ status: "loading", recorded: false, subject: asked });
 
     const controller = new AbortController();
     const { signal } = controller;
@@ -255,12 +293,24 @@ export function useRewind({
     };
 
     /**
-     * One of the three reads that resolve once, through Query. A failed read yields `undefined`
-     * rather than ending the run: the engine leaves the field it feeds out and the card hides, which
-     * is a smaller loss than no Rewind at all. Throwing inside the query is what keeps a failure out
-     * of the cache, so the next run retries it instead of remembering it for the whole `staleTime`.
+     * One of the three reads that resolve once. A failed read yields `undefined` rather than ending
+     * the run: the engine leaves the field it feeds out and the card hides, which is a smaller loss
+     * than no Rewind at all.
+     *
+     * A live read goes through Query, and throwing inside the query is what keeps a failure out of
+     * the cache, so the next run retries it instead of remembering it for the whole `staleTime`. A
+     * recorded read never touches Query: under the live keys it would sit in the cache for that same
+     * `staleTime`, and the next live run of the same wallet would read the recording.
      */
-    const read = async <T>(queryKey: readonly unknown[], fetch: () => Promise<ZerionResult<T>>) => {
+    const readOnce = async <T>(
+      source: Source,
+      queryKey: readonly unknown[],
+      fetch: () => Promise<ZerionResult<T>>,
+    ): Promise<T | undefined> => {
+      if (source.recorded) {
+        const result = await fetch();
+        return result.ok ? result.data : undefined;
+      }
       try {
         return await client.query({
           queryKey,
@@ -276,106 +326,155 @@ export function useRewind({
       }
     };
 
+    /**
+     * Pages one source to the end and settles the run — unless its first page fails for good, which
+     * is returned rather than reported, so the caller decides whether that is the error state or the
+     * recorded snapshot. Every other outcome, the timeout and cancellation included, is settled here.
+     */
+    const play = async (source: Source): Promise<RewindFailure | undefined> => {
+      const { api } = source;
+      const address = source.window.wallet.address;
+      /** A live call waits its turn; a recorded one costs no budget, so it has none to wait for. */
+      const call = <T>(request: () => Promise<ZerionResult<T>>) => (source.recorded ? request() : paced(request));
+
+      /**
+       * Neither depends on a page, and on one request a second nothing travels *alongside* anything:
+       * these queue behind the first page rather than in front of it, so the reveal starts counting
+       * on the first page instead of waiting out their two slots first. A read Query already has
+       * costs no slot at all, because the slot is taken inside its `queryFn`.
+       */
+      let chainsRead: Promise<readonly ChainLite[] | undefined> | undefined;
+      let chartRead: Promise<BalanceChart | undefined> | undefined;
+      const startExtras = () => {
+        chainsRead ??= readOnce(source, ["zerion", "chains"], () => call(() => api.chains(signal)));
+        chartRead ??= readOnce(source, ["zerion", "balance-chart", address], () =>
+          call(() => api.balanceChart(address, signal)),
+        );
+      };
+
+      let state = createState(source.window);
+      let next: string | undefined;
+      let pages = 0;
+      /** The cap stopped paging with a page still behind it — the "2,000+" case. */
+      let pageCapHit = false;
+      /** A page failed for good with a year already counted, so the facts describe part of it. */
+      let partial = false;
+
+      /** Takes the run's next request slot, and reports whether the run may still use it. */
+      const slot = async () => {
+        if (!source.recorded) await takeSlot();
+        return !halted();
+      };
+      const request = () => api.transactionsPage({ address, ...(next !== undefined ? { next } : {}) }, signal);
+
+      for (;;) {
+        if (!(await slot())) return;
+        let page = await request();
+        if (halted()) return;
+        // One retry, because the failures that get this far are usually the upstream's own flake
+        // rather than anything about this wallet — but never for a spent daily budget, which every
+        // request is refused for until the day resets. Asking again only spends the wait.
+        if (!page.ok && page.error !== "budget_spent") {
+          await pace(pageRetryMs);
+          if (!(await slot())) return;
+          page = await request();
+          if (halted()) return;
+        }
+        if (!page.ok) {
+          // Nothing landed, so there is no story of this wallet to tell: the caller decides between
+          // the error state and the recorded snapshot. Nothing has been counted yet, so either way
+          // the reveal never has to take a particle back.
+          if (pages === 0) return page.error;
+          // A page deep into the year failed for good. The reveal has already counted every page
+          // before it, and the engine holds a real year's worth, so the run finishes with what
+          // arrived and records that the wallet made more than the facts describe — a partial
+          // story beats throwing a counted year away over one upstream fault. It never falls back:
+          // this wallet's own data has already landed.
+          partial = true;
+          break;
+        }
+
+        pages += 1;
+        startExtras();
+        const before = state.txCount;
+        state = accumulate(state, page.data);
+        // The engine's own delta, not the page's length: what the reveal counts has to add up to
+        // the final count it is completed with, and a page can carry transactions the cap or the
+        // window's lower bound drops.
+        handlers.current.onPage?.(state.txCount - before);
+
+        if (page.data.next === null) break;
+        if (pages >= source.maxPages) {
+          pageCapHit = true;
+          break;
+        }
+        next = page.data.next;
+      }
+
+      // Only the pages know which fungible card 3 is about, so this read is the one that waits.
+      const fungibleId = topFungible(state)?.ref.id;
+      const fungible =
+        fungibleId === undefined
+          ? undefined
+          : await readOnce(source, ["zerion", "fungible", fungibleId], () =>
+              call(() => api.fungible(fungibleId, signal)),
+            );
+
+      const extras: RewindExtras = {
+        chains: await chainsRead,
+        fungible: fungible ?? null,
+        chart: (await chartRead) ?? null,
+      };
+      if (halted()) return;
+
+      const capped = state.capped || pageCapHit || partial;
+      const { recorded } = source;
+      const subject = source.window.wallet;
+      if (settle({ status: "ready", facts: finalize(state, extras), capped, recorded, subject })) {
+        handlers.current.onComplete?.(state.txCount, capped, recorded);
+      }
+    };
+
     void (async () => {
       try {
-        const rewindWindow: RewindWindow = {
-          wallet: { address, ...(name !== undefined ? { name } : {}) },
-          now: nowMs === undefined ? new Date() : new Date(nowMs),
-          ...(maxTransactions !== undefined ? { maxTransactions } : {}),
-        };
-
-        /**
-         * Neither depends on a page, and on one request a second nothing travels *alongside*
-         * anything: these queue behind the first page rather than in front of it, so the reveal
-         * starts counting on the first page instead of waiting out their two slots first. A read
-         * Query already has costs no slot at all, because the slot is taken inside its `queryFn`.
-         */
-        let chainsRead: Promise<readonly ChainLite[] | undefined> | undefined;
-        let chartRead: Promise<BalanceChart | undefined> | undefined;
-        const startExtras = () => {
-          chainsRead ??= read(["zerion", "chains"], () => paced(() => api.chains(signal)));
-          chartRead ??= read(["zerion", "balance-chart", address], () =>
-            paced(() => api.balanceChart(address, signal)),
-          );
-        };
-
-        let state = createState(rewindWindow);
-        let next: string | undefined;
-        let pages = 0;
-        /** The cap stopped paging with a page still behind it — the "2,000+" case. */
-        let pageCapHit = false;
-        /** A page failed for good with a year already counted, so the facts describe part of it. */
-        let partial = false;
-
-        /** Takes the run's next request slot, and reports whether the run may still use it. */
-        const slot = async () => {
-          await takeSlot();
-          return !halted();
-        };
-        const request = () => api.transactionsPage({ address, ...(next !== undefined ? { next } : {}) }, signal);
-
-        for (;;) {
-          if (!(await slot())) return;
-          let page = await request();
-          if (halted()) return;
-          // One retry, because the failures that get this far are usually the upstream's own flake
-          // rather than anything about this wallet — but never for a spent daily budget, which every
-          // request is refused for until the day resets. Asking again only spends the wait.
-          if (!page.ok && page.error !== "budget_spent") {
-            await pace(pageRetryMs);
-            if (!(await slot())) return;
-            page = await request();
-            if (halted()) return;
-          }
-          if (!page.ok) {
-            // Nothing landed, so there is no story to tell: this is the error state.
-            if (pages === 0) {
-              fail(page.error);
-              return;
-            }
-            // A page deep into the year failed for good. The reveal has already counted every page
-            // before it, and the engine holds a real year's worth, so the run finishes with what
-            // arrived and records that the wallet made more than the facts describe — a partial
-            // story beats throwing a counted year away over one upstream fault.
-            partial = true;
-            break;
-          }
-
-          pages += 1;
-          startExtras();
-          const before = state.txCount;
-          state = accumulate(state, page.data);
-          // The engine's own delta, not the page's length: what the reveal counts has to add up to
-          // the final count it is completed with, and a page can carry transactions the cap or the
-          // window's lower bound drops.
-          handlers.current.onPage?.(state.txCount - before);
-
-          if (page.data.next === null) break;
-          if (pages >= maxPages) {
-            pageCapHit = true;
-            break;
-          }
-          next = page.data.next;
+        const failure = await play({
+          api,
+          window: {
+            wallet: asked,
+            now: nowMs === undefined ? new Date() : new Date(nowMs),
+            ...(maxTransactions !== undefined ? { maxTransactions } : {}),
+          },
+          maxPages,
+          recorded: false,
+        });
+        if (failure === undefined) return;
+        // ADR-0005: a quota limit is nothing the visitor did and nothing a retry fixes soon, so the
+        // run plays the recorded snapshot instead of the error state. Every other failure is still
+        // the error state: a timeout, an upstream fault or an address Zerion can't read.
+        if (failure !== "rate_limited" && failure !== "budget_spent") {
+          fail(failure);
+          return;
         }
-
-        // Only the pages know which fungible card 3 is about, so this read is the one that waits.
-        const fungibleId = topFungible(state)?.ref.id;
-        const fungible =
-          fungibleId === undefined
-            ? undefined
-            : await read(["zerion", "fungible", fungibleId], () => paced(() => api.fungible(fungibleId, signal)));
-
-        const extras: RewindExtras = {
-          chains: await chainsRead,
-          fungible: fungible ?? null,
-          chart: (await chartRead) ?? null,
-        };
+        const recording = await loadRecordedRewind().catch(() => undefined);
         if (halted()) return;
-
-        const capped = state.capped || pageCapHit || partial;
-        if (settle({ status: "ready", facts: finalize(state, extras), capped })) {
-          handlers.current.onComplete?.(state.txCount, capped);
+        if (recording === undefined) {
+          fail(failure);
+          return;
         }
+        // The one render the switch costs: the chrome names the recording's wallet and shows the note
+        // from here on, before a single recorded page is counted.
+        setOutcome({ status: "loading", recorded: true, subject: recording.wallet });
+        const recordedFailure = await play({
+          api: recording.api,
+          window: {
+            wallet: recording.wallet,
+            now: recording.now,
+            ...(maxTransactions !== undefined ? { maxTransactions } : {}),
+          },
+          maxPages: recording.pages,
+          recorded: true,
+        });
+        if (recordedFailure !== undefined) fail(recordedFailure);
       } catch {
         if (halted()) return;
         fail("upstream");
@@ -405,6 +504,8 @@ export function useRewind({
     status: outcome.status,
     ...(outcome.status === "ready" ? { facts: outcome.facts } : {}),
     capped: outcome.status === "ready" && outcome.capped,
+    recorded: (outcome.status === "loading" || outcome.status === "ready") && outcome.recorded,
+    ...(outcome.status === "loading" || outcome.status === "ready" ? { subject: outcome.subject } : {}),
     ...(outcome.status === "failed" ? { error: outcome.error } : {}),
     retry,
   };
