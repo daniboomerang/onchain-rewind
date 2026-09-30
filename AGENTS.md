@@ -77,7 +77,7 @@ Every task must leave these green.
 5. **Tokens only.** No raw hex colours, font sizes or durations in components. Use the Tailwind utilities generated from `tokens.css` and the motion constants in `components/rewind/motion.ts`.
 6. **Reduced motion everywhere.** Every animated component honours `prefers-reduced-motion`, as specified in `design/DESIGN.md` §3.
 7. **Accessibility.** Focus rings on keyboard focus only, accessible names on icon buttons and chart markers, and a polite live region on the reveal counter (at most one update per second).
-8. **Never invent wallet data or ENS names.** Demo wallets are real public wallets listed in `src/lib/demo-wallets.ts`. Fixtures stay in tests and on `/system`.
+8. **Never invent wallet data or ENS names.** Demo wallets are real public wallets listed in `src/lib/demo-wallets.ts`. Fixtures stay in tests and on `/system`, with one exception: the recorded `vitalik.eth` snapshot the Rewind plays when Zerion is rate-limited or out of budget (ADR-0005). It is recorded real data, labelled as a recording on screen, and never presented as the visitor's own wallet.
 9. **Scope.** Build what SPEC.md lists, and nothing more. New ideas go in SPEC.md under "Later", never in code.
 
 ## Path rules (always apply when editing matching files)
