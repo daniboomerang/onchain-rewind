@@ -12,3 +12,5 @@ argument-hint: "<endpoint> <demo-wallet>"
 4. Save it as `src/engine/__fixtures__/<endpoint>.<wallet>.json`. Endpoint names: `transactions-p1`, `transactions-p2`, `chart-year`, `chains`, `fungible-<symbol>`.
 5. Check the file contains no key, no auth header and no request metadata: `grep -i "authorization\|basic "` must return nothing.
 6. Mention the recording date at the top of the test that uses it, since the data will drift.
+
+**The `vitalik.eth` recording also serves production.** `transactions-p1`, `transactions-p2`, `chart-year`, `chains` and `fungible-eth` for `vitalik.eth` are the recorded snapshot a quota-limited visitor sees (ADR-0005, `src/lib/recorded-rewind.ts`). Re-recording them changes what that visitor sees, so treat it as a product change: record all five on the same day, move `recordedRewind.now` to that day's recording instant (the window is relative to it), keep them trimmed (they ship in the fallback's own chunk), and check `/` still plays all five cards from them with the note.

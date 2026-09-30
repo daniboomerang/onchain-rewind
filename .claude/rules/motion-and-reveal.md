@@ -58,7 +58,9 @@ so a page costs no re-render of the story.
   the player as a prop, so the share card, the share image and card 1 agree with the counter.
 - **`fail()` is the only way into the error state**, so the particles fade out before it crossfades
   in. Retry is a fresh run, not a resumed one. A page that fails once the reveal has counted others
-  is not a failed run: paging stops there and the run completes, so the burst still happens.
+  is not a failed run: paging stops there and the run completes, so the burst still happens. Nor is a
+  first page refused for a quota limit: the run switches to the recorded snapshot before anything is
+  counted (ADR-0005), so the reveal never takes a particle back, and `complete()` lands on its count.
 
 ## Reduced motion (`useReducedMotion()`)
 - No canvas: a static "Reading N transactions…" whose number updates without rolling, then a 240ms crossfade into card 1. The announced copy is a separate `sr-only` polite region in both branches and the visible number is `aria-hidden`, so the once-a-second throttle holds whether or not there is a canvas — the number itself can keep up with the pages.

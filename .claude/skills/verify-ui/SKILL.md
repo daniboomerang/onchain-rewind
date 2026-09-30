@@ -20,5 +20,6 @@ argument-hint: "[route, default /]"
 12. **Width 390:** tap zones split 30/70, the dialog is a bottom sheet, and the text fits.
 13. **`/system`:** every section renders, with no console errors.
 14. **`/dev-stats`:** the page loads, and its own footer carries "Development stats" too (linking to itself is fine — it's the same footer everywhere). A visit to `/logs` redirects here at once.
+15. **Quota fallback:** make the transactions request answer 429 (block it, or stub `getTransactionsPage` to return `rate_limited`) and press "Play". The reveal must count and play all five cards of the `vitalik.eth` year, with "Showing a recorded snapshot" in the chrome throughout, `vitalik.eth` as the wallet name, "+" on the counts, and the share card's "Recorded snapshot" mark; the gear opens settings on `vitalik.eth` with the recorded-snapshot notice. Check both themes and reduced motion. With the API answering, the same wallet plays live with no note.
 
 Report each step as pass or fail, with one line of evidence for each failure: the exact console message, or what was seen versus what was expected. Don't fix anything while running this skill. Report first.

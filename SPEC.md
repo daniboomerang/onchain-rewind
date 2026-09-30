@@ -29,7 +29,9 @@ The milestone that tracks this goal lives on the forge: "Onchain Rewind v1: demo
 3. **Gear icon, always visible:** reopens settings. Changing the wallet restarts the Rewind.
 4. **Share card:** "Share image" renders a 1200×630 PNG (native share sheet or download), and "Replay" restarts.
 
-**States:** empty wallet, invalid address, API error with retry, reduced motion.
+**States:** empty wallet, invalid address, API error with retry, the recorded snapshot, reduced motion.
+
+**The recorded snapshot** (ADR-0005): when Zerion refuses the first page for a quota limit — a rate limit, or the day's budget spent — the Rewind never ends on an error. It plays a recorded year of `vitalik.eth` instead, reveal to share card, with a "Showing a recorded snapshot" note in the chrome for as long as the story plays. Everything names the recording's wallet, never the one the visitor picked: the chrome, the share card, the share image (which carries the recorded-snapshot mark, because it travels off the site without the note), and the settings dialog opened over it. Live data stays the default, used whenever the API answers.
 
 **Platform:** desktop-first web app (1440×900), working down to 390 wide. It's not a native app.
 
@@ -92,13 +94,14 @@ The oldest transaction that happened to arrive is never presented as the day the
 
 **Pacing and the timeout:** every request one run makes — each page, and each of the three reads that resolve once — goes out at least a second after the one before it, because the key's plan allows one request a second and a burst of two is throttled whatever the two are. One per-run scheduler reserves those slots, so the chain list and the balance chart queue behind the first page rather than firing alongside it: the reveal starts counting on page one. A wallet at the cap therefore costs 28 paced requests, close to thirty seconds of wall clock; a run that hasn't produced its facts within 90s is the error state, which leaves room for an upstream twice as slow. The reveal keeps counting the pages that have landed throughout.
 
-**A page that fails:** it is asked for once more, half a second later, because a throttled page and the 500 Zerion returns for some deep pages of a very active wallet both usually answer on the next attempt. If it fails again, what happens depends on how far the year got: the **first** page failing is the error state, while a **later** page failing ends paging there and the Rewind plays the year that did arrive, marked the same way the cap marks it. A counted year is worth more than a perfect one.
+**A page that fails:** it is asked for once more, half a second later, because a throttled page and the 500 Zerion returns for some deep pages of a very active wallet both usually answer on the next attempt. If it fails again, what happens depends on how far the year got: the **first** page failing is the error state — unless it failed for a quota limit, which plays the recorded snapshot (below) — while a **later** page failing ends paging there and the Rewind plays the year that did arrive, marked the same way the cap marks it. A counted year is worth more than a perfect one.
 
 **Budget:** the key's organization is on Zerion's free **Demo plan**, and its limits are the plan's own, read from the response headers (`ratelimit-org-tier: demo`, `ratelimit-org-second-limit: 1`, `ratelimit-org-day-limit: 300`): **one request a second, and 300 a day**. One Rewind of a wallet at the cap spends 28 of them, so the day holds around ten.
 - Keep an in-memory server cache per `(address, endpoint, params)` with a TTL of half a day — hours, not minutes, so replaying or re-opening a wallet the same day costs no new requests. The window is 365 days long, so nothing on a card reads differently for the drift.
 - On the client, TanStack Query uses the same `staleTime` of half a day.
-- On 429 with calls left in the day, retry with exponential backoff (at most 3 tries), then show the error state.
-- **When the day's budget is spent** the API answers 429 with `ratelimit-org-day-remaining: 0`, and `ratelimit-org-day-reset` counts the seconds until it comes back; no retry helps before then. That is its own failure, not a throttle: the Rewind ends on the error state with its own message — the day's data budget is spent, come back tomorrow — instead of the generic "didn't respond".
+- On 429 with calls left in the day, retry with exponential backoff (at most 3 tries), then the page's one retry above.
+- **When the day's budget is spent** the API answers 429 with `ratelimit-org-day-remaining: 0`, and `ratelimit-org-day-reset` counts the seconds until it comes back; no retry helps before then. That is its own failure, not a throttle, and it is never retried.
+- **A quota limit on the first page plays the recorded snapshot** (ADR-0005): when the first page fails as a rate limit that outlasted its backoffs and the one retry, or as a spent day, the run plays the recorded `vitalik.eth` snapshot with a "Showing a recorded snapshot" note for as long as the story plays, instead of the error state. The recording holds two pages (about five weeks) beside a full-year chart, so it is marked as a year cut short: "+" on the counts, "onchain by" on the first card. It is read as of its own day (2026-09-27), because the window is relative to the instant it ends; it costs no budget and needs no pacing; and it is loaded only on the fallback, never through the client's query cache, so no live run downloads it or reads it. A later page failing and every other failure keep their rules above. There is no budget-spent error screen.
 
 ## 6. Demo wallets
 
