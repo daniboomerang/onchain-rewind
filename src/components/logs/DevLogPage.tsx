@@ -431,7 +431,7 @@ function TicketRow({ ticket: t, scaleMs }: { ticket: TicketView; scaleMs: number
 
   return (
     <li className="border-b border-border last:border-b-0">
-      <details className="group">
+      <details className="group" open>
         <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">{summary}</summary>
         <div className="flex flex-col gap-4 px-5 pb-5">
           <RoundTimeline timeline={t.timeline} scaleMs={scaleMs} humanRulings={t.humanRulingsCount} />
