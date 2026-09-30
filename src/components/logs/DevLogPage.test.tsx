@@ -88,7 +88,7 @@ describe("DevLogRecord", () => {
     expect(screen.queryByText(/The developer are/)).not.toBeInTheDocument();
   });
 
-  it("expands a ticket's round-by-round timeline via its native <details>, closed until clicked", async () => {
+  it("shows a ticket's round-by-round timeline open by default, and collapses it on click", async () => {
     const user = userEvent.setup();
     render(<DevLogRecord view={normalDevLog} />);
 
@@ -99,14 +99,13 @@ describe("DevLogRecord", () => {
     expect(details).not.toBeNull();
     if (!details) throw new Error("details not found");
 
-    // A native <details> starts closed — the round timeline is not yet meaningfully shown to a
-    // visitor, even though happy-dom (unlike a real browser's UA stylesheet) doesn't hide its markup.
-    expect(details).not.toHaveAttribute("open");
+    // Open on arrival: a reader sees every ticket's rounds without clicking.
+    expect(details).toHaveAttribute("open");
+    expect(screen.getByText(/re-review after a human ruling/)).toBeInTheDocument();
 
     await user.click(summary);
 
-    expect(details).toHaveAttribute("open");
-    expect(screen.getByText(/re-review after a human ruling/)).toBeInTheDocument();
+    expect(details).not.toHaveAttribute("open");
   });
 
   it("never renders an expand affordance for a ticket the log never saw", () => {

@@ -443,7 +443,7 @@ function TicketRow({ ticket: t, scaleMs }: { ticket: TicketView; scaleMs: number
 
   return (
     <li className="border-b border-border last:border-b-0">
-      <details className="group">
+      <details className="group" open>
         <summary className="relative cursor-pointer list-none [&::-webkit-details-marker]:hidden">
           {summary}
           <ChevronIcon className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-fg-subtle transition-transform duration-(--duration-fast) ease-out group-open:rotate-180 motion-reduce:transition-none" />
