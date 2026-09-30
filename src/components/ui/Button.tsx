@@ -61,11 +61,11 @@ export function Button({
   );
 }
 
-export function Spinner() {
+export function Spinner({ className = "size-3.5" }: { className?: string }) {
   return (
     <span
       aria-hidden
-      className="size-3.5 rounded-full border-2 border-current border-t-transparent motion-safe:animate-spin"
+      className={`rounded-full border-2 border-current border-t-transparent motion-safe:animate-spin ${className}`}
     />
   );
 }

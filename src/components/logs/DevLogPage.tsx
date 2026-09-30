@@ -13,6 +13,7 @@ import { getGithubDevRecord } from "../../server/github/dev-record.functions";
 import { getDevRecord } from "../../server/vinaya/dev-record.functions";
 import type { VinayaLogResult } from "../../server/vinaya/log-client";
 import { duration, ease, enterCard, enterCardReduced, stagger } from "../rewind/motion";
+import { Button, Spinner } from "../ui/Button";
 import { SiteFooter } from "../ui/Footer";
 import { localStamp, minutes, plural, tokens } from "./format";
 import { RoundTimeline } from "./RoundTimeline";
@@ -61,7 +62,14 @@ const STATE_MESSAGE: Record<LoadState, { headline: string; body: string } | unde
 
 /** One state message, used by the page and by `/system`'s fixtures. */
 export function StateMessage({ state }: { state: LoadState }) {
-  if (state === "loading") return <p className="text-fg-muted">Reading the project record…</p>;
+  if (state === "loading") {
+    return (
+      <div className="flex flex-col items-center gap-3 py-16 text-fg-muted">
+        <Spinner className="size-8" />
+        <p className="text-small">Reading the project record…</p>
+      </div>
+    );
+  }
   const message = STATE_MESSAGE[state];
   if (!message) return null;
   return (
@@ -79,6 +87,10 @@ export function DevLogPage() {
   return (
     <main className="min-h-dvh bg-bg px-10 py-12 text-fg max-sm:px-5">
       <div className="mx-auto flex max-w-[1180px] flex-col gap-8">
+        <Button variant="ghost" render={<a href="/" />} className="self-start">
+          Back to home
+        </Button>
+
         <header className="flex max-w-[720px] flex-col gap-3">
           <p className="font-mono text-label text-fg-subtle uppercase">Onchain Rewind</p>
           <h1 className="font-display text-headline">Project development logs</h1>
@@ -432,7 +444,10 @@ function TicketRow({ ticket: t, scaleMs }: { ticket: TicketView; scaleMs: number
   return (
     <li className="border-b border-border last:border-b-0">
       <details className="group">
-        <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">{summary}</summary>
+        <summary className="relative cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+          {summary}
+          <ChevronIcon className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-fg-subtle transition-transform duration-(--duration-fast) ease-out group-open:rotate-180 motion-reduce:transition-none" />
+        </summary>
         <div className="flex flex-col gap-4 px-5 pb-5">
           <RoundTimeline timeline={t.timeline} scaleMs={scaleMs} humanRulings={t.humanRulingsCount} />
           <p className="text-label text-fg-subtle">
@@ -443,6 +458,15 @@ function TicketRow({ ticket: t, scaleMs }: { ticket: TicketView; scaleMs: number
         </div>
       </details>
     </li>
+  );
+}
+
+/** Points down; `group-open:rotate-180` turns it to point up once the ticket's `<details>` is open. */
+function ChevronIcon({ className }: { className?: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden className={className}>
+      <path d="M6 9L12 15L18 9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
