@@ -79,6 +79,11 @@ Every task must leave these green.
 7. **Accessibility.** Focus rings on keyboard focus only, accessible names on icon buttons and chart markers, and a polite live region on the reveal counter (at most one update per second).
 8. **Never invent wallet data or ENS names.** Demo wallets are real public wallets listed in `src/lib/demo-wallets.ts`. Fixtures stay in tests and on `/system`.
 9. **Scope.** Build what SPEC.md lists, and nothing more. New ideas go in SPEC.md under "Later", never in code.
+10. **Production is Principal-only.** No agent deploys to, changes or reads the production Vercel project, except for one command:
+    - **The only Vercel command an agent may run is `vercel deploy --prod --skip-domain`.** It builds a production-target deployment and does not alias it to the production domain. Run it from a clean commit that has been reviewed, never from a dirty tree or an unreviewed branch.
+    - **Everything else is denied, named or not.** That includes `vercel deploy --prod` without `--skip-domain`, `--target=production`, `promote`, `rollback`, `redeploy`, `alias`, `domains`, `link`, `pull`, `git connect`, `env` and `--prebuilt`, and any other Vercel command or flag. So are the Vercel dashboard, the Vercel API, and every change to environment variables or project settings. They are the Principal's.
+    - **An unaliased build is still production.** It runs with the production environment variables and its URL is reachable. Hand the URL to the Principal in the PR and never publish it: not in the README, a comment, a commit message or the app.
+    - **This rule is enforced by prose and by the Principal's Vercel project settings (SPEC.md §10), not by a permission rule.** No tool blocks a violation, so an agent that is unsure stops and asks. The detail is in the `tanstack-start` path rule.
 
 ## Path rules (always apply when editing matching files)
 
