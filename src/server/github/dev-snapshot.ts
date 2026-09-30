@@ -38,3 +38,14 @@ function hasObject(value: unknown, key: string): boolean {
   const field = (value as Record<string, unknown>)[key];
   return typeof field === "object" && field !== null;
 }
+
+/**
+ * The snapshot this deploy carries, or `null` when the build wrote none. Vite bundles the file
+ * into the server output at build time (an empty glob when it's absent), so this never touches the
+ * disk at runtime and never ships to the browser: only `dev-snapshot.functions.ts`'s handler reads
+ * it. Never import this module from a component.
+ */
+export function readDevSnapshot(): DevSnapshot | null {
+  const files = import.meta.glob<unknown>("./dev-snapshot.json", { eager: true, import: "default" });
+  return parseDevSnapshot(files[`./${DEV_SNAPSHOT_FILE}`]) ?? null;
+}
