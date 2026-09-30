@@ -11,6 +11,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { expect, test, vi } from "vitest";
+import { accumulate, createState } from "#/engine/rewind.ts";
 import type { Address } from "#/engine/types.ts";
 import type { BalanceChart, ChainLite, FungibleLite, TransactionsPage, TxLite } from "#/engine/zerion.ts";
 import {
@@ -128,7 +129,8 @@ function recorder() {
   return {
     trace,
     onPage: (count: number) => trace.push(`page:${count}`),
-    onComplete: (finalCount: number, capped: boolean) => trace.push(`complete:${finalCount}${capped ? "+" : ""}`),
+    onComplete: (finalCount: number, capped: boolean, recorded: boolean) =>
+      trace.push(`complete:${finalCount}${capped ? "+" : ""}${recorded ? " recorded" : ""}`),
     onFail: () => trace.push("fail"),
   };
 }
@@ -185,7 +187,7 @@ function renderRewind(options: UseRewindOptions) {
   });
   // A re-render is a second run, and it takes the same default: `rerender` would otherwise hand the
   // hook the raw props and pace that run a second apart.
-  return { ...rendered, rerender: (props: UseRewindOptions) => rendered.rerender(unpaced(props)) };
+  return { ...rendered, client, rerender: (props: UseRewindOptions) => rendered.rerender(unpaced(props)) };
 }
 
 /* ---- O1, O2: paging, the engine, and the facts the extras complete ---- */
@@ -471,9 +473,9 @@ test("a full year at the page cap reaches the story well inside the timeout", as
       api,
       requestIntervalMs: REQUEST_INTERVAL_MS,
       onPage,
-      onComplete: (finalCount, capped) => {
+      onComplete: (finalCount, capped, recorded) => {
         finishedAt = Date.now();
-        onComplete(finalCount, capped);
+        onComplete(finalCount, capped, recorded);
       },
       onFail,
     });
@@ -608,7 +610,7 @@ test("an empty wallet completes with no transactions, which is a success", async
   expect(calls.fungibles).toEqual([]);
 });
 
-test.each(["upstream", "rate_limited", "invalid_address", "not_found"] as const)(
+test.each(["upstream", "invalid_address", "not_found"] as const)(
   "a %s response from the transactions endpoint, twice, reports failure",
   async (error) => {
     const { onPage, onComplete, onFail, trace } = recorder();
@@ -638,20 +640,111 @@ test.each(["upstream", "rate_limited", "invalid_address", "not_found"] as const)
   },
 );
 
-test("a spent daily budget fails the run at once: no retry, because every retry is refused", async () => {
-  const { onPage, onComplete, onFail, trace } = recorder();
-  // A second page is scripted and must go unused: asking again only spends the wait.
-  const { api, calls } = fakeApi({
-    pages: [{ ok: false, error: "budget_spent" }, page([tx("a", "2026-09-20T10:00:00Z", "ethereum")], null)],
+/* ---- ADR-0005: a quota limit on the first page plays the recorded snapshot ---- */
+
+/** What the recording folds to through the engine: the count a recorded run must complete with. */
+async function recordedCount() {
+  const { recordedRewind } = await import("#/lib/recorded-rewind.ts");
+  let state = createState({ wallet: recordedRewind.wallet, now: recordedRewind.now });
+  for (let n = 0, next: string | undefined; n < recordedRewind.pages; n += 1) {
+    const result = await recordedRewind.api.transactionsPage(
+      { address: recordedRewind.wallet.address, ...(next !== undefined ? { next } : {}) },
+      new AbortController().signal,
+    );
+    if (!result.ok) throw new Error(result.error);
+    state = accumulate(state, result.data);
+    next = result.data.next ?? undefined;
+  }
+  return state.txCount;
+}
+
+test.each([
+  // A throttle that outlasted the server's backoffs gets the page's one retry before the switch.
+  ["rate_limited", 2],
+  // A spent day is never asked for twice.
+  ["budget_spent", 1],
+] as const)(
+  "a first page refused with %s plays the recorded vitalik.eth year instead of failing",
+  async (error, asked) => {
+    const { onPage, onComplete, onFail, trace } = recorder();
+    // More live answers are scripted than the run may use: after the switch it asks Zerion for nothing.
+    const { api, calls } = fakeApi({
+      pages: [{ ok: false, error }, { ok: false, error }, page([tx("a", "2026-09-20T10:00:00Z", "ethereum")], null)],
+    });
+
+    const { result, client } = renderRewind({
+      wallet: { address: ADDRESS, name: "picked.eth" },
+      now: NOW,
+      api,
+      pageRetryMs: 0,
+      onPage,
+      onComplete,
+      onFail,
+    });
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+
+    expect(calls.pages).toHaveLength(asked);
+    expect(calls.fungibles).toEqual([]);
+    expect(result.current.error).toBeUndefined();
+    expect(result.current.recorded).toBe(true);
+    // The story is the recording's wallet's, never the picked one's.
+    expect(result.current.subject?.name).toBe("vitalik.eth");
+    expect(result.current.facts?.wallet.name).toBe("vitalik.eth");
+    expect(result.current.facts?.wallet.address.toLowerCase()).toBe(ADDRESS);
+
+    // Two recorded pages reach the reveal, and the run completes as a year cut short: the recording
+    // holds about five weeks, not the whole year.
+    const count = await recordedCount();
+    const pages = trace.filter((entry) => entry.startsWith("page:"));
+    expect(pages).toHaveLength(2);
+    expect(pages.reduce((sum, entry) => sum + Number(entry.slice("page:".length)), 0)).toBe(count);
+    expect(trace.at(-1)).toBe(`complete:${count}+ recorded`);
+    expect(trace).not.toContain("fail");
+    expect(result.current.capped).toBe(true);
+    expect(result.current.facts?.txCount).toBe(count);
+
+    // Every card has something to show: an origin, a home chain, a top token and the ride's chart.
+    expect(result.current.facts?.firstTx).toBeDefined();
+    expect(result.current.facts?.chains.length).toBeGreaterThan(0);
+    expect(result.current.facts?.topToken?.symbol).toBe("ETH");
+    expect(result.current.facts?.balance).toBeDefined();
+
+    // Nothing recorded went through Query: a later live run of the same keys would read it.
+    expect(client.getQueryCache().getAll()).toEqual([]);
+  },
+);
+
+test("a recorded run is read as of its own day, whatever the clock says", async () => {
+  const { onComplete, trace } = recorder();
+  const { api } = fakeApi({ pages: [{ ok: false, error: "budget_spent" }] });
+
+  // A year after the recording, every recorded transaction would be outside a window read at `now`.
+  const { result } = renderRewind({
+    wallet: { address: ADDRESS },
+    now: new Date("2027-12-01T00:00:00Z"),
+    api,
+    onComplete,
   });
+  await waitFor(() => expect(result.current.status).toBe("ready"));
 
-  const { result } = renderRewind({ wallet: { address: ADDRESS }, now: NOW, api, onPage, onComplete, onFail });
-  await waitFor(() => expect(result.current.status).toBe("failed"));
+  expect(trace).toEqual([`complete:${await recordedCount()}+ recorded`]);
+});
 
-  expect(calls.pages).toHaveLength(1);
-  expect(result.current.error).toBe("budget_spent");
-  expect(trace).toEqual(["fail"]);
-  expect(result.current.facts).toBeUndefined();
+test("recorded reads cost no budget, so they are never paced", async () => {
+  const { api } = fakeApi({ pages: [{ ok: false, error: "budget_spent" }] });
+  const startedAt = Date.now();
+
+  // The app's own floor: paced, the recording's two pages and three reads would take four seconds more.
+  const { result } = renderRewind({
+    wallet: { address: ADDRESS },
+    now: NOW,
+    api,
+    requestIntervalMs: REQUEST_INTERVAL_MS,
+  });
+  await waitFor(() => expect(result.current.status).toBe("ready"));
+
+  expect(result.current.recorded).toBe(true);
+  expect(Date.now() - startedAt).toBeLessThan(REQUEST_INTERVAL_MS);
 });
 
 test("a first page that fails once and answers on the retry never reaches the error state", async () => {
@@ -705,14 +798,17 @@ test("a page that fails for good part-way through finishes the run with what lan
   expect(result.current.capped).toBe(true);
   expect(result.current.error).toBeUndefined();
   expect(result.current.facts?.txCount).toBe(1);
+  // The wallet's own year has landed, so a later page's rate limit never falls back to the recording.
+  expect(result.current.recorded).toBe(false);
+  expect(result.current.facts?.wallet.address).toBe(ADDRESS);
 });
 
 test("retry starts paging over, and a run that then succeeds clears the failure", async () => {
   const { onPage, onComplete, onFail, trace } = recorder();
   const { api, calls } = fakeApi({
     pages: [
-      { ok: false, error: "rate_limited" },
-      { ok: false, error: "rate_limited" },
+      { ok: false, error: "upstream" },
+      { ok: false, error: "upstream" },
       page([tx("a", "2026-09-20T10:00:00Z", "ethereum")], null),
     ],
   });

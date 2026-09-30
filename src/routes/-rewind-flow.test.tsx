@@ -106,8 +106,16 @@ type Options = {
    * once — so the run ends in the error state and "Try again" is the run that succeeds.
    */
   readonly failFirstRun?: boolean;
-  /** The day's data budget is spent: the first page fails with it, and no page is asked for twice. */
-  readonly budgetSpent?: boolean;
+  /**
+   * Zerion refuses every page for a quota limit: a throttle that outlasted its backoffs, or a spent
+   * day. The run plays the recorded snapshot instead (ADR-0005).
+   */
+  readonly quota?: "rate_limited" | "budget_spent";
+  /**
+   * The first run's first page lands and its second fails both times it is asked for: a year cut
+   * short by a later page, which keeps the wallet's own data and never falls back.
+   */
+  readonly failSecondPage?: boolean;
 };
 
 type Gate = { readonly wait: Promise<void>; readonly open: () => void };
@@ -124,14 +132,15 @@ function gate(): Gate {
  * The Zerion reads, scripted. Pages are consumed in order across the whole render, so a retry or a
  * second wallet keeps reading the same year — which is what a server cache would do anyway.
  */
-function fakeApi({ pages = PAGES, gated = false, failFirstRun = false, budgetSpent = false }: Options = {}) {
+function fakeApi({ pages = PAGES, gated = false, failFirstRun = false, quota, failSecondPage = false }: Options = {}) {
   const gates = pages.map(gate);
   let calls = 0;
 
   const api: RewindApi = {
     transactionsPage: async () => {
       const index = calls++;
-      if (budgetSpent) return { ok: false, error: "budget_spent" };
+      if (quota) return { ok: false, error: quota };
+      if (failSecondPage && index >= 1) return { ok: false, error: "rate_limited" };
       if (failFirstRun && index < 2) return { ok: false, error: "upstream" };
       const slot = (failFirstRun ? index - 2 : index) % pages.length;
       if (gated) await gates[slot]?.wait;
@@ -240,25 +249,68 @@ test("a failed run ends in the error state, and Try again plays the Rewind", asy
   expect(await screen.findByLabelText(CARD.origin)).toBeInTheDocument();
 });
 
-test("a spent daily budget ends on the error state saying so, and when to come back", async () => {
+/** The note the chrome carries for as long as a recorded run plays. */
+const RECORDED_NOTE = "Showing a recorded snapshot";
+
+test.each([
+  ["a rate limit on the first page", "rate_limited"],
+  ["a spent daily budget", "budget_spent"],
+] as const)("%s plays the recorded vitalik.eth year, reveal to share card, and says so", async (_, quota) => {
   const user = userEvent.setup();
   remember(first);
-  const { api } = fakeApi({ budgetSpent: true });
+  const { api } = fakeApi({ quota });
   open(api);
   await play(user);
 
-  const alert = await screen.findByRole("alert");
-  expect(alert).toHaveTextContent("Today's data budget is spent");
-  expect(alert).toHaveTextContent("today's requests are all spent");
-  expect(alert).toHaveTextContent("come back tomorrow");
-  // The generic screen is gone, headline and all: the data service answered, it just answered that
-  // the day is over. And there is no retry, because no retry succeeds before the day resets — the
-  // only thing left to do here is change wallet.
-  expect(alert).not.toHaveTextContent("The data service didn't respond");
-  expect(alert).not.toHaveTextContent("The rewind got stuck");
-  expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
-  // The gear in the chrome carries the same name, so this is the screen's own button.
-  expect(within(alert).getByRole("button", { name: "Change wallet" })).toHaveFocus();
+  // The switch happens during the reveal: from there on the chrome names the recording's wallet and
+  // carries the note, before the story has begun. The rate limit is retried once first, a moment later.
+  expect(await screen.findByText(RECORDED_NOTE, undefined, { timeout: 4000 })).toBeInTheDocument();
+  expect(screen.getByText("vitalik.eth")).toBeInTheDocument();
+  expect(screen.queryByText(first.label)).toBeNull();
+
+  // Every card of the recorded year plays, and the note stays over each one.
+  const cards = [
+    "1 of 5: Origin",
+    "2 of 5: Home chain",
+    "3 of 5: Top token",
+    "4 of 5: The ride",
+    "5 of 5: Your rewind",
+  ];
+  for (const [index, name] of cards.entries()) {
+    if (index > 0) await user.keyboard("[ArrowRight]");
+    expect(await screen.findByLabelText(name, undefined, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.getByText(RECORDED_NOTE)).toBeInTheDocument();
+    expect(screen.queryByText(first.label)).toBeNull();
+  }
+  expect(screen.queryByRole("alert")).toBeNull();
+
+  // The recording is two pages, not a whole year: the share card counts it as a year cut short, names
+  // the recording's wallet and carries the recorded-snapshot mark.
+  const panel = within(screen.getByRole("article"));
+  expect(panel.getByRole("heading", { name: "vitalik.eth" })).toBeInTheDocument();
+  expect(panel.getByText(/^[\d,]+\+$/)).toBeInTheDocument();
+  expect(panel.getByText("onchain by")).toBeInTheDocument();
+  expect(panel.getByText("Recorded snapshot")).toBeInTheDocument();
+
+  // Settings opens on the wallet whose year is playing, and says why it isn't the stored one.
+  await user.click(screen.getByRole("button", { name: "Change wallet" }));
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).getByRole("combobox")).toHaveValue("vitalik.eth");
+  expect(dialog).toHaveTextContent("a recorded snapshot of vitalik.eth");
+});
+
+test("live data plays with no note, and a later page failing keeps the wallet's own year", async () => {
+  const user = userEvent.setup();
+  remember(first);
+  const { api } = fakeApi({ failSecondPage: true });
+  open(api);
+  await play(user);
+
+  // The second page is retried once before the run lets it go, so the story is a moment later.
+  expect(await screen.findByLabelText(CARD.origin, undefined, { timeout: 4000 })).toBeInTheDocument();
+  expect(screen.getByText(first.label)).toBeInTheDocument();
+  expect(screen.queryByText("vitalik.eth")).toBeNull();
+  expect(screen.queryByText(RECORDED_NOTE)).toBeNull();
 });
 
 test("changing the wallet restarts the Rewind", async () => {

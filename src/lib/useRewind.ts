@@ -131,8 +131,7 @@ export type UseRewindResult = {
   capped: boolean;
   /**
    * The run plays the recorded snapshot (ADR-0005): Zerion refused the first page for a quota limit.
-   * True from the switch, before a recorded page is counted, so the chrome says so for the whole
-   * reveal as well as the story.
+   * True from the switch on, so the chrome says so through the reveal as well as the story.
    */
   recorded: boolean;
   /**
@@ -462,7 +461,7 @@ export function useRewind({
           return;
         }
         // The one render the switch costs: the chrome names the recording's wallet and shows the note
-        // from here on, before a single recorded page is counted.
+        // from here on, through the rest of the reveal and the whole story.
         setOutcome({ status: "loading", recorded: true, subject: recording.wallet });
         const recordedFailure = await play({
           api: recording.api,
