@@ -208,7 +208,7 @@ function Rewind({ wallet, api, requestIntervalMs, onRestart, onOpenSettings, onC
   const handoff = useRef<number | null>(null);
   const [stage, setStage] = useState<Stage>("reveal");
 
-  const { facts, capped, recorded, subject, error } = useRewind({
+  const { facts, capped, recorded, subject } = useRewind({
     wallet,
     ...(api !== undefined ? { api } : {}),
     ...(requestIntervalMs !== undefined ? { requestIntervalMs } : {}),
@@ -267,12 +267,7 @@ function Rewind({ wallet, api, requestIntervalMs, onRestart, onOpenSettings, onC
         />
       )}
       {stage === "error" && (
-        <ErrorState
-          wallet={displayName(wallet)}
-          reason={error === "budget_spent" ? "budget-spent" : "unavailable"}
-          onRetry={onRestart}
-          onChangeWallet={openSettings}
-        />
+        <ErrorState wallet={displayName(wallet)} onRetry={onRestart} onChangeWallet={openSettings} />
       )}
     </>
   );
