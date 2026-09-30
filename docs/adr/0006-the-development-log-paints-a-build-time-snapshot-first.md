@@ -12,7 +12,7 @@
 ## Consequences
 
 - The build needs read access to both sources. If it cannot read either, the build still passes and the page falls back to its loader.
-- The snapshot is generated, gitignored and never committed, and holds only the mapped record, never a token or a raw upstream body. It lives outside `public/`, is read by a plain server module, and holds nothing the live public page does not already serve.
+- The snapshot is generated, gitignored and never committed, and holds only the mapped record, never a token or a raw upstream body. It lives outside `public/`, is read by a plain server module, and holds nothing the live public page does not already serve. That holds only while the build-time tokens have no more scope than the tokens the running server uses, so the two are scoped the same, read-only.
 - The build script's failure log names the source and the HTTP status only, never an error object, a URL or a header, because a build log is visible to everyone with team access.
 - The ship check greps the snapshot and the client bundle for the token names and values.
 - The page says when the snapshot was taken, so it never overstates that the record is read live.
