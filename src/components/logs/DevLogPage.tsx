@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "motion/react";
-import { type ReactNode, useMemo, useSyncExternalStore } from "react";
+import { type ReactNode, useMemo, useState, useSyncExternalStore } from "react";
 import {
   buildDegradedLogView,
   buildDevLogView,
@@ -150,7 +150,10 @@ function DevLogData({ snapshot }: { snapshot: DevSnapshot | null }) {
     enabled: hydrated,
   });
 
-  const log = vinaya.data?.ok ? { tasks: vinaya.data.data.tasks, guardrails: vinaya.data.data.guardrails } : undefined;
+  const log = useMemo(
+    () => (vinaya.data?.ok ? { tasks: vinaya.data.data.tasks, guardrails: vinaya.data.data.guardrails } : undefined),
+    [vinaya.data],
+  );
 
   const view = useMemo(() => {
     if (!github.data?.ok) return undefined;
@@ -164,28 +167,55 @@ function DevLogData({ snapshot }: { snapshot: DevSnapshot | null }) {
   const saved = useMemo(() => (snapshot ? buildDevLogView(snapshot.github, snapshot.log) : undefined), [snapshot]);
 
   const vinayaProblem = vinayaState(vinaya);
-  const vinayaSettled = vinaya.data !== undefined || vinaya.isError;
+  const liveFailed = github.isError || github.data?.ok === false || vinayaProblem !== null;
 
-  // The live record replaces the snapshot once both reads have answered, so the round timelines
-  // and guardrails never blink out between the two. With no snapshot, GitHub alone is enough.
-  // Both branches render the same elements in the same places, so the swap re-renders the record
-  // in place — no remount, no loader, no entrance animation played twice.
-  if (view && (vinayaSettled || !saved)) {
+  // The last record both live reads answered in full. Held (adjusting state during render, not in
+  // an effect, so it never lags a frame) so a later failed poll keeps it rather than falling back
+  // to the older snapshot.
+  const complete = view && log ? view : undefined;
+  const [lastLive, setLastLive] = useState<DevLogView>();
+  if (complete && complete !== lastLive) setLastLive(complete);
+
+  // The live record replaces what's on screen only once both reads have answered in full, so the
+  // round timelines and guardrails never blink out. Until then — and whenever a live read fails —
+  // the last full live record, or else the snapshot, stays. Every branch below renders the same
+  // elements in the same places, so a swap re-renders the record in place: no remount, no loader,
+  // no entrance animation played twice.
+  if (complete) {
     return (
       <>
         <RecordSource />
-        <DevLogRecord view={view} />
-        {vinayaProblem && <StateMessage state={vinayaProblem} />}
+        <DevLogRecord view={complete} />
+      </>
+    );
+  }
+
+  if (lastLive) {
+    return (
+      <>
+        <RecordSource stale />
+        <DevLogRecord view={lastLive} />
       </>
     );
   }
 
   if (saved && snapshot) {
-    const liveFailed = github.isError || (github.data !== undefined && !github.data.ok);
     return (
       <>
         <RecordSource savedAt={snapshot.takenAt} liveFailed={liveFailed} />
         <DevLogRecord view={saved} saved />
+      </>
+    );
+  }
+
+  // No snapshot and no full live record yet: GitHub alone is enough to show the tickets, with a
+  // message naming what the Vinaya log couldn't give.
+  if (view) {
+    return (
+      <>
+        <RecordSource />
+        <DevLogRecord view={view} />
+        {vinayaProblem && <StateMessage state={vinayaProblem} />}
       </>
     );
   }
@@ -223,12 +253,23 @@ function vinayaState(vinaya: { data?: VinayaLogResult<unknown>; isError: boolean
  * Which record is on screen: the live one, or the snapshot and when it was taken. A snapshot is
  * never passed off as live — the page says it is a saved copy until the live reads replace it.
  */
-function RecordSource({ savedAt, liveFailed = false }: { savedAt?: string; liveFailed?: boolean }) {
+function RecordSource({
+  savedAt,
+  liveFailed = false,
+  stale = false,
+}: {
+  savedAt?: string;
+  liveFailed?: boolean;
+  stale?: boolean;
+}) {
+  const live = savedAt === undefined && !stale;
   return (
     <p role="status" className="flex items-center gap-2 text-small text-fg-muted">
-      <span aria-hidden className={`size-2 rounded-full ${savedAt === undefined ? "bg-positive" : "bg-fg-subtle"}`} />
-      {savedAt === undefined ? (
+      <span aria-hidden className={`size-2 rounded-full ${live ? "bg-positive" : "bg-fg-subtle"}`} />
+      {live ? (
         "Live, refreshed every few seconds."
+      ) : savedAt === undefined ? (
+        "The last live read. The latest refresh couldn't be read, so this stays until it can. It tries again every few seconds."
       ) : (
         <span>
           Saved copy as of <LocalTime iso={savedAt} />, taken when this version of the site was built.{" "}

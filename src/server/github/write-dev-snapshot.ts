@@ -34,8 +34,9 @@ export async function takeDevSnapshot(now: () => Date = () => new Date()): Promi
   try {
     log = await readDevRecord();
   } catch {
-    // `log-client.ts` throws for one reason only: no read token in the environment.
-    return { ok: false, source: "Vinaya log", status: "no read token" };
+    // `log-client.ts` throws for one reason — no read token in the environment — but the fold
+    // after it could too, so the status names what happened, not a guess at why.
+    return { ok: false, source: "Vinaya log", status: "read threw before answering" };
   }
   if (!log.ok) return { ok: false, source: "Vinaya log", status: log.error };
 

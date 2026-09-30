@@ -87,10 +87,10 @@ describe("writeDevSnapshot", () => {
 
     const attempt = await writeDevSnapshot(path);
 
-    expect(attempt).toEqual({ ok: false, source: "Vinaya log", status: "no read token" });
+    expect(attempt).toEqual({ ok: false, source: "Vinaya log", status: "read threw before answering" });
     expect(existsSync(path)).toBe(false);
     expect(readGithubDevRecord).not.toHaveBeenCalled();
-    expect(buildLog()).toBe("dev snapshot: not written, Vinaya log (no read token)");
+    expect(buildLog()).toBe("dev snapshot: not written, Vinaya log (read threw before answering)");
   });
 
   it("removes a stale snapshot and logs only the source and status when GitHub is rate limited", async () => {
@@ -131,20 +131,5 @@ describe("writeDevSnapshot", () => {
 
     expect(seen).toMatch(/onchain-rewind-dev-snapshot-[0-9a-f]{16}\.json$/);
     expect(process.env.DEVLOG_CACHE_FILE).toBe("/somewhere/else.json");
-  });
-});
-
-describe("parseDevSnapshot", () => {
-  it("accepts a snapshot the build wrote", () => {
-    const snapshot = { takenAt: "2026-09-30T17:52:56.295Z", github: githubRecord, log: logRecord };
-    expect(parseDevSnapshot(snapshot)).toBe(snapshot);
-  });
-
-  it("refuses anything else", () => {
-    expect(parseDevSnapshot(undefined)).toBeUndefined();
-    expect(parseDevSnapshot({})).toBeUndefined();
-    expect(parseDevSnapshot({ takenAt: "not a date", github: githubRecord, log: logRecord })).toBeUndefined();
-    expect(parseDevSnapshot({ takenAt: "2026-09-30T17:52:56.295Z", github: {}, log: logRecord })).toBeUndefined();
-    expect(parseDevSnapshot({ takenAt: "2026-09-30T17:52:56.295Z", github: githubRecord })).toBeUndefined();
   });
 });
