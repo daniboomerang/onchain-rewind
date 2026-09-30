@@ -4,15 +4,15 @@ const SOURCE_URL = "https://github.com/daniboomerang/onchain-rewind";
 
 export type SiteFooterProps = {
   /** Positions the footer: `overlay` sits absolute at the bottom of a `relative` screen (the start
-   * screen, so it never adds scroll height); `inline` sits in normal document flow (the end of `/logs`). */
+   * screen, so it never adds scroll height); `inline` sits in normal document flow (the end of `/dev-stats`). */
   variant?: "overlay" | "inline";
 };
 
 /**
  * The one footer the whole site carries: a link to the design system, a link to the development
- * stats at `/logs`, credit to Vinaya and Atta Labs, and a link to this demo's own source. Shown only
- * on the start screen of `/` and at the end of `/logs` — never while the reveal or the story is
- * playing, and never on the share card or the share image.
+ * stats at `/dev-stats`, credit to Vinaya and Atta Labs, and a link to this demo's own source. Shown
+ * only on the start screen of `/` and at the end of `/dev-stats` — never while the reveal or the
+ * story is playing, and never on the share card or the share image.
  */
 export function SiteFooter({ variant = "inline" }: SiteFooterProps) {
   return (
@@ -29,7 +29,7 @@ export function SiteFooter({ variant = "inline" }: SiteFooterProps) {
         <a className="underline underline-offset-2 hover:text-fg" href="/system">
           Design system
         </a>
-        <a className="underline underline-offset-2 hover:text-fg" href="/logs">
+        <a className="underline underline-offset-2 hover:text-fg" href="/dev-stats">
           Development stats
         </a>
         <span>

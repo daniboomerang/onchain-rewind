@@ -194,10 +194,10 @@ function System() {
 
         <Section title="SiteFooter">
           <p className="text-small text-fg-muted">
-            Shown only on the start screen of / (overlay, bottom of that screen) and at the end of /logs (inline) —
+            Shown only on the start screen of / (overlay, bottom of that screen) and at the end of /dev-stats (inline) —
             never during the reveal or the story.
           </p>
-          <Row label="inline (/logs)">
+          <Row label="inline (/dev-stats)">
             <div className="w-full max-w-2xl">
               <SiteFooter />
             </div>

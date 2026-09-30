@@ -312,7 +312,7 @@ test("Escape leaves the story for the start screen, which carries the site foote
   // The start screen carries the one site footer.
   expect(screen.getByRole("link", { name: "Vinaya" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Design system" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Development stats" })).toHaveAttribute("href", "/logs");
+  expect(screen.getByRole("link", { name: "Development stats" })).toHaveAttribute("href", "/dev-stats");
 
   await user.click(screen.getByRole("button", { name: "Play" }));
 
@@ -382,7 +382,7 @@ test("a remembered wallet lands the start screen with nothing loading, until Pla
 
   expect(await screen.findByRole("button", { name: "Play" })).toBeInTheDocument();
   expect(revealCounter()).toBeNull();
-  // The site footer only ever shows on the start screen and on `/logs`, never mid-story: its
+  // The site footer only ever shows on the start screen and on `/dev-stats`, never mid-story: its
   // presence here is itself proof nothing has started.
   expect(screen.getByRole("link", { name: "Design system" })).toBeInTheDocument();
   expect(callCount()).toBe(0);

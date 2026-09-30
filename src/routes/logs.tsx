@@ -1,7 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { DevLogPage } from "../components/logs/DevLogPage";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+
+/** `/logs` is this page's old address: kept as a permanent redirect so a shared link never flashes the old page. */
+export function redirectToDevStats(): never {
+  throw redirect({ to: "/dev-stats", statusCode: 301 });
+}
 
 export const Route = createFileRoute("/logs")({
-  head: () => ({ meta: [{ title: "Project development logs · Onchain Rewind" }] }),
-  component: DevLogPage,
+  beforeLoad: redirectToDevStats,
 });

@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DevStatsRouteImport } from './routes/dev-stats'
 import { Route as LogsRouteImport } from './routes/logs'
 import { Route as SystemRouteImport } from './routes/system'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DevStatsRoute = DevStatsRouteImport.update({
+  id: '/dev-stats',
+  path: '/dev-stats',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LogsRoute = LogsRouteImport.update({
@@ -31,30 +37,34 @@ const SystemRoute = SystemRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/dev-stats': typeof DevStatsRoute
   '/logs': typeof LogsRoute
   '/system': typeof SystemRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/dev-stats': typeof DevStatsRoute
   '/logs': typeof LogsRoute
   '/system': typeof SystemRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/dev-stats': typeof DevStatsRoute
   '/logs': typeof LogsRoute
   '/system': typeof SystemRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/logs' | '/system'
+  fullPaths: '/' | '/dev-stats' | '/logs' | '/system'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/logs' | '/system'
-  id: '__root__' | '/' | '/logs' | '/system'
+  to: '/' | '/dev-stats' | '/logs' | '/system'
+  id: '__root__' | '/' | '/dev-stats' | '/logs' | '/system'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DevStatsRoute: typeof DevStatsRoute
   LogsRoute: typeof LogsRoute
   SystemRoute: typeof SystemRoute
 }
@@ -66,6 +76,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dev-stats': {
+      id: '/dev-stats'
+      path: '/dev-stats'
+      fullPath: '/dev-stats'
+      preLoaderRoute: typeof DevStatsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/logs': {
@@ -87,6 +104,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DevStatsRoute: DevStatsRoute,
   LogsRoute: LogsRoute,
   SystemRoute: SystemRoute,
 }
