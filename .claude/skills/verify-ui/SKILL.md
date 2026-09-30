@@ -15,10 +15,10 @@ argument-hint: "[route, default /]"
 7. **Story:** press "Play" again. Let card 1 auto-advance. Then use → and ←, and click the right and left halves. Hold the mouse for more than 200ms, and press Space, to pause: the progress fill freezes and resumes without a jump.
 8. **Keyboard after settings:** open the gear, close the dialog with Escape, and press →. The card must advance (see `design/KNOWN-ISSUES.md`).
 9. **Share card:** "Replay" restarts, and "Share image" produces a PNG.
-10. **Footer:** on the start screen, "Development stats" opens `/logs`.
+10. **Footer:** on the start screen, "Development stats" opens `/dev-stats`.
 11. **Reduced motion:** emulate `prefers-reduced-motion: reduce`. No canvas, crossfades only, numbers at their final values.
 12. **Width 390:** tap zones split 30/70, the dialog is a bottom sheet, and the text fits.
 13. **`/system`:** every section renders, with no console errors.
-14. **`/logs`:** the page loads, and its own footer carries "Development stats" too (linking to itself is fine — it's the same footer everywhere).
+14. **`/dev-stats`:** the page loads, and its own footer carries "Development stats" too (linking to itself is fine — it's the same footer everywhere). A visit to `/logs` redirects here at once.
 
 Report each step as pass or fail, with one line of evidence for each failure: the exact console message, or what was seen versus what was expected. Don't fix anything while running this skill. Report first.
