@@ -37,10 +37,11 @@ export function Home({ api, requestIntervalMs }: HomeProps) {
   // Bumped by "Replay", "Try again" and "Play": re-keying the run below is what starts a fresh
   // Rewind, because the reveal, the stage and the player all reset together when they remount.
   const [run, setRun] = useState(0);
-  // Escape or the story's close button lands here: the run stops and the start screen shows instead,
-  // until "Play" sends the visitor back into a fresh Rewind. A first visit never starts here — every
-  // load autoplays.
-  const [stopped, setStopped] = useState(false);
+  // The landing state: the start screen, until "Play" sends the visitor into a fresh Rewind. Escape
+  // or the story's close button — including during the reveal — returns here too. True from the
+  // first render, so a remembered wallet never flashes the reveal before the load effect above has
+  // even read it.
+  const [stopped, setStopped] = useState(true);
 
   // First visit: the browser has been read, nothing was stored, so settings opens itself, already on
   // the first demo wallet. It stays open until a wallet is chosen, because there is no Rewind to show
@@ -75,8 +76,8 @@ export function Home({ api, requestIntervalMs }: HomeProps) {
   return (
     <main className="relative min-h-dvh bg-bg text-fg">
       {/*
-       * Until a wallet is stored there is no Rewind to autoplay, so the shell is the wordmark and
-       * the title behind the dialog. The server renders exactly this, whatever is in the browser's
+       * Until a wallet is stored there is nothing to land on, so the shell is the wordmark and the
+       * title behind the dialog. The server renders exactly this, whatever is in the browser's
        * store: `loaded` is false there, so the markup either side of hydration is the same one.
        */}
       {wallet === null ? (
@@ -120,7 +121,9 @@ export function Home({ api, requestIntervalMs }: HomeProps) {
           onSubmit={() => {
             if (!input.wallet) return;
             connect(input.wallet);
-            setStopped(false);
+            // Settings always closes onto the start screen, whether this is the first visit or a
+            // wallet swap mid-story: choosing a wallet is never itself what starts the Rewind.
+            setStopped(true);
             setOpen(false);
           }}
         />
@@ -228,6 +231,10 @@ function Rewind({ wallet, api, requestIntervalMs, onRestart, onOpenSettings, onC
           onDone={() => setStage("story")}
           onFailed={() => setStage("error")}
         />
+      )}
+      {/* Once the burst starts, the player is already mounted underneath with its own chrome. */}
+      {stage === "reveal" && (
+        <StoryChrome wallet={displayName(wallet)} onOpenSettings={onOpenSettings} onClose={onClose} />
       )}
       {stage === "error" && (
         <ErrorState

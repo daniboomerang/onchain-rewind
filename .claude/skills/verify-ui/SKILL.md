@@ -7,13 +7,18 @@ argument-hint: "[route, default /]"
 # Verify the UI in the browser
 
 1. Start the dev server (`bun dev`) if it isn't running. Open the route given as the argument (default `/`) in the browser.
-2. **First visit:** clear `localStorage` for the origin and reload. The settings dialog must open, must not be dismissible, and must already show `pranksy.eth` chosen. Click "Play rewind".
-3. **Reveal:** particles appear while the counter rises, and it bursts into card 1. No console errors.
-4. **Story:** let card 1 auto-advance. Then use → and ←, and click the right and left halves. Hold the mouse for more than 200ms, and press Space, to pause: the progress fill freezes and resumes without a jump.
-5. **Keyboard after settings:** open the gear, close the dialog with Escape, and press →. The card must advance (see `design/KNOWN-ISSUES.md`).
-6. **Share card:** "Replay" restarts, and "Share image" produces a PNG.
-7. **Reduced motion:** emulate `prefers-reduced-motion: reduce`. No canvas, crossfades only, numbers at their final values.
-8. **Width 390:** tap zones split 30/70, the dialog is a bottom sheet, and the text fits.
-9. **`/system`:** every section renders, with no console errors.
+2. **First visit:** clear `localStorage` for the origin and reload. The settings dialog must open, must not be dismissible, and must already show `pranksy.eth` chosen. Click "Play rewind" — this must land on the start screen (wordmark, connected wallet, a "Play" button, the site footer), with nothing loading yet.
+3. **A remembered wallet:** reload. The start screen must show directly, no dialog, and nothing must load until "Play" is pressed.
+4. **Play:** click "Play" on the start screen. The reveal starts.
+5. **Reveal:** particles appear while the counter rises, and it bursts into card 1. No console errors.
+6. **Skip the reveal:** reload with a remembered wallet, press "Play", then press Escape while the counter is still rising. It must return to the start screen at once and stop the loading (no further requests in the network tab). Repeat, using the close button in the top bar instead of Escape.
+7. **Story:** press "Play" again. Let card 1 auto-advance. Then use → and ←, and click the right and left halves. Hold the mouse for more than 200ms, and press Space, to pause: the progress fill freezes and resumes without a jump.
+8. **Keyboard after settings:** open the gear, close the dialog with Escape, and press →. The card must advance (see `design/KNOWN-ISSUES.md`).
+9. **Share card:** "Replay" restarts, and "Share image" produces a PNG.
+10. **Footer:** on the start screen, "Development stats" opens `/logs`.
+11. **Reduced motion:** emulate `prefers-reduced-motion: reduce`. No canvas, crossfades only, numbers at their final values.
+12. **Width 390:** tap zones split 30/70, the dialog is a bottom sheet, and the text fits.
+13. **`/system`:** every section renders, with no console errors.
+14. **`/logs`:** the page loads, and its own footer carries "Development stats" too (linking to itself is fine — it's the same footer everywhere).
 
 Report each step as pass or fail, with one line of evidence for each failure: the exact console message, or what was seen versus what was expected. Don't fix anything while running this skill. Report first.
