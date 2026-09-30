@@ -79,6 +79,7 @@ Every task must leave these green.
 7. **Accessibility.** Focus rings on keyboard focus only, accessible names on icon buttons and chart markers, and a polite live region on the reveal counter (at most one update per second).
 8. **Never invent wallet data or ENS names.** Demo wallets are real public wallets listed in `src/lib/demo-wallets.ts`. Fixtures stay in tests and on `/system`, with one exception: the recorded `vitalik.eth` snapshot the Rewind plays when Zerion is rate-limited or out of budget (ADR-0005). It is recorded real data, labelled as a recording on screen, and never presented as the visitor's own wallet.
 9. **Scope.** Build what SPEC.md lists, and nothing more. New ideas go in SPEC.md under "Later", never in code.
+10. **Production is Principal-only.** No agent runs `vercel --prod`, `vercel promote`, `vercel rollback` or edits Vercel environment variables; agents may only build unaliased with `--skip-domain`. A test build is `vercel deploy --prod --skip-domain`; hand its URL to the Principal, who verifies and promotes.
 
 ## Path rules (always apply when editing matching files)
 

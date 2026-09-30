@@ -3,6 +3,7 @@ paths:
   - "src/routes/**"
   - "src/server/**"
   - "vite.config.ts"
+  - "vercel.json"
 ---
 
 # TanStack Start
@@ -27,6 +28,8 @@ Zerion's own web app runs on TanStack Start, which is why this repo uses it too.
 - The development log's two sources each get their own directory, same reasoning: `src/server/github/` (`dev-record.functions.ts` → `getGithubDevRecord`) reads this repo's issues, pull requests and comments; `src/server/vinaya/` (`dev-record.functions.ts` → `getDevRecord`) reads the Vinaya log directly. Neither touches Zerion or ENS. `getGithubDevRecord` folds the Vinaya round record in server-side (ADR-0004), so `/dev-stats` calls both only because the round-by-round timeline needs the log's own unreduced round list — the ticket list and headline numbers come from `getGithubDevRecord` alone.
 
 ## Env
+
+**Production is Principal-only.** No agent runs `vercel --prod`, `vercel promote`, `vercel rollback` or edits Vercel environment variables; agents may only build unaliased with `--skip-domain`. A test build is `vercel deploy --prod --skip-domain`; hand its URL to the Principal, who verifies and promotes.
 - `ZERION_API_KEY` in `.env.local` (gitignored), documented in `.env.example`. It's read via `process.env` only on the server.
 - `VINAYA_LOG_READ_TOKEN` (server only, the Vinaya log) and `GITHUB_TOKEN` (server only, optional, raises GitHub's anonymous rate limit) sit beside it, same file, same rule.
 - Never use the `VITE_` prefix for secrets: Vite inlines `VITE_*` into the client bundle.
