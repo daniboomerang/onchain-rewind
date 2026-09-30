@@ -15,6 +15,11 @@ export type SettingsDialogProps = {
   demoWallets: DemoWallet[];
   onSubmit: () => void;
   saving?: boolean;
+  /**
+   * Said above the field when the story behind the dialog is not the stored wallet's — the recorded
+   * snapshot (ADR-0005) — so the dialog never presents the stored wallet as the one playing.
+   */
+  notice?: string;
 };
 
 /** Centered dialog ≥640px; bottom sheet below. Enter 240ms ease-out, exit 150ms ease-in (CSS via Ariakit data-enter/leave). */
@@ -47,6 +52,7 @@ export function SettingsDialog(p: SettingsDialogProps) {
         <Ariakit.DialogDescription className="text-small text-fg-muted">
           Paste an address or ENS name. We'll remember it on this device.
         </Ariakit.DialogDescription>
+        {p.notice && <p className="text-small text-fg-muted">{p.notice}</p>}
       </div>
 
       <form

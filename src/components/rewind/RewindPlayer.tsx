@@ -26,6 +26,11 @@ export type RewindPlayerProps = {
    * day its year started.
    */
   capped: boolean;
+  /**
+   * The facts are the recorded snapshot's (ADR-0005): the chrome carries the note, and the share card
+   * and its image the mark. The name everywhere is the facts' own wallet, never the one picked.
+   */
+  recorded?: boolean;
   onReplay: () => void;
   onOpenSettings: () => void;
   /** Escape does the same; both leave the story for the start screen. Omitted where there isn't one. */
@@ -39,7 +44,14 @@ const MOBILE_BP = 640;
 export type Card = { key: string; eyebrow: string; render: (index: number, total: number) => ReactNode };
 
 /** Plays the story: chrome, cards, navigation, pause. Card 5 (Share) doesn't auto-advance. */
-export function RewindPlayer({ facts, capped, onReplay, onOpenSettings, onClose }: RewindPlayerProps) {
+export function RewindPlayer({
+  facts,
+  capped,
+  recorded = false,
+  onReplay,
+  onOpenSettings,
+  onClose,
+}: RewindPlayerProps) {
   const reduce = useReducedMotion();
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
@@ -52,16 +64,16 @@ export function RewindPlayer({ facts, capped, onReplay, onOpenSettings, onClose 
     setSharing(true);
     try {
       // Read at the moment of the press, not at render: the theme can have turned while the story played.
-      const blob = await renderShareImage(facts, capped, readTheme());
+      const blob = await renderShareImage(facts, capped, readTheme(), recorded);
       await shareOrDownload(blob, `onchain-rewind-${facts.wallet.name ?? shortAddress(facts.wallet.address)}.png`);
     } finally {
       setSharing(false);
     }
-  }, [facts, capped]);
+  }, [facts, capped, recorded]);
 
   const cards = useMemo(
-    () => buildCards(facts, { share, sharing, onReplay, capped }),
-    [facts, share, sharing, onReplay, capped],
+    () => buildCards(facts, { share, sharing, onReplay, capped, recorded }),
+    [facts, share, sharing, onReplay, capped, recorded],
   );
   const last = cards.length - 1;
 
@@ -194,6 +206,7 @@ export function RewindPlayer({ facts, capped, onReplay, onOpenSettings, onClose 
           wallet={displayName(facts.wallet)}
           onOpenSettings={onOpenSettings}
           onClose={onClose}
+          recorded={recorded}
           progress={
             <ProgressSegments
               count={cards.length}
@@ -249,7 +262,7 @@ export function RewindPlayer({ facts, capped, onReplay, onOpenSettings, onClose 
  */
 export function buildCards(
   f: RewindFacts,
-  a: { share: () => void; sharing: boolean; onReplay: () => void; capped: boolean },
+  a: { share: () => void; sharing: boolean; onReplay: () => void; capped: boolean; recorded?: boolean },
 ): Card[] {
   const cards: Card[] = [];
 
@@ -388,6 +401,7 @@ export function buildCards(
           <ShareCard
             name={displayName(f.wallet)}
             address={shortAddress(f.wallet.address)}
+            recorded={a.recorded ?? false}
             stats={[
               { value: countLabel(f.txCount, a.capped), label: "transactions" },
               { value: fmt.int(f.chainCount), label: f.chainCount === 1 ? "chain" : "chains" },
