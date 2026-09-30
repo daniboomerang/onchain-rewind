@@ -88,7 +88,7 @@ describe("DevLogRecord", () => {
     expect(screen.queryByText(/The developer are/)).not.toBeInTheDocument();
   });
 
-  it("expands a ticket's round-by-round timeline via its native <details>, closed until clicked", async () => {
+  it("shows a ticket's round-by-round timeline open by default, and collapses it on click", async () => {
     const user = userEvent.setup();
     render(<DevLogRecord view={normalDevLog} />);
 
@@ -99,20 +99,37 @@ describe("DevLogRecord", () => {
     expect(details).not.toBeNull();
     if (!details) throw new Error("details not found");
 
-    // A native <details> starts closed — the round timeline is not yet meaningfully shown to a
-    // visitor, even though happy-dom (unlike a real browser's UA stylesheet) doesn't hide its markup.
-    expect(details).not.toHaveAttribute("open");
+    // Open on arrival: a reader sees every ticket's rounds without clicking.
+    expect(details).toHaveAttribute("open");
+    expect(screen.getByText(/re-review after a human ruling/)).toBeInTheDocument();
 
     await user.click(summary);
 
-    expect(details).toHaveAttribute("open");
-    expect(screen.getByText(/re-review after a human ruling/)).toBeInTheDocument();
+    expect(details).not.toHaveAttribute("open");
   });
 
   it("never renders an expand affordance for a ticket the log never saw", () => {
     render(<DevLogRecord view={normalDevLog} />);
     const plannedTitle = screen.getByText("A twelfth demo wallet replaces one that stopped producing a good story");
     expect(plannedTitle.closest("details")).toBeNull();
+  });
+
+  it("shows a decorative chevron only on an expandable ticket, rotated by the details' own open state", () => {
+    render(<DevLogRecord view={normalDevLog} />);
+
+    const expandableSummary = screen
+      .getByText("The GitHub record of every task becomes a development record")
+      .closest("summary");
+    if (!expandableSummary) throw new Error("summary not found");
+    const chevron = expandableSummary.querySelector("svg");
+    expect(chevron).not.toBeNull();
+    expect(chevron).toHaveAttribute("aria-hidden");
+    expect(chevron?.getAttribute("class")).toContain("group-open:rotate-180");
+
+    const plannedRow = screen
+      .getByText("A twelfth demo wallet replaces one that stopped producing a good story")
+      .closest("li");
+    expect(plannedRow?.querySelector("svg")).toBeNull();
   });
 
   it("shows zero tickets and zero merged for an empty milestone", () => {
@@ -198,6 +215,18 @@ describe("DevLogPage — a missing VINAYA_LOG_READ_TOKEN never fails silently", 
     expect(await screen.findByRole("alert")).toHaveTextContent("VINAYA_LOG_READ_TOKEN");
     // The ticket list itself still rendered — a missing token degrades the page, it doesn't blank it.
     expect(screen.getByText("Onchain Rewind v1: demo-ready")).toBeInTheDocument();
+  });
+
+  it("carries a Back to home link to / above the header, regardless of the reads' state", () => {
+    vi.mocked(getGithubDevRecord).mockResolvedValue(emptyGithubRecord);
+    vi.mocked(getDevRecord).mockResolvedValue({
+      ok: true,
+      data: { tasks: [], guardrails: { checks: 0, runs: 0, stopped: 0 } },
+    });
+
+    renderPage();
+
+    expect(screen.getByRole("link", { name: "Back to home" })).toHaveAttribute("href", "/");
   });
 
   it("shows nothing extra when both reads succeed", async () => {
