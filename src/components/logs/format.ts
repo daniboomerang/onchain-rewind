@@ -32,3 +32,16 @@ export function localStamp(iso: string, now: Date = new Date()): string {
     ? time
     : `${at.toLocaleDateString([], { month: "short", day: "numeric" })}, ${time}`;
 }
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * A moment in UTC, e.g. `1 Oct 2026, 14:05 UTC`. Built by hand, not through `Intl`, so the server
+ * and the browser print exactly the same string: this is what server-rendered markup shows until
+ * hydration swaps in `localStamp`.
+ */
+export function utcStamp(iso: string): string {
+  const at = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${at.getUTCDate()} ${MONTHS[at.getUTCMonth()]} ${at.getUTCFullYear()}, ${pad(at.getUTCHours())}:${pad(at.getUTCMinutes())} UTC`;
+}

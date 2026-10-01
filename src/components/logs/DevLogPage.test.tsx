@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { degradedDevLog, emptyDevLog, normalDevLog } from "../../engine/__fixtures__/dev-log";
@@ -240,5 +240,124 @@ describe("DevLogPage — a missing VINAYA_LOG_READ_TOKEN never fails silently", 
 
     expect(await screen.findByText("Onchain Rewind v1: demo-ready")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
+describe("DevLogPage — the development snapshot paints first, then the live record replaces it", () => {
+  const emptyTotals = emptyGithubRecord.data.totals;
+
+  function githubRecord(title: string, status: "merged" | "being_built", merged: number) {
+    return {
+      tasks: [{ issue: 40, title, status, rounds: [], developerTokens: [], reviewerTokens: [], humanRulings: [] }],
+      totals: { ...emptyTotals, tasksMerged: merged },
+    };
+  }
+
+  const logRecord = (running: boolean) => ({
+    tasks: [{ issue: 40, rounds: [], resumed: false, paused: false, recovered: false, running }],
+    guardrails: { checks: 6, runs: 214, stopped: 9 },
+  });
+
+  const snapshot = {
+    takenAt: "2026-09-30T17:52:56.295Z",
+    github: githubRecord("A ticket as the build read it", "being_built", 0),
+    log: logRecord(true),
+  };
+
+  const liveGithub = { ok: true as const, data: githubRecord("The same ticket, read live", "merged", 1) };
+
+  afterEach(() => {
+    vi.mocked(getGithubDevRecord).mockReset();
+    vi.mocked(getDevRecord).mockReset();
+  });
+
+  function renderPage(withSnapshot: typeof snapshot | null) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <DevLogPage snapshot={withSnapshot} />
+      </QueryClientProvider>,
+    );
+    return client;
+  }
+
+  it("paints the snapshot with its as-of line and no loader while the live reads are pending", () => {
+    vi.mocked(getGithubDevRecord).mockReturnValue(new Promise(() => {}));
+    vi.mocked(getDevRecord).mockReturnValue(new Promise(() => {}));
+
+    renderPage(snapshot);
+
+    expect(screen.getByText("A ticket as the build read it")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Saved copy as of");
+    expect(screen.getByRole("status").querySelector("time")).toHaveAttribute("dateTime", snapshot.takenAt);
+    expect(screen.queryByText("Reading the project record…")).not.toBeInTheDocument();
+    // "Right now" was only true when the build ran, so the snapshot never claims it.
+    expect(screen.queryByText(/working on ticket #40/)).not.toBeInTheDocument();
+    expect(screen.getByText(/From the Vinaya log, as of the saved copy/)).toBeInTheDocument();
+  });
+
+  it("replaces the snapshot with the live record once both reads answer, never showing the loader", async () => {
+    vi.mocked(getGithubDevRecord).mockResolvedValue(liveGithub);
+    vi.mocked(getDevRecord).mockResolvedValue({ ok: true, data: logRecord(false) });
+
+    renderPage(snapshot);
+    expect(screen.queryByText("Reading the project record…")).not.toBeInTheDocument();
+
+    expect(await screen.findByText("The same ticket, read live")).toBeInTheDocument();
+    expect(screen.queryByText("A ticket as the build read it")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Live, refreshed every few seconds.");
+    expect(screen.queryByText(/Saved copy/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Reading the project record…")).not.toBeInTheDocument();
+  });
+
+  it("keeps the snapshot on screen when the live GitHub read fails, and says so", async () => {
+    vi.mocked(getGithubDevRecord).mockResolvedValue({ ok: false, error: "rate_limited" });
+    vi.mocked(getDevRecord).mockResolvedValue({ ok: true, data: logRecord(false) });
+
+    renderPage(snapshot);
+
+    expect(await screen.findByText(/couldn't be read just now, so this copy stays/)).toBeInTheDocument();
+    expect(screen.getByText("A ticket as the build read it")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Saved copy as of");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("keeps the snapshot, rounds and guardrails included, when the live Vinaya read fails", async () => {
+    vi.mocked(getGithubDevRecord).mockResolvedValue(liveGithub);
+    vi.mocked(getDevRecord).mockRejectedValue(new Error("VINAYA_LOG_READ_TOKEN is not set"));
+
+    renderPage(snapshot);
+
+    expect(await screen.findByText(/couldn't be read just now, so this copy stays/)).toBeInTheDocument();
+    expect(screen.getByText("A ticket as the build read it")).toBeInTheDocument();
+    expect(screen.queryByText("The same ticket, read live")).not.toBeInTheDocument();
+    expect(screen.getByText(/From the Vinaya log, as of the saved copy/)).toBeInTheDocument();
+  });
+
+  it("keeps the last live record, not the older snapshot, when a later poll fails", async () => {
+    vi.mocked(getGithubDevRecord).mockResolvedValue(liveGithub);
+    vi.mocked(getDevRecord).mockResolvedValue({ ok: true, data: logRecord(false) });
+
+    const client = renderPage(snapshot);
+    expect(await screen.findByText("The same ticket, read live")).toBeInTheDocument();
+
+    vi.mocked(getGithubDevRecord).mockResolvedValue({ ok: false, error: "rate_limited" });
+    await act(() => client.refetchQueries());
+
+    expect(await screen.findByText(/The last live read\./)).toBeInTheDocument();
+    expect(screen.getByText("The same ticket, read live")).toBeInTheDocument();
+    expect(screen.queryByText("A ticket as the build read it")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("The last live read.");
+    expect(screen.queryByText("Reading the project record…")).not.toBeInTheDocument();
+  });
+
+  it("shows today's loader when the deploy carries no snapshot", () => {
+    vi.mocked(getGithubDevRecord).mockReturnValue(new Promise(() => {}));
+    vi.mocked(getDevRecord).mockReturnValue(new Promise(() => {}));
+
+    renderPage(null);
+
+    expect(screen.getByText("Reading the project record…")).toBeInTheDocument();
+    expect(screen.queryByText(/Saved copy/)).not.toBeInTheDocument();
   });
 });

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { motion, useReducedMotion } from "motion/react";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState, useSyncExternalStore } from "react";
 import {
   buildDegradedLogView,
   buildDevLogView,
@@ -10,12 +10,13 @@ import {
 } from "../../engine/dev-log-view";
 import { SEVERITIES, type TaskStatus } from "../../engine/github-dev-record";
 import { getGithubDevRecord } from "../../server/github/dev-record.functions";
+import type { DevSnapshot } from "../../server/github/dev-snapshot";
 import { getDevRecord } from "../../server/vinaya/dev-record.functions";
 import type { VinayaLogResult } from "../../server/vinaya/log-client";
 import { duration, ease, enterCard, enterCardReduced, stagger } from "../rewind/motion";
 import { Button, Spinner } from "../ui/Button";
 import { SiteFooter } from "../ui/Footer";
-import { localStamp, minutes, plural, tokens } from "./format";
+import { localStamp, minutes, plural, tokens, utcStamp } from "./format";
 import { RoundTimeline } from "./RoundTimeline";
 
 const REPO = "https://github.com/daniboomerang/onchain-rewind";
@@ -80,10 +81,28 @@ export function StateMessage({ state }: { state: LoadState }) {
   );
 }
 
-export function DevLogPage() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+/**
+ * `false` on the server and through hydration, `true` from then on — and `true` at once for
+ * anything first rendered after hydration. Whatever reads it renders the same markup either side
+ * of hydration, then corrects itself (a local time, an entrance animation) straight after.
+ */
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribeNever,
+    () => true,
+    () => false,
+  );
+}
 
+function subscribeNever(): () => void {
+  return () => {};
+}
+
+/**
+ * `snapshot` is the development snapshot this deploy carries (ADR-0006), or `null` when the build
+ * wrote none. It paints first, from the server's own markup; the live reads replace it.
+ */
+export function DevLogPage({ snapshot = null }: { snapshot?: DevSnapshot | null }) {
   return (
     <main className="min-h-dvh bg-bg px-10 py-12 text-fg max-sm:px-5">
       <div className="mx-auto flex max-w-[1180px] flex-col gap-8">
@@ -96,7 +115,7 @@ export function DevLogPage() {
           <h1 className="font-display text-headline">Project development logs</h1>
           <p className="text-body text-fg-muted">
             How this app was built. Every ticket is planned, coded by an AI developer, checked by two independent AI
-            reviewers, then merged. Nothing here is typed in by hand: it is read live from{" "}
+            reviewers, then merged. Nothing here is typed in by hand: it is read from{" "}
             <a className="underline underline-offset-2" href={REPO} rel="noreferrer" target="_blank">
               GitHub
             </a>{" "}
@@ -104,7 +123,7 @@ export function DevLogPage() {
           </p>
         </header>
 
-        {mounted ? <DevLogData /> : <StateMessage state="loading" />}
+        <DevLogData snapshot={snapshot} />
 
         <SiteFooter />
       </div>
@@ -112,21 +131,29 @@ export function DevLogPage() {
   );
 }
 
-function DevLogData() {
+function DevLogData({ snapshot }: { snapshot: DevSnapshot | null }) {
+  // The reads start only once hydrated: the server and the first client render both show the
+  // snapshot, or the loader when there is none, so the markup never mismatches.
+  const hydrated = useHydrated();
   const github = useQuery({
     queryKey: ["dev-log", "github"],
     queryFn: () => getGithubDevRecord(),
     staleTime: 0,
     refetchInterval: POLL_MS,
+    enabled: hydrated,
   });
   const vinaya = useQuery({
     queryKey: ["dev-log", "vinaya"],
     queryFn: () => getDevRecord(),
     staleTime: 0,
     refetchInterval: POLL_MS,
+    enabled: hydrated,
   });
 
-  const log = vinaya.data?.ok ? { tasks: vinaya.data.data.tasks, guardrails: vinaya.data.data.guardrails } : undefined;
+  const log = useMemo(
+    () => (vinaya.data?.ok ? { tasks: vinaya.data.data.tasks, guardrails: vinaya.data.data.guardrails } : undefined),
+    [vinaya.data],
+  );
 
   const view = useMemo(() => {
     if (!github.data?.ok) return undefined;
@@ -137,11 +164,56 @@ function DevLogData() {
   // time, size and guardrails per ticket, just no title, status or pull request (GitHub's alone).
   const degraded = useMemo(() => (log ? buildDegradedLogView(log) : undefined), [log]);
 
-  const vinayaProblem = vinayaState(vinaya);
+  const saved = useMemo(() => (snapshot ? buildDevLogView(snapshot.github, snapshot.log) : undefined), [snapshot]);
 
+  const vinayaProblem = vinayaState(vinaya);
+  const liveFailed = github.isError || github.data?.ok === false || vinayaProblem !== null;
+
+  // The last record both live reads answered in full. Held (adjusting state during render, not in
+  // an effect, so it never lags a frame) so a later failed poll keeps it rather than falling back
+  // to the older snapshot.
+  const complete = view && log ? view : undefined;
+  const [lastLive, setLastLive] = useState<DevLogView>();
+  if (complete && complete !== lastLive) setLastLive(complete);
+
+  // The live record replaces what's on screen only once both reads have answered in full, so the
+  // round timelines and guardrails never blink out. Until then — and whenever a live read fails —
+  // the last full live record, or else the snapshot, stays. Every branch below renders the same
+  // elements in the same places, so a swap re-renders the record in place: no remount, no loader,
+  // no entrance animation played twice.
+  if (complete) {
+    return (
+      <>
+        <RecordSource />
+        <DevLogRecord view={complete} />
+      </>
+    );
+  }
+
+  if (lastLive) {
+    return (
+      <>
+        <RecordSource stale />
+        <DevLogRecord view={lastLive} />
+      </>
+    );
+  }
+
+  if (saved && snapshot) {
+    return (
+      <>
+        <RecordSource savedAt={snapshot.takenAt} liveFailed={liveFailed} />
+        <DevLogRecord view={saved} saved />
+      </>
+    );
+  }
+
+  // No snapshot and no full live record yet: GitHub alone is enough to show the tickets, with a
+  // message naming what the Vinaya log couldn't give.
   if (view) {
     return (
       <>
+        <RecordSource />
         <DevLogRecord view={view} />
         {vinayaProblem && <StateMessage state={vinayaProblem} />}
       </>
@@ -177,12 +249,48 @@ function vinayaState(vinaya: { data?: VinayaLogResult<unknown>; isError: boolean
   return null;
 }
 
+/**
+ * Which record is on screen: the live one, or the snapshot and when it was taken. A snapshot is
+ * never passed off as live — the page says it is a saved copy until the live reads replace it.
+ */
+function RecordSource({
+  savedAt,
+  liveFailed = false,
+  stale = false,
+}: {
+  savedAt?: string;
+  liveFailed?: boolean;
+  stale?: boolean;
+}) {
+  const live = savedAt === undefined && !stale;
+  return (
+    <p role="status" className="flex items-center gap-2 text-small text-fg-muted">
+      <span aria-hidden className={`size-2 rounded-full ${live ? "bg-positive" : "bg-fg-subtle"}`} />
+      {live ? (
+        "Live, refreshed every few seconds."
+      ) : savedAt === undefined ? (
+        "The last live read. The latest refresh couldn't be read, so this stays until it can. It tries again every few seconds."
+      ) : (
+        <span>
+          Saved copy as of <LocalTime iso={savedAt} />, taken when this version of the site was built.{" "}
+          {liveFailed
+            ? "The live record couldn't be read just now, so this copy stays until it can. It tries again every few seconds."
+            : "Checking for anything newer…"}
+        </span>
+      )}
+    </p>
+  );
+}
+
 function Reveal({ index, children, className }: { index: number; children: ReactNode; className?: string }) {
   const reduce = useReducedMotion();
+  // Markup rendered on the server paints as it is: an entrance that starts hidden would leave the
+  // snapshot invisible until the scripts load. Anything mounted after hydration still animates in.
+  const hydrated = useHydrated();
   return (
     <motion.section
       variants={reduce ? enterCardReduced : enterCard}
-      initial="hidden"
+      initial={hydrated ? "hidden" : false}
       animate="show"
       transition={{ delay: reduce ? 0 : index * stagger.children }}
       className={className}
@@ -192,8 +300,12 @@ function Reveal({ index, children, className }: { index: number; children: React
   );
 }
 
-/** The whole record: milestone, headline numbers, time split, guardrails and the ticket list. Also used by `/system`. */
-export function DevLogRecord({ view }: { view: DevLogView }) {
+/**
+ * The whole record: milestone, headline numbers, time split, guardrails and the ticket list. Also
+ * used by `/system`. `saved` marks the development snapshot: its "working on it now" line is left
+ * out, because it was only true when the build ran.
+ */
+export function DevLogRecord({ view, saved = false }: { view: DevLogView; saved?: boolean }) {
   const { milestone, headline } = view;
   const scaleMs = Math.max(
     1,
@@ -221,7 +333,7 @@ export function DevLogRecord({ view }: { view: DevLogView }) {
         />
       </Reveal>
 
-      {view.workingNow.length > 0 && (
+      {!saved && view.workingNow.length > 0 && (
         <Reveal index={1} className="flex flex-col gap-2">
           {view.workingNow.map((w) => (
             <p key={w.issue} className="flex items-center gap-2 text-small text-notice">
@@ -271,7 +383,7 @@ export function DevLogRecord({ view }: { view: DevLogView }) {
       </div>
 
       {view.timeSplit && <TimeSplit timeSplit={view.timeSplit} />}
-      {view.guardrails && <Guardrails guardrails={view.guardrails} />}
+      {view.guardrails && <Guardrails guardrails={view.guardrails} saved={saved} />}
 
       <Reveal index={9} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
@@ -302,11 +414,12 @@ export function DevLogRecord({ view }: { view: DevLogView }) {
 
 function Progress({ value, label }: { value: number; label: string }) {
   const reduce = useReducedMotion();
+  const hydrated = useHydrated();
   return (
     <div role="img" aria-label={label} className="h-2.5 overflow-hidden rounded-full bg-track">
       <motion.div
         className="h-full origin-left rounded-full bg-positive"
-        initial={{ scaleX: reduce ? value : 0 }}
+        initial={hydrated ? { scaleX: reduce ? value : 0 } : false}
         animate={{ scaleX: value }}
         transition={{ duration: reduce ? 0 : duration.grow, ease: ease.out, delay: reduce ? 0 : duration.base }}
       />
@@ -505,7 +618,13 @@ function TimeSplit({ timeSplit }: { timeSplit: NonNullable<DevLogView["timeSplit
   );
 }
 
-function Guardrails({ guardrails }: { guardrails: NonNullable<DevLogView["guardrails"]> }) {
+function Guardrails({
+  guardrails,
+  saved = false,
+}: {
+  guardrails: NonNullable<DevLogView["guardrails"]>;
+  saved?: boolean;
+}) {
   return (
     <Reveal index={8} className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-6">
       <p className="font-mono text-label text-fg-subtle uppercase">Guardrails</p>
@@ -520,8 +639,10 @@ function Guardrails({ guardrails }: { guardrails: NonNullable<DevLogView["guardr
         </span>
       </p>
       <p className="text-small text-fg-subtle">
-        The rules are enforced by code, not by asking the AI politely. Live from the Vinaya log, refreshed every few
-        seconds.
+        The rules are enforced by code, not by asking the AI politely.{" "}
+        {saved
+          ? "From the Vinaya log, as of the saved copy."
+          : "Live from the Vinaya log, refreshed every few seconds."}
       </p>
     </Reveal>
   );
@@ -605,7 +726,12 @@ function DegradedTimeSplit({ timeSplit }: { timeSplit: NonNullable<DegradedLogVi
   );
 }
 
-/** Exported for `/system`: a client-only time, used nowhere during server rendering. */
+/**
+ * A moment in the viewer's own time zone. Server-rendered markup (the snapshot) and the render
+ * that hydrates it print UTC instead — the server's zone is never the viewer's — and the local
+ * time replaces it straight after. Exported for `/system`.
+ */
 export function LocalTime({ iso }: { iso: string }) {
-  return <>{localStamp(iso)}</>;
+  const hydrated = useHydrated();
+  return <time dateTime={iso}>{hydrated ? localStamp(iso) : utcStamp(iso)}</time>;
 }
