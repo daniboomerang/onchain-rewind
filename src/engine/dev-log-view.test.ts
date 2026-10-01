@@ -312,6 +312,38 @@ describe("buildDevLogView", () => {
     expect(view.workingNow).toEqual([]);
   });
 
+  it("carries the log's reason a round was sent back to its row, and none to a round without one", () => {
+    const view = buildDevLogView(
+      github([task({ rounds: [{ round: 1, findings: logFindings(), outcome: "changes_requested" }] })]),
+      {
+        tasks: [
+          logTask({
+            rounds: [
+              logRound({ round: 1, outcome: "changes_requested", sentBackReason: "checks_failed" }),
+              logRound({ round: 2, outcome: "changes_requested", sentBackReason: "human_stop" }),
+              logRound({ round: 3, outcome: "changes_requested" }),
+              logRound({ round: 4, outcome: "green" }),
+            ],
+          }),
+        ],
+        guardrails: { runs: 0, checks: 0, stopped: 0 },
+      },
+    );
+    expect(view.tickets[0]?.timeline.map((entry) => entry.sentBackReason)).toEqual([
+      "checks_failed",
+      "human_stop",
+      undefined,
+      undefined,
+    ]);
+  });
+
+  it("gives a round rebuilt from GitHub's summaries no reason, which only the log records", () => {
+    const view = buildDevLogView(
+      github([task({ rounds: [{ round: 1, findings: logFindings(), outcome: "changes_requested" }] })]),
+    );
+    expect(view.tickets[0]?.timeline[0]?.sentBackReason).toBeUndefined();
+  });
+
   it("leaves the time split out when no round has recorded time", () => {
     const view = buildDevLogView(github([task()]));
     expect(view.timeSplit).toBeUndefined();
