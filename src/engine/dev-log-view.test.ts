@@ -187,7 +187,26 @@ describe("buildDevLogView", () => {
       expect(view.tickets[0]?.timeline[0]?.findings.blocker).toBe(0);
     });
 
-    it("keeps nothing raised for a round with neither source", () => {
+    it("counts carried findings once when an earlier occurrence has log findings and the last is empty", () => {
+      const view = buildDevLogView(
+        github([task({ rounds: [githubRow(1, { major: 2 })] })]),
+        log([
+          logTask({
+            rounds: [
+              logRound({
+                round: 1,
+                findings: [{ id: "f", severity: "major", severityScale: "code", policyTreatment: "block" }],
+              }),
+              logRound({ round: 1 }),
+            ],
+          }),
+        ]),
+      );
+      const total = (view.tickets[0]?.timeline ?? []).reduce((sum, entry) => sum + entry.findings.major, 0);
+      expect(total).toBe(1);
+    });
+
+    it("leaves a round with neither source with no findings", () => {
       const view = buildDevLogView(github([task()]), log([logTask({ rounds: [logRound({ round: 1 })] })]));
       expect(view.tickets[0]?.timeline[0]?.findings).toEqual(logFindings());
     });

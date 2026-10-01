@@ -26,6 +26,25 @@ describe("RoundTimeline: untimed round", () => {
   });
 });
 
+describe("RoundTimeline: problems line", () => {
+  it("is absent for a round with no findings", () => {
+    render(<RoundTimeline timeline={[round({})]} scaleMs={1000} humanRulings={0} />);
+    expect(screen.queryByText(/Problems raised/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Nothing raised/)).not.toBeInTheDocument();
+  });
+
+  it("lists the findings when the round has some", () => {
+    render(
+      <RoundTimeline
+        timeline={[round({ findings: { blocker: 1, major: 2 } as never })]}
+        scaleMs={1000}
+        humanRulings={0}
+      />,
+    );
+    expect(screen.getByText("Problems raised: 1 blocker · 2 major")).toBeInTheDocument();
+  });
+});
+
 describe("RoundTimeline: timed round", () => {
   it("keeps developer and reviewer segments on the shared scale", () => {
     render(

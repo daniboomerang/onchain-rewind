@@ -182,11 +182,18 @@ function buildTimeline(
   const seen = new Set<number>();
   const lastIndex = new Map(rounds.map((round, index) => [round.round, index]));
   const githubByNumber = new Map(githubRounds.map((round) => [round.round, round]));
+  // A round number with log findings on any occurrence already carries them, so GitHub's are not added again.
+  const loggedNumbers = new Set(
+    rounds.filter((round) => hasFindings(findingsFromLog(round.findings))).map((r) => r.round),
+  );
   return rounds.map((round, index) => {
     const repeat = seen.has(round.round);
     seen.add(round.round);
     const fromLog = findingsFromLog(round.findings);
-    const fallback = lastIndex.get(round.round) === index ? githubByNumber.get(round.round)?.findings : undefined;
+    const fallback =
+      lastIndex.get(round.round) === index && !loggedNumbers.has(round.round)
+        ? githubByNumber.get(round.round)?.findings
+        : undefined;
     return {
       round: round.round,
       repeat,

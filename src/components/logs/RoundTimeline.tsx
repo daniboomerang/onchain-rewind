@@ -8,11 +8,11 @@ const OUTCOME: Record<string, { label: string; tone: string; bar: string }> = {
 };
 const IN_PROGRESS = { label: "In progress", tone: "bg-surface-raised text-fg-muted", bar: "bg-fg-subtle" };
 
+/** Empty when the round raised nothing: the page then prints no problems line at all. */
 function findingsLine(findings: RoundTimelineEntry["findings"]): string {
-  const parts = SEVERITIES.filter((severity) => findings[severity] > 0).map(
-    (severity) => `${findings[severity]} ${severity}`,
-  );
-  return parts.length > 0 ? parts.join(" · ") : "Nothing raised";
+  return SEVERITIES.filter((severity) => findings[severity] > 0)
+    .map((severity) => `${findings[severity]} ${severity}`)
+    .join(" · ");
 }
 
 /** Developer and reviewer bars on one shared scale, so every round on the page compares fairly. */
@@ -36,6 +36,7 @@ export function RoundTimeline({
     <ol className="flex flex-col gap-4">
       {keyed.map(({ entry, key }) => {
         const outcome = entry.outcome ? (OUTCOME[entry.outcome] ?? IN_PROGRESS) : IN_PROGRESS;
+        const problems = findingsLine(entry.findings);
         const dev = entry.developerMs ?? 0;
         const review = entry.reviewerMs ?? 0;
         // Time is the Vinaya log's alone: a round it never measured shows no bar, never a zero.
@@ -100,7 +101,7 @@ export function RoundTimeline({
                 <p className="text-label text-fg-muted">Time isn't available for this round.</p>
               </>
             )}
-            <p className="text-label text-fg-subtle">Problems raised: {findingsLine(entry.findings)}</p>
+            {problems && <p className="text-label text-fg-subtle">Problems raised: {problems}</p>}
           </li>
         );
       })}
