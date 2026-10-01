@@ -6,6 +6,10 @@ const OUTCOME: Record<string, { label: string; tone: string; bar: string }> = {
   green: { label: "Approved", tone: "bg-positive/15 text-positive", bar: "bg-positive" },
   changes_requested: { label: "Changes requested", tone: "bg-notice/15 text-notice", bar: "bg-notice" },
 };
+const SENT_BACK: Record<NonNullable<RoundTimelineEntry["sentBackReason"]>, string> = {
+  checks_failed: "Checks failed before review.",
+  human_check: "Stopped for a human check. The reviewers raised nothing.",
+};
 const IN_PROGRESS = { label: "In progress", tone: "bg-surface-raised text-fg-muted", bar: "bg-fg-subtle" };
 
 /** Undefined when the round raised nothing: the line is left out, never filled with a placeholder. */
@@ -42,6 +46,11 @@ export function RoundTimeline({
         // Time is the Vinaya log's alone: a round it never measured shows no bar, never a zero.
         const timed = entry.developerMs !== undefined || entry.reviewerMs !== undefined;
         const problems = findingsLine(entry.findings);
+        // A round sent back with no problems says why, only when the log recorded it.
+        const sentBack =
+          entry.outcome === "changes_requested" && !problems && entry.sentBackReason
+            ? SENT_BACK[entry.sentBackReason]
+            : undefined;
         return (
           <li key={key} className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2 text-small">
@@ -103,6 +112,7 @@ export function RoundTimeline({
               </>
             )}
             {problems && <p className="text-label text-fg-subtle">Problems raised: {problems}</p>}
+            {sentBack && <p className="text-label text-fg-subtle">{sentBack}</p>}
           </li>
         );
       })}
