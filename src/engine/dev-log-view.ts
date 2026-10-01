@@ -16,6 +16,7 @@ import type {
   GuardrailTotals,
   RoundRecord as LogRoundRecord,
   TaskRecord as LogTaskRecord,
+  SentBackReason,
 } from "#/engine/dev-record.ts";
 import {
   type FindingCounts,
@@ -91,6 +92,8 @@ export type RoundTimelineEntry = {
   readonly insertions?: number;
   readonly deletions?: number;
   readonly findings: FindingCounts;
+  /** Why the log says a changes-requested round was sent back. The log's alone: never set from GitHub's summaries. */
+  readonly sentBackReason?: SentBackReason;
 };
 
 export type PullRequestView = {
@@ -210,6 +213,7 @@ function buildTimeline(
       insertions: round.insertions,
       deletions: round.deletions,
       findings: fromGithub ?? own,
+      sentBackReason: round.outcome === "changes_requested" ? round.sentBackReason : undefined,
     };
   });
 }
