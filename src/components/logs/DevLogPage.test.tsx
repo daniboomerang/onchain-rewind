@@ -347,7 +347,9 @@ describe("DevLogPage — the development snapshot paints first, then the live re
     vi.mocked(getDevRecord).mockReset();
   });
 
-  function renderPage(withSnapshot: typeof snapshot | null) {
+  function renderPage(
+    withSnapshot: { takenAt: string; github: typeof snapshot.github; log?: typeof snapshot.log } | null,
+  ) {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
@@ -356,6 +358,30 @@ describe("DevLogPage — the development snapshot paints first, then the live re
     );
     return client;
   }
+
+  it("paints a snapshot taken without the Vinaya log like a failed log read, with its tickets and no guardrails", () => {
+    vi.mocked(getGithubDevRecord).mockReturnValue(new Promise(() => {}));
+    vi.mocked(getDevRecord).mockReturnValue(new Promise(() => {}));
+
+    renderPage({ takenAt: snapshot.takenAt, github: snapshot.github });
+
+    expect(screen.getByText("A ticket as the build read it")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Saved copy as of");
+    expect(screen.queryByText("Reading the project record…")).not.toBeInTheDocument();
+    expect(screen.queryByText(/From the Vinaya log, as of the saved copy/)).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Round detail is missing for now");
+  });
+
+  it("fills in the log's data, and drops the message, once the live log answers", async () => {
+    vi.mocked(getGithubDevRecord).mockResolvedValue(liveGithub);
+    vi.mocked(getDevRecord).mockResolvedValue({ ok: true, data: logRecord(false) });
+
+    renderPage({ takenAt: snapshot.takenAt, github: snapshot.github });
+
+    expect(await screen.findByText("The same ticket, read live")).toBeInTheDocument();
+    expect(screen.getByText(/Live from the Vinaya log/)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 
   it("paints the snapshot with its as-of line and no loader while the live reads are pending", () => {
     vi.mocked(getGithubDevRecord).mockReturnValue(new Promise(() => {}));

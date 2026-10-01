@@ -13,7 +13,8 @@ export type DevSnapshot = {
   /** ISO 8601, UTC: when the build read the record. */
   readonly takenAt: string;
   readonly github: GithubDevelopmentRecord;
-  readonly log: LogDevelopmentRecord;
+  /** Absent when the build couldn't read the Vinaya log: the snapshot is GitHub's alone. */
+  readonly log?: LogDevelopmentRecord;
 };
 
 /** The build output's file name, beside this module. Gitignored; never under `public/`. */
@@ -25,7 +26,7 @@ export function parseDevSnapshot(value: unknown): DevSnapshot | undefined {
   const { takenAt, github, log } = value as Record<string, unknown>;
   if (typeof takenAt !== "string" || Number.isNaN(Date.parse(takenAt))) return undefined;
   if (!hasArray(github, "tasks") || !hasObject(github, "totals")) return undefined;
-  if (!hasArray(log, "tasks") || !hasObject(log, "guardrails")) return undefined;
+  if (log !== undefined && (!hasArray(log, "tasks") || !hasObject(log, "guardrails"))) return undefined;
   return value as DevSnapshot;
 }
 

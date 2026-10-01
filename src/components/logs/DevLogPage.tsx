@@ -207,6 +207,8 @@ function DevLogData({ snapshot }: { snapshot: DevSnapshot | null }) {
       <>
         <RecordSource savedAt={snapshot.takenAt} liveFailed={liveFailed} />
         <DevLogRecord view={saved} saved />
+        {/* A snapshot taken without the log reads like a failed live log read, until the log answers. */}
+        {!snapshot.log && !log && <StateMessage state={vinayaProblem ?? "log_unavailable"} />}
       </>
     );
   }

@@ -257,7 +257,7 @@ function roleForStatus(status: TaskStatus): "developer" | "reviewers" | undefine
   return undefined;
 }
 
-/** The whole `/logs` view. `log` is optional: a missing or failed Vinaya log read still shows every ticket GitHub knows about, without a timeline, guardrails or time split. */
+/** The whole `/logs` view. `log` is optional: a missing or failed Vinaya log read still shows every ticket GitHub knows about, with its rounds rebuilt from GitHub's summaries but without time, guardrails or time split. */
 export function buildDevLogView(github: GithubDevelopmentRecord, log?: LogDevelopmentRecord): DevLogView {
   const logByIssue = new Map(log?.tasks.map((task) => [task.issue, task]) ?? []);
   const tickets = github.tasks.map((task) => buildTicket(task, logByIssue.get(task.issue)));
