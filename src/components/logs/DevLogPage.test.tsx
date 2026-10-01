@@ -56,12 +56,14 @@ describe("StateMessage", () => {
   it.each([
     ["github_limited", "Ticket details are catching up"],
     ["log_unavailable", "Timing data is temporarily unavailable"],
-    ["unreachable", "couldn't be reached"],
+    ["unreachable", "Timing data is temporarily unavailable"],
   ] as const)("%s reads calmly, says it refreshes on its own and names no server internal", (state, headline) => {
     render(<StateMessage state={state} />);
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent(headline);
     expect(alert).toHaveTextContent("refreshes on its own");
+    if (state !== "github_limited")
+      expect(alert).toHaveTextContent(/every ticket, round and finding below is complete/i);
     expect(alert.textContent).not.toMatch(
       /TOKEN|token|credential|header|Authorization|rate limit|\b(401|403|429|500)\b/,
     );

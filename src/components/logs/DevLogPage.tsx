@@ -59,8 +59,8 @@ const STATE_MESSAGE: Record<LoadState, { headline: string; body: string } | unde
     body: "Every ticket, round and finding below is complete. Only the time per round and the guardrail totals are missing for now. This refreshes on its own every few seconds.",
   },
   unreachable: {
-    headline: "Part of the development log couldn't be reached",
-    body: "Some of what's below — ticket detail, or round activity and guardrails — may be missing until it can. This refreshes on its own every few seconds.",
+    headline: "Timing data is temporarily unavailable",
+    body: "Every ticket, round and finding below is complete. Only the time per round and the guardrail totals are missing for now. This refreshes on its own every few seconds.",
   },
 };
 
