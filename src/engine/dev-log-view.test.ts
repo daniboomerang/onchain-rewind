@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { buildDegradedLogView, buildDevLogView, findingsByReviewer } from "#/engine/dev-log-view.ts";
-import type { RoundRecord as LogRoundRecord, TaskRecord as LogTaskRecord } from "#/engine/dev-record.ts";
+import {
+  foldDevelopmentRecord,
+  type RoundRecord as LogRoundRecord,
+  type TaskRecord as LogTaskRecord,
+  type RawLogEnvelope,
+} from "#/engine/dev-record.ts";
 import type { DevelopmentRecord as GithubDevelopmentRecord, TaskDevRecord } from "#/engine/github-dev-record.ts";
 
 function task(overrides: Partial<TaskDevRecord> = {}): TaskDevRecord {
@@ -133,6 +138,53 @@ describe("buildDevLogView", () => {
       medium: 0,
       low: 0,
     });
+  });
+
+  it("counts the log's capitalised severities on the round they were raised in", () => {
+    const meta = (ts: string) => ({ ts, run_id: "run-1", host: "host-a" });
+    const envelopes = [
+      {
+        seq: 1,
+        status: "ok",
+        event: {
+          meta: meta("2026-09-01T10:00:00Z"),
+          subject: { issue: 22 },
+          kind: "dev_review_loop",
+          event: "round_started",
+          round: 1,
+        },
+      },
+      {
+        seq: 2,
+        status: "ok",
+        event: {
+          meta: meta("2026-09-01T10:01:00Z"),
+          subject: { issue: 22 },
+          kind: "dev_review_loop",
+          event: "verdicts_read",
+          findings: [
+            { id: "f1", severity: "MAJOR", severity_scale: "code", policy_treatment: "block" },
+            { id: "f2", severity: "BLOCKER", severity_scale: "code", policy_treatment: "block" },
+            { id: "f3", severity: "HIGH", severity_scale: "security", policy_treatment: "block" },
+          ],
+        },
+      },
+      {
+        seq: 3,
+        status: "ok",
+        event: {
+          meta: meta("2026-09-01T10:02:00Z"),
+          subject: { issue: 22 },
+          kind: "dev_review_loop",
+          event: "round_ended",
+          round: 1,
+          outcome: "changes_requested",
+        },
+      },
+    ] as RawLogEnvelope[];
+
+    const view = buildDevLogView(github([task()]), foldDevelopmentRecord(envelopes));
+    expect(view.tickets[0]?.timeline[0]?.findings).toEqual({ ...logFindings(), blocker: 1, major: 1, high: 1 });
   });
 
   it("reports a running ticket as the developer's or the reviewers', by status", () => {

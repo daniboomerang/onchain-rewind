@@ -167,6 +167,24 @@ describe("foldTaskRecords — round records", () => {
     expect(round).not.toHaveProperty("resolved");
   });
 
+  it("reads a finding's severity whatever its case, as the live log writes it in capitals", () => {
+    const envelopes: RawLogEnvelope[] = [
+      ev(1, "2026-09-01T10:00:00Z", 22, "dev_review_loop", "round_started", { round: 1 }),
+      ev(2, "2026-09-01T10:01:00Z", 22, "dev_review_loop", "verdicts_read", {
+        findings: [
+          { id: "f1", severity: "MAJOR", severity_scale: "code", policy_treatment: "block" },
+          { id: "f2", severity: "BLOCKER", severity_scale: "code", policy_treatment: "block" },
+          { id: "f3", severity: "High", severity_scale: "security", policy_treatment: "block" },
+        ],
+        blockers: 2,
+      }),
+      ev(3, "2026-09-01T10:02:00Z", 22, "dev_review_loop", "round_ended", { round: 1, outcome: "changes_requested" }),
+    ];
+
+    const round = foldTaskRecords(envelopes)[0]?.rounds[0];
+    expect(round?.findings.map((finding) => finding.severity)).toEqual(["major", "blocker", "high"]);
+  });
+
   it("orders events by meta.ts rather than seq, since machines can disagree on seq order", () => {
     const envelopes: RawLogEnvelope[] = [
       ev(8, "2026-09-01T09:58:00Z", 23, "dispatch", "dispatched", {

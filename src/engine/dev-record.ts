@@ -23,6 +23,7 @@ export type RawLogEnvelope = {
 
 export type Finding = {
   readonly id: string;
+  /** Lowercase, whatever case the log wrote it in: the live log writes `MAJOR`, `BLOCKER`, `HIGH`. */
   readonly severity: string;
   readonly severityScale: string;
   readonly policyTreatment: string;
@@ -277,7 +278,7 @@ function asFindings(value: unknown): readonly Finding[] {
     if (id === undefined || severity === undefined || severityScale === undefined || policyTreatment === undefined) {
       continue;
     }
-    findings.push({ id, severity, severityScale, policyTreatment });
+    findings.push({ id, severity: severity.toLowerCase(), severityScale, policyTreatment });
   }
   return findings;
 }
