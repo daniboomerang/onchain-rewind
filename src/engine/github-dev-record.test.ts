@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { TaskRecord as LogTaskRecord } from "#/engine/dev-record.ts";
+import {
+  foldTaskRecords,
+  type RoundRecord as LogRoundRecord,
+  type TaskRecord as LogTaskRecord,
+  type RawLogEnvelope,
+} from "#/engine/dev-record.ts";
 import {
   buildDevelopmentRecord,
   computeMilestoneTotals,
@@ -570,6 +575,97 @@ describe("computeMilestoneTotals", () => {
       typicalSize: { filesChanged: undefined, insertions: undefined, deletions: undefined },
       humanRulings: 0,
     });
+  });
+});
+
+describe("a ticket that replaced a cancelled Issue — folded totals", () => {
+  const replacements = [{ replaced: 65, by: 73 }];
+  const finding = (severity: string) => ({ id: "f", severity, severityScale: "code", policyTreatment: "block" });
+  const logEnvelope = (
+    seq: number,
+    ts: string,
+    issue: number,
+    event: string,
+    fields: Record<string, unknown> = {},
+  ): RawLogEnvelope =>
+    ({
+      seq,
+      status: "ok",
+      event: {
+        meta: { ts, run_id: "run-1", host: "host-a" },
+        subject: { issue },
+        kind: "dev_review_loop",
+        event,
+        ...fields,
+      },
+    }) as RawLogEnvelope;
+  const logRound = (round: number, developerMs: number, reviewerMs: number, severity?: string): LogRoundRecord => ({
+    round,
+    developerMs,
+    reviewerMs,
+    outcome: "green",
+    findings: severity ? [finding(severity)] : [],
+  });
+
+  it("counts the ticket's time, rounds and findings once, and the milestone's the same", () => {
+    const envelopes = [
+      logEnvelope(1, "2026-09-01T10:00:00Z", 65, "round_started", { round: 1 }),
+      logEnvelope(2, "2026-09-01T10:01:00Z", 65, "verdicts_read", {
+        findings: [{ id: "f", severity: "blocker", severity_scale: "code", policy_treatment: "block" }],
+      }),
+      logEnvelope(3, "2026-09-01T10:02:00Z", 65, "round_ended", { round: 1, outcome: "changes_requested" }),
+      logEnvelope(4, "2026-09-02T10:00:00Z", 73, "round_started", { round: 2 }),
+      logEnvelope(5, "2026-09-02T10:01:00Z", 73, "round_ended", { round: 2, outcome: "green" }),
+    ];
+    const logTasks = foldTaskRecords(envelopes, replacements);
+    const githubTasks = foldGithubTasks(
+      [taskIssue(65), taskIssue(73), pullIssue(90, 73)],
+      [],
+      new Map([[90, pullDetail(90)]]),
+      new Map(),
+    );
+
+    const tasks = mergeRoundRecords(githubTasks, logTasks);
+    const replacing = tasks.find((task) => task.issue === 73);
+    const replaced = tasks.find((task) => task.issue === 65);
+    expect(replacing?.rounds.map((round) => round.round)).toEqual([1, 2]);
+    expect(replacing?.rounds[0]?.findings.blocker).toBe(1);
+    expect(replaced?.rounds).toEqual([]);
+
+    const totals = computeMilestoneTotals(tasks);
+    expect(totals.findings.blocker).toBe(1);
+    expect(totals.secondRoundTasks).toBe(1);
+  });
+
+  it("sums developer and reviewer time of both Issues into the ticket and the milestone, once", () => {
+    const logTasks: LogTaskRecord[] = [
+      {
+        issue: 73,
+        rounds: [logRound(1, 100, 200, "blocker"), logRound(2, 300, 400)],
+        resumed: false,
+        paused: false,
+        recovered: false,
+        running: false,
+      },
+    ];
+    const githubTasks = foldGithubTasks(
+      [taskIssue(65), taskIssue(73), pullIssue(90, 73, { body: devTokensBody(73) })],
+      [],
+      new Map([[90, pullDetail(90)]]),
+      new Map(),
+    );
+    const tasks = mergeRoundRecords(githubTasks, logTasks);
+    const ticket = tasks.find((task) => task.issue === 73);
+    expect(ticket?.developerMs).toBe(400);
+    expect(ticket?.reviewerMs).toBe(600);
+    expect(ticket?.timeMs).toBe(1000);
+
+    const totals = computeMilestoneTotals(tasks);
+    expect(totals.developerMs).toBe(400);
+    expect(totals.reviewerMs).toBe(600);
+    expect(ticket?.developerTokens).toHaveLength(1);
+    expect(totals.tokens.developerIn).toBe(120_000);
+    expect(totals.tokens.developerOut).toBe(8_000);
   });
 });
 

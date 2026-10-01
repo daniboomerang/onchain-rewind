@@ -277,6 +277,42 @@ describe("foldTaskRecords — task-level flags", () => {
   });
 });
 
+describe("foldTaskRecords — a replaced Issue", () => {
+  const replacements = [{ replaced: 65, by: 73 }];
+  const rounds = (issue: number, day: string, numbers: readonly number[], seq: number) =>
+    numbers.flatMap((round, i) => [
+      ev(seq + i * 2, `${day}T10:0${i}:00Z`, issue, "dev_review_loop", "round_started", { round }),
+      ev(seq + i * 2 + 1, `${day}T10:0${i}:30Z`, issue, "dev_review_loop", "round_ended", { round, outcome: "green" }),
+    ]);
+
+  it("reads the replaced Issue's rounds under the replacing Issue, and gives the replaced Issue no record", () => {
+    const envelopes = [...rounds(65, "2026-09-01", [1, 2], 1), ...rounds(73, "2026-09-02", [3], 10)];
+    const tasks = foldTaskRecords(envelopes, replacements);
+    expect(tasks.map((t) => t.issue)).toEqual([73]);
+    expect(tasks[0]?.rounds.map((r) => r.round)).toEqual([1, 2, 3]);
+  });
+
+  it("keeps each recorded round once, and repeats a shared round number as a resumed task does", () => {
+    const envelopes = [
+      ev(1, "2026-09-01T09:00:00Z", 65, "dev_review_loop", "loop_started"),
+      ...rounds(65, "2026-09-01", [1], 2),
+      ev(9, "2026-09-02T09:00:00Z", 73, "dev_review_loop", "loop_started"),
+      ...rounds(73, "2026-09-02", [1], 10),
+    ];
+    const task = foldTaskRecords(envelopes, replacements)[0];
+    expect(task?.rounds.map((r) => r.round)).toEqual([1, 1]);
+    expect(task?.resumed).toBe(true);
+  });
+
+  it("leaves every other task exactly as it is", () => {
+    const envelopes = [...rounds(65, "2026-09-01", [1], 1), ...rounds(70, "2026-09-02", [1, 2], 10)];
+    const withList = foldTaskRecords(envelopes, replacements);
+    const without = foldTaskRecords(envelopes);
+    expect(withList.find((t) => t.issue === 70)).toEqual(without.find((t) => t.issue === 70));
+    expect(without.map((t) => t.issue)).toEqual([65, 70]);
+  });
+});
+
 describe("foldGuardrailTotals", () => {
   it("counts only gate events, never a loop, dispatch, role_attempt, usage or effect event", () => {
     const envelopes: RawLogEnvelope[] = [
