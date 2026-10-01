@@ -12,6 +12,14 @@ import { createServerFn } from "@tanstack/react-start";
 import { type DevelopmentRecord, foldDevelopmentRecord, type RawLogEnvelope } from "#/engine/dev-record.ts";
 import { fetchLogEventsSince, LogTokenMissingError, type VinayaLogResult } from "#/server/vinaya/log-client.ts";
 
+/**
+ * Issues whose log events are left out of the record: tickets that were cut and later dropped or
+ * recut, whose GitHub label is already gone. Their events stay in the log, which is append-only;
+ * only this fold skips them, so they never show as a ticket, in the guardrail totals, or in the
+ * view shown when GitHub can't be read.
+ */
+export const SKIPPED_ISSUES: ReadonlySet<number> = new Set([65, 75, 78, 80]);
+
 let heldEvents: RawLogEnvelope[] = [];
 let heldRecord: DevelopmentRecord | undefined;
 let cursor = 0;
@@ -51,8 +59,13 @@ async function refresh(): Promise<VinayaLogResult<DevelopmentRecord>> {
   const lastSeq = result.data.at(-1)?.seq;
   if (lastSeq !== undefined) cursor = lastSeq;
 
-  heldRecord = foldDevelopmentRecord(heldEvents);
+  heldRecord = foldDevelopmentRecord(heldEvents.filter((envelope) => !isSkipped(envelope)));
   return { ok: true, data: heldRecord };
+}
+
+function isSkipped(envelope: RawLogEnvelope): boolean {
+  const issue = envelope.event.subject.issue;
+  return issue !== undefined && SKIPPED_ISSUES.has(issue);
 }
 
 /** Test isolation only: drops every held event, the cursor and the in-flight read. */
