@@ -8,8 +8,7 @@ const OUTCOME: Record<string, { label: string; tone: string; bar: string }> = {
 };
 const SENT_BACK: Record<NonNullable<RoundTimelineEntry["sentBackReason"]>, string> = {
   checks_failed: "Checks failed before review.",
-  human_stop: "Stopped for a human decision. The reviewers raised nothing.",
-  human_stop_before_verdict: "Stopped for a human decision before the reviewers' verdict.",
+  human_check: "Stopped for a human check. The reviewers raised nothing.",
 };
 const IN_PROGRESS = { label: "In progress", tone: "bg-surface-raised text-fg-muted", bar: "bg-fg-subtle" };
 
