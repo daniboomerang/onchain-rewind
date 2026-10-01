@@ -513,8 +513,15 @@ function reduceLogRounds(rounds: readonly LogRoundRecord[]): {
   readonly rounds: readonly RoundSummary[];
   readonly developerMs?: number;
   readonly reviewerMs?: number;
+  /**
+   * Findings of a replaced Issue's round whose number the replacing Issue recorded again: the
+   * round shows the later occurrence, and these are added to it so neither Issue's findings vanish.
+   */
+  readonly carried: ReadonlyMap<number, FindingCounts>;
 } {
   const byNumber = new Map<number, RoundSummary>();
+  const carried = new Map<number, FindingCounts>();
+  const ownNumbers = new Set<number>();
   let developerMs: number | undefined;
   let reviewerMs: number | undefined;
 
@@ -527,6 +534,13 @@ function reduceLogRounds(rounds: readonly LogRoundRecord[]): {
       if (isSeverity(finding.severity)) findings[finding.severity]++;
     }
 
+    if (round.replacedIssue) {
+      const total = carried.get(round.round) ?? zeroFindingCounts();
+      for (const severity of SEVERITIES) total[severity] += findings[severity];
+      carried.set(round.round, total);
+    } else {
+      ownNumbers.add(round.round);
+    }
     byNumber.set(round.round, {
       round: round.round,
       findings,
@@ -535,7 +549,9 @@ function reduceLogRounds(rounds: readonly LogRoundRecord[]): {
     });
   }
 
-  return { rounds: [...byNumber.values()].sort((a, b) => a.round - b.round), developerMs, reviewerMs };
+  for (const number of [...carried.keys()]) if (!ownNumbers.has(number)) carried.delete(number);
+
+  return { rounds: [...byNumber.values()].sort((a, b) => a.round - b.round), developerMs, reviewerMs, carried };
 }
 
 function isSeverity(value: string): value is Severity {
@@ -564,7 +580,14 @@ export function mergeRoundRecords(
 
     const reduced = reduceLogRounds(logTask.rounds);
     const githubRoundsByNumber = new Map(task.rounds.map((round) => [round.round, round]));
-    const rounds = reduced.rounds.map((round) => githubRoundsByNumber.get(round.round) ?? round);
+    const rounds = reduced.rounds.map((round) => {
+      const shown = githubRoundsByNumber.get(round.round) ?? round;
+      const carried = reduced.carried.get(round.round);
+      if (!carried) return shown;
+      const findings = { ...shown.findings };
+      for (const severity of SEVERITIES) findings[severity] += carried[severity];
+      return { ...shown, findings };
+    });
     const timeMs =
       reduced.developerMs !== undefined || reduced.reviewerMs !== undefined
         ? (reduced.developerMs ?? 0) + (reduced.reviewerMs ?? 0)

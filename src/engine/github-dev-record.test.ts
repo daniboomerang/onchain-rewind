@@ -637,6 +637,34 @@ describe("a ticket that replaced a cancelled Issue — folded totals", () => {
     expect(totals.secondRoundTasks).toBe(1);
   });
 
+  it("keeps the findings of both Issues when they recorded the same round number", () => {
+    const envelopes = [
+      logEnvelope(1, "2026-09-01T10:00:00Z", 65, "round_started", { round: 1 }),
+      logEnvelope(2, "2026-09-01T10:01:00Z", 65, "verdicts_read", {
+        findings: [{ id: "a", severity: "blocker", severity_scale: "code", policy_treatment: "block" }],
+      }),
+      logEnvelope(3, "2026-09-01T10:02:00Z", 65, "round_ended", { round: 1, outcome: "changes_requested" }),
+      logEnvelope(4, "2026-09-02T10:00:00Z", 73, "round_started", { round: 1 }),
+      logEnvelope(5, "2026-09-02T10:01:00Z", 73, "verdicts_read", {
+        findings: [{ id: "b", severity: "major", severity_scale: "code", policy_treatment: "block" }],
+      }),
+      logEnvelope(6, "2026-09-02T10:02:00Z", 73, "round_ended", { round: 1, outcome: "green" }),
+    ];
+    const logTasks = foldTaskRecords(envelopes, replacements);
+    const githubTasks = foldGithubTasks([taskIssue(65), taskIssue(73)], [], new Map(), new Map());
+
+    const tasks = mergeRoundRecords(githubTasks, logTasks);
+    const ticket = tasks.find((task) => task.issue === 73);
+    expect(ticket?.rounds).toHaveLength(1);
+    expect(ticket?.rounds[0]?.findings.blocker).toBe(1);
+    expect(ticket?.rounds[0]?.findings.major).toBe(1);
+    expect(ticket?.rounds[0]?.outcome).toBe("green");
+
+    const totals = computeMilestoneTotals(tasks);
+    expect(totals.findings.blocker).toBe(1);
+    expect(totals.findings.major).toBe(1);
+  });
+
   it("sums developer and reviewer time of both Issues into the ticket and the milestone, once", () => {
     const logTasks: LogTaskRecord[] = [
       {

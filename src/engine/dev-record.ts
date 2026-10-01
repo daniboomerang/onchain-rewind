@@ -47,6 +47,8 @@ export type RoundRecord = {
   readonly confidence?: Confidence;
   readonly findings: readonly Finding[];
   readonly blockers?: number;
+  /** The round was recorded under an Issue the task replaced, not under the task's own Issue. */
+  readonly replacedIssue?: boolean;
 };
 
 export type TaskRecord = {
@@ -158,6 +160,7 @@ type MutableRound = {
   confidence?: Confidence;
   findings: Finding[];
   blockers?: number;
+  replacedIssue?: boolean;
 };
 
 function buildTaskRecord(issue: number, events: readonly RawLogEvent[]): TaskRecord {
@@ -199,6 +202,7 @@ function buildTaskRecord(issue: number, events: readonly RawLogEvent[]): TaskRec
         const round = asNumber(event.round);
         if (round === undefined) break;
         current = { round, reviewerDispatchMs: [], findings: [] };
+        if (asNumber(event.subject.issue) !== issue) current.replacedIssue = true;
         const pending = pendingDeveloperMs.get(round);
         if (pending !== undefined) {
           current.developerMs = pending;
@@ -277,6 +281,7 @@ function finalizeRound(round: MutableRound): RoundRecord {
     confidence: round.confidence,
     findings: round.findings,
     blockers: round.blockers,
+    replacedIssue: round.replacedIssue,
   };
 }
 
