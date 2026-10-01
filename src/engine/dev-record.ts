@@ -35,11 +35,12 @@ export type RoundOutcome = "changes_requested" | "green";
 
 /**
  * Why the log sent a round back, read from its own events and never from the outcome alone:
- * `checks_failed` when the round's `gate_result_read` reported `green: false` (no reviewer ran),
- * `human_check` when the loop stopped for one (`stop_condition_met` with `principal_stop`, then
- * `paused` with `principal_item`).
+ * `checks_failed` when the round's `gate_result_read` reported `green: false` (no reviewer ran);
+ * when the loop stopped for a human decision (`stop_condition_met` with `principal_stop`, then
+ * `paused` with `principal_item`), `human_stop` if the round's `verdicts_read` came first and
+ * `human_stop_before_verdict` if it never did, so a review the stop cut short never reads as clean.
  */
-export type SentBackReason = "checks_failed" | "human_check";
+export type SentBackReason = "checks_failed" | "human_stop" | "human_stop_before_verdict";
 
 export type RoundRecord = {
   readonly round: number;
@@ -56,7 +57,7 @@ export type RoundRecord = {
   readonly confidence?: Confidence;
   readonly findings: readonly Finding[];
   readonly blockers?: number;
-  /** Undefined when the log recorded neither a failed gate result nor a stop for a human check this round. */
+  /** Undefined when the log recorded neither a failed gate result nor a stop for a human decision this round. */
   readonly sentBackReason?: SentBackReason;
 };
 
@@ -156,6 +157,7 @@ type MutableRound = {
   checksFailed: boolean;
   principalStop: boolean;
   pausedForPrincipal: boolean;
+  verdictRead: boolean;
 };
 
 function buildTaskRecord(issue: number, events: readonly RawLogEvent[]): TaskRecord {
@@ -207,6 +209,7 @@ function buildTaskRecord(issue: number, events: readonly RawLogEvent[]): TaskRec
           checksFailed: false,
           principalStop: false,
           pausedForPrincipal: false,
+          verdictRead: false,
         };
         const pending = pendingDeveloperMs.get(round);
         if (pending !== undefined) {
@@ -239,6 +242,7 @@ function buildTaskRecord(issue: number, events: readonly RawLogEvent[]): TaskRec
       }
       case "verdicts_read": {
         if (!current) break;
+        current.verdictRead = true;
         current.findings.push(...asFindings(event.findings));
         const blockers = asNumber(event.blockers);
         if (blockers !== undefined) current.blockers = blockers;
@@ -293,7 +297,9 @@ function finalizeRound(round: MutableRound): RoundRecord {
 
 function sentBackReason(round: MutableRound): SentBackReason | undefined {
   if (round.checksFailed) return "checks_failed";
-  if (round.principalStop && round.pausedForPrincipal) return "human_check";
+  if (round.principalStop && round.pausedForPrincipal) {
+    return round.verdictRead ? "human_stop" : "human_stop_before_verdict";
+  }
   return undefined;
 }
 

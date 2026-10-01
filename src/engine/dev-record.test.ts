@@ -237,7 +237,7 @@ describe("foldTaskRecords — why a round was sent back", () => {
     expect(round?.sentBackReason).toBe("checks_failed");
   });
 
-  it("reads human_check from a principal_stop followed by a principal_item pause, after a clean review", () => {
+  it("reads human_stop from a principal_stop followed by a principal_item pause, after a clean review", () => {
     const envelopes: RawLogEnvelope[] = [
       ev(1, "2026-09-01T10:00:00Z", 41, "dev_review_loop", "round_started", { ...loop, round: 2, base_head: "a2" }),
       ev(2, "2026-09-01T10:00:01Z", 41, "dev_review_loop", "gate_result_read", {
@@ -274,10 +274,41 @@ describe("foldTaskRecords — why a round was sent back", () => {
     const round = foldTaskRecords(envelopes)[0]?.rounds[0];
     expect(round?.outcome).toBe("changes_requested");
     expect(round?.findings).toEqual([]);
-    expect(round?.sentBackReason).toBe("human_check");
+    expect(round?.sentBackReason).toBe("human_stop");
   });
 
-  it("records no reason when the log has neither a red gate result nor a stop for a human check", () => {
+  it("reads human_stop_before_verdict when the loop stops for a human decision before any verdict is read", () => {
+    // The shape the log recorded when a ruling stopped a round while its reviewers were still running.
+    const envelopes: RawLogEnvelope[] = [
+      ev(1, "2026-09-01T10:00:00Z", 44, "dev_review_loop", "round_started", { ...loop, round: 1, base_head: "a5" }),
+      ev(2, "2026-09-01T10:00:01Z", 44, "dev_review_loop", "gate_result_read", {
+        ...loop,
+        round: 1,
+        head: "b5",
+        green: true,
+      }),
+      ev(3, "2026-09-01T10:30:00Z", 44, "dev_review_loop", "stop_condition_met", {
+        ...loop,
+        round: 1,
+        condition: "principal_stop",
+      }),
+      ev(4, "2026-09-01T10:30:00Z", 44, "dev_review_loop", "paused", { ...loop, round: 1, reason: "principal_item" }),
+      ev(5, "2026-09-01T10:30:00Z", 44, "dev_review_loop", "round_ended", {
+        ...loop,
+        round: 1,
+        base_head: "a5",
+        head: "b5",
+        outcome: "changes_requested",
+      }),
+    ];
+
+    const round = foldTaskRecords(envelopes)[0]?.rounds[0];
+    expect(round?.outcome).toBe("changes_requested");
+    expect(round?.findings).toEqual([]);
+    expect(round?.sentBackReason).toBe("human_stop_before_verdict");
+  });
+
+  it("records no reason when the log has neither a red gate result nor a stop for a human decision", () => {
     const envelopes: RawLogEnvelope[] = [
       ev(1, "2026-09-01T10:00:00Z", 42, "dev_review_loop", "round_started", { ...loop, round: 1, base_head: "a3" }),
       ev(2, "2026-09-01T10:00:01Z", 42, "dev_review_loop", "gate_result_read", {
@@ -308,7 +339,7 @@ describe("foldTaskRecords — why a round was sent back", () => {
     expect(round?.sentBackReason).toBeUndefined();
   });
 
-  it("reads no human check from a stop for another condition, even when it pauses for a principal item", () => {
+  it("reads no human stop from a stop for another condition, even when it pauses for a principal item", () => {
     const envelopes: RawLogEnvelope[] = [
       ev(1, "2026-09-01T10:00:00Z", 43, "dev_review_loop", "round_started", { ...loop, round: 3, base_head: "a4" }),
       ev(2, "2026-09-01T10:00:01Z", 43, "dev_review_loop", "stop_condition_met", {
