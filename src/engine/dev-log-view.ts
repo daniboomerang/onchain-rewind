@@ -38,6 +38,31 @@ function isSeverity(value: string): value is Severity {
   return (SEVERITIES as readonly string[]).includes(value);
 }
 
+/**
+ * The two reviewers raise on disjoint scales (the record keeps all seven in one `FindingCounts`),
+ * so the reviewer is told by the severity alone: no field is added to the record.
+ */
+const REVIEWER_SCALES = [
+  { reviewer: "Code review", severities: ["blocker", "major", "minor"] },
+  { reviewer: "Security", severities: ["critical", "high", "medium", "low"] },
+] as const satisfies readonly { reviewer: string; severities: readonly Severity[] }[];
+
+export type ReviewerFindings = {
+  readonly reviewer: (typeof REVIEWER_SCALES)[number]["reviewer"];
+  /** Only the severities the reviewer raised, most severe first. Empty when it raised none. */
+  readonly raised: readonly { readonly severity: Severity; readonly count: number }[];
+};
+
+/** Both reviewers, always, in this order: a reviewer that raised nothing keeps its line, with `raised` empty. */
+export function findingsByReviewer(counts: FindingCounts): readonly ReviewerFindings[] {
+  return REVIEWER_SCALES.map(({ reviewer, severities }) => ({
+    reviewer,
+    raised: severities
+      .filter((severity) => counts[severity] > 0)
+      .map((severity) => ({ severity, count: counts[severity] })),
+  }));
+}
+
 function addFindingCounts(a: FindingCounts, b: FindingCounts): FindingCounts {
   const sum = zeroFindingCounts();
   for (const severity of SEVERITIES) sum[severity] = a[severity] + b[severity];

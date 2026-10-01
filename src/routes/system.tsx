@@ -225,8 +225,8 @@ function System() {
           </p>
           <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-4">
             <StateMessage state="loading" />
-            <StateMessage state="rate_limited" />
-            <StateMessage state="token_rejected" />
+            <StateMessage state="github_limited" />
+            <StateMessage state="log_unavailable" />
             <StateMessage state="unreachable" />
           </div>
           <Row label="empty milestone">

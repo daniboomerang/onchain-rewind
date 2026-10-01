@@ -53,19 +53,44 @@ describe("StateMessage", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("names GITHUB_TOKEN, never a value, when GitHub is rate limited", () => {
-    render(<StateMessage state="rate_limited" />);
-    expect(screen.getByRole("alert")).toHaveTextContent("GITHUB_TOKEN");
+  it.each([
+    ["github_limited", "Ticket details are catching up"],
+    ["log_unavailable", "Round detail is missing for now"],
+    ["unreachable", "couldn't be reached"],
+  ] as const)("%s reads calmly, says it refreshes on its own and names no server internal", (state, headline) => {
+    render(<StateMessage state={state} />);
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(headline);
+    expect(alert).toHaveTextContent("refreshes on its own");
+    expect(alert.textContent).not.toMatch(
+      /TOKEN|token|credential|header|Authorization|rate limit|\b(401|403|429|500)\b/,
+    );
+  });
+});
+
+describe("DevLogRecord — findings by reviewer", () => {
+  it("names both reviewers in the headline, each on its own scale", () => {
+    render(<DevLogRecord view={normalDevLog} />);
+    expect(screen.getByText("Code review: 1 blocker · 3 major · 5 minor")).toBeInTheDocument();
+    expect(screen.getByText("Security: 1 high · 2 medium · 1 low")).toBeInTheDocument();
   });
 
-  it("names VINAYA_LOG_READ_TOKEN, never a value, when the log rejects its token", () => {
-    render(<StateMessage state="token_rejected" />);
-    expect(screen.getByRole("alert")).toHaveTextContent("VINAYA_LOG_READ_TOKEN");
+  it("keeps a reviewer's line, reading none, when it raised nothing", () => {
+    const view = {
+      ...normalDevLog,
+      headline: {
+        ...normalDevLog.headline,
+        findings: { ...normalDevLog.headline.findings, high: 0, medium: 0, low: 0 },
+      },
+    };
+    render(<DevLogRecord view={view} />);
+    expect(screen.getByText("Security: none")).toBeInTheDocument();
   });
 
-  it("has its own clear message when the log is unreachable", () => {
-    render(<StateMessage state="unreachable" />);
-    expect(screen.getByRole("alert")).toHaveTextContent("couldn't be reached");
+  it("splits a reviewed ticket's problems by reviewer", () => {
+    render(<DevLogRecord view={normalDevLog} />);
+    expect(screen.getAllByText("Code review:").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Security:").length).toBeGreaterThan(0);
   });
 });
 
@@ -184,7 +209,7 @@ describe("DevLogPage — GitHub failing doesn't blank a page the Vinaya log can 
 
     expect(await screen.findByText("Guardrails")).toBeInTheDocument();
     expect(screen.getByText("Ticket #20")).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent("GitHub's rate limit was hit");
+    expect(screen.getByRole("alert")).toHaveTextContent("Ticket details are catching up");
   });
 });
 
@@ -203,7 +228,7 @@ describe("DevLogPage — a missing VINAYA_LOG_READ_TOKEN never fails silently", 
     );
   }
 
-  it("shows the token-rejected message when the Vinaya read throws instead of returning a result", async () => {
+  it("shows the calm round-detail message, never the error, when the Vinaya read throws instead of returning a result", async () => {
     vi.mocked(getGithubDevRecord).mockResolvedValue(emptyGithubRecord);
     // This is exactly what `log-client.ts` does for a missing `VINAYA_LOG_READ_TOKEN`: it throws
     // rather than returning a typed `VinayaLogResult`, so the query settles into `isError`, not a
@@ -212,7 +237,9 @@ describe("DevLogPage — a missing VINAYA_LOG_READ_TOKEN never fails silently", 
 
     renderPage();
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("VINAYA_LOG_READ_TOKEN");
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Round detail is missing for now");
+    expect(document.body.textContent).not.toContain("VINAYA_LOG_READ_TOKEN");
     // The ticket list itself still rendered — a missing token degrades the page, it doesn't blank it.
     expect(screen.getByText("Onchain Rewind v1: demo-ready")).toBeInTheDocument();
   });

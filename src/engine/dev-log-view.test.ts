@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDegradedLogView, buildDevLogView } from "#/engine/dev-log-view.ts";
+import { buildDegradedLogView, buildDevLogView, findingsByReviewer } from "#/engine/dev-log-view.ts";
 import type { RoundRecord as LogRoundRecord, TaskRecord as LogTaskRecord } from "#/engine/dev-record.ts";
 import type { DevelopmentRecord as GithubDevelopmentRecord, TaskDevRecord } from "#/engine/github-dev-record.ts";
 
@@ -172,5 +172,36 @@ describe("buildDegradedLogView", () => {
       guardrails: { checks: 0, runs: 0, stopped: 0 },
     });
     expect(view.tickets.map((t) => t.issue)).toEqual([5, 30]);
+  });
+});
+
+describe("findingsByReviewer", () => {
+  const none = { blocker: 0, major: 0, minor: 0, critical: 0, high: 0, medium: 0, low: 0 };
+
+  it("splits the seven severities into code review and security by scale, most severe first", () => {
+    expect(findingsByReviewer({ ...none, blocker: 7, major: 18, minor: 3, high: 2, medium: 12, low: 1 })).toEqual([
+      {
+        reviewer: "Code review",
+        raised: [
+          { severity: "blocker", count: 7 },
+          { severity: "major", count: 18 },
+          { severity: "minor", count: 3 },
+        ],
+      },
+      {
+        reviewer: "Security",
+        raised: [
+          { severity: "high", count: 2 },
+          { severity: "medium", count: 12 },
+          { severity: "low", count: 1 },
+        ],
+      },
+    ]);
+  });
+
+  it("keeps both reviewers when one raised nothing, so Security is never dropped", () => {
+    const lines = findingsByReviewer({ ...none, minor: 1 });
+    expect(lines.map((line) => line.reviewer)).toEqual(["Code review", "Security"]);
+    expect(lines[1]?.raised).toEqual([]);
   });
 });

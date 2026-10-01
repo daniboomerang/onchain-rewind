@@ -109,3 +109,16 @@ describe("readDevRecord", () => {
     expect(await readDevRecord()).toEqual({ ok: false, error: "unauthorized" });
   });
 });
+
+describe("readDevRecord — a missing read token", () => {
+  it("returns a typed failure instead of throwing, and logs the detail on the server only", async () => {
+    vi.stubEnv("VINAYA_LOG_READ_TOKEN", "");
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await readDevRecord();
+
+    expect(result).toEqual({ ok: false, error: "unauthorized" });
+    expect(JSON.stringify(result)).not.toContain("VINAYA_LOG_READ_TOKEN");
+    expect(logged).toHaveBeenCalledWith("vinaya log read not attempted: VINAYA_LOG_READ_TOKEN is not set");
+  });
+});

@@ -16,6 +16,13 @@ const EVENTS_PATH = "/v1/repos/daniboomerang/onchain-rewind/events";
 /** The read endpoint pages forward only, oldest first; a short or empty page ends the read. */
 export const LOG_PAGE_LIMIT = 1000;
 
+/** The deployment has no read credential. Thrown, never returned: it is a fault of the server, not of the log. */
+export class LogTokenMissingError extends Error {
+  constructor() {
+    super("VINAYA_LOG_READ_TOKEN is not set: the server cannot read the Vinaya log without it.");
+  }
+}
+
 export type VinayaLogErrorCode = "unauthorized" | "unreachable";
 
 export type VinayaLogResult<T> =
@@ -30,7 +37,7 @@ export type VinayaLogResult<T> =
 export async function fetchLogEventsSince<T>(after: number): Promise<VinayaLogResult<readonly T[]>> {
   const token = process.env.VINAYA_LOG_READ_TOKEN;
   if (!token) {
-    throw new Error("VINAYA_LOG_READ_TOKEN is not set: the server cannot read the Vinaya log without it.");
+    throw new LogTokenMissingError();
   }
 
   const events: T[] = [];
