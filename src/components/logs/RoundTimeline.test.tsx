@@ -43,3 +43,24 @@ describe("RoundTimeline: timed round", () => {
     expect(screen.queryByText("Time isn't available for this round.")).not.toBeInTheDocument();
   });
 });
+
+describe("RoundTimeline: problems line", () => {
+  const none = { blocker: 0, major: 0, minor: 0, critical: 0, high: 0, medium: 0, low: 0 };
+
+  it("lists a round's problems by severity", () => {
+    render(
+      <RoundTimeline
+        timeline={[round({ outcome: "changes_requested", findings: { ...none, major: 2, high: 1 } })]}
+        scaleMs={1000}
+        humanRulings={0}
+      />,
+    );
+    expect(screen.getByText("Problems raised: 2 major · 1 high")).toBeInTheDocument();
+  });
+
+  it("prints no problems line, and no placeholder, for a round that raised nothing", () => {
+    render(<RoundTimeline timeline={[round({ outcome: "green", findings: none })]} scaleMs={1000} humanRulings={0} />);
+    expect(screen.queryByText(/Problems raised/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Nothing raised/)).not.toBeInTheDocument();
+  });
+});
