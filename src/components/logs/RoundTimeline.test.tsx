@@ -70,7 +70,8 @@ describe("RoundTimeline: reason line", () => {
 
   it.each([
     ["checks_failed", "Checks failed before review."],
-    ["human_check", "Stopped for a human check. The reviewers raised nothing."],
+    ["human_stop", "Stopped for a human decision. The reviewers raised nothing."],
+    ["human_stop_before_verdict", "Stopped for a human decision before the reviewers' verdict."],
   ] as const)("says why a round with no problems was sent back: %s", (sentBackReason, text) => {
     render(
       <RoundTimeline
@@ -91,20 +92,20 @@ describe("RoundTimeline: reason line", () => {
         humanRulings={0}
       />,
     );
-    expect(screen.queryByText(/Checks failed|Stopped for a human check/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Checks failed|Stopped for a human decision/)).not.toBeInTheDocument();
   });
 
   it("keeps the problems line, and no reason line, for a round sent back with findings", () => {
     render(
       <RoundTimeline
         timeline={[
-          round({ outcome: "changes_requested", findings: { ...none, major: 1 }, sentBackReason: "human_check" }),
+          round({ outcome: "changes_requested", findings: { ...none, major: 1 }, sentBackReason: "human_stop" }),
         ]}
         scaleMs={1000}
         humanRulings={0}
       />,
     );
     expect(screen.getByText("Problems raised: 1 major")).toBeInTheDocument();
-    expect(screen.queryByText(/Stopped for a human check/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Stopped for a human decision/)).not.toBeInTheDocument();
   });
 });

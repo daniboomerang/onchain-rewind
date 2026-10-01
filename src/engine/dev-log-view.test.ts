@@ -320,7 +320,7 @@ describe("buildDevLogView", () => {
           logTask({
             rounds: [
               logRound({ round: 1, outcome: "changes_requested", sentBackReason: "checks_failed" }),
-              logRound({ round: 2, outcome: "changes_requested", sentBackReason: "human_check" }),
+              logRound({ round: 2, outcome: "changes_requested", sentBackReason: "human_stop" }),
               logRound({ round: 3, outcome: "changes_requested" }),
               logRound({ round: 4, outcome: "green" }),
             ],
@@ -331,7 +331,7 @@ describe("buildDevLogView", () => {
     );
     expect(view.tickets[0]?.timeline.map((entry) => entry.sentBackReason)).toEqual([
       "checks_failed",
-      "human_check",
+      "human_stop",
       undefined,
       undefined,
     ]);
