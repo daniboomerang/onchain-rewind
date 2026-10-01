@@ -55,8 +55,8 @@ const STATE_MESSAGE: Record<LoadState, { headline: string; body: string } | unde
     body: "Ticket titles, status, size and pull requests are missing below for a few minutes. Round activity from the Vinaya log, where available, still shows. This refreshes on its own every few seconds.",
   },
   log_unavailable: {
-    headline: "Round detail is missing for now",
-    body: "Round-by-round detail and the guardrail totals are missing below. Everything GitHub gives still shows. This refreshes on its own every few seconds.",
+    headline: "Timing data is temporarily unavailable",
+    body: "Every ticket, round and finding below is complete. Only the time per round and the guardrail totals are missing for now. This refreshes on its own every few seconds.",
   },
   unreachable: {
     headline: "Part of the development log couldn't be reached",

@@ -2,11 +2,11 @@ import type { RoundTimelineEntry } from "../../engine/dev-log-view";
 import { SEVERITIES } from "../../engine/github-dev-record";
 import { minutes, plural } from "./format";
 
-const OUTCOME: Record<string, { label: string; tone: string }> = {
-  green: { label: "Approved", tone: "bg-positive/15 text-positive" },
-  changes_requested: { label: "Changes requested", tone: "bg-notice/15 text-notice" },
+const OUTCOME: Record<string, { label: string; tone: string; bar: string }> = {
+  green: { label: "Approved", tone: "bg-positive/15 text-positive", bar: "bg-positive" },
+  changes_requested: { label: "Changes requested", tone: "bg-notice/15 text-notice", bar: "bg-notice" },
 };
-const IN_PROGRESS = { label: "In progress", tone: "bg-surface-raised text-fg-muted" };
+const IN_PROGRESS = { label: "In progress", tone: "bg-surface-raised text-fg-muted", bar: "bg-fg-subtle" };
 
 function findingsLine(findings: RoundTimelineEntry["findings"]): string {
   const parts = SEVERITIES.filter((severity) => findings[severity] > 0).map(
@@ -88,7 +88,17 @@ export function RoundTimeline({
                 </p>
               </>
             ) : (
-              <p className="text-label text-fg-muted">Time isn't available for this round.</p>
+              <>
+                {/* Colour shows the outcome only: the same full width for every untimed round, never a duration. */}
+                <div
+                  role="img"
+                  aria-label={`${outcome.label}, time isn't available for this round`}
+                  className="h-2.5 overflow-hidden rounded-full bg-track"
+                >
+                  <span className={`block h-full w-full ${outcome.bar}`} />
+                </div>
+                <p className="text-label text-fg-muted">Time isn't available for this round.</p>
+              </>
             )}
             <p className="text-label text-fg-subtle">Problems raised: {findingsLine(entry.findings)}</p>
           </li>

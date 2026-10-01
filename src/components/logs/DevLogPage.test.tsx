@@ -55,7 +55,7 @@ describe("StateMessage", () => {
 
   it.each([
     ["github_limited", "Ticket details are catching up"],
-    ["log_unavailable", "Round detail is missing for now"],
+    ["log_unavailable", "Timing data is temporarily unavailable"],
     ["unreachable", "couldn't be reached"],
   ] as const)("%s reads calmly, says it refreshes on its own and names no server internal", (state, headline) => {
     render(<StateMessage state={state} />);
@@ -287,7 +287,7 @@ describe("DevLogPage — a missing VINAYA_LOG_READ_TOKEN never fails silently", 
     renderPage();
 
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("Round detail is missing for now");
+    expect(alert).toHaveTextContent("Timing data is temporarily unavailable");
     expect(document.body.textContent).not.toContain("VINAYA_LOG_READ_TOKEN");
     // The ticket list itself still rendered — a missing token degrades the page, it doesn't blank it.
     expect(screen.getByText("Onchain Rewind v1: demo-ready")).toBeInTheDocument();
@@ -369,7 +369,7 @@ describe("DevLogPage — the development snapshot paints first, then the live re
     expect(screen.getByRole("status")).toHaveTextContent("Saved copy as of");
     expect(screen.queryByText("Reading the project record…")).not.toBeInTheDocument();
     expect(screen.queryByText(/From the Vinaya log, as of the saved copy/)).not.toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent("Round detail is missing for now");
+    expect(screen.getByRole("alert")).toHaveTextContent("Timing data is temporarily unavailable");
   });
 
   it("fills in the log's data, and drops the message, once the live log answers", async () => {
