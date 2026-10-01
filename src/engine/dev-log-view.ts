@@ -114,10 +114,11 @@ export type TicketView = {
   readonly buildMs?: number;
   readonly tokensIn: number;
   readonly tokensOut: number;
+  /** The sum of the timeline's rows. */
   readonly findings: FindingCounts;
-  /** Distinct rounds the ticket went through, from GitHub's own reviewer-summary tables. */
+  /** Every review in the timeline, re-reviews included. */
   readonly roundCount: number;
-  /** One entry per distinct round, its final outcome — for a compact round-by-round glance. */
+  /** One entry per review in the timeline, with its outcome — for a compact round-by-round glance. */
   readonly rounds: readonly { readonly round: number; readonly outcome?: string }[];
   /** The round-by-round timeline: the Vinaya log's own when it has the ticket, else rebuilt from GitHub's summaries. Empty only when the ticket has no rounds. */
   readonly timeline: readonly RoundTimelineEntry[];
@@ -166,11 +167,38 @@ export type DevLogView = {
   readonly tickets: readonly TicketView[];
 };
 
-function buildTimeline(rounds: readonly LogRoundRecord[]): readonly RoundTimelineEntry[] {
+function hasFindings(findings: FindingCounts): boolean {
+  return SEVERITIES.some((severity) => findings[severity] > 0);
+}
+
+/**
+ * The log's own rounds, one entry per review, re-reviews included. A review's findings are the
+ * log's. GitHub's reviewer-summary row for a round number stands in only when no review of that
+ * number has findings in the log, and then once, on its last review: the table keeps one row per
+ * round number, so spreading it over every re-review would count it twice.
+ */
+function buildTimeline(
+  rounds: readonly LogRoundRecord[],
+  githubRounds: TaskDevRecord["rounds"] = [],
+): readonly RoundTimelineEntry[] {
+  const logged = rounds.map((round) => findingsFromLog(round.findings));
+  const lastReview = new Map<number, number>();
+  const roundsWithLogFindings = new Set<number>();
+  rounds.forEach((round, index) => {
+    lastReview.set(round.round, index);
+    if (hasFindings(logged[index] ?? zeroFindingCounts())) roundsWithLogFindings.add(round.round);
+  });
+  const githubByRound = new Map(githubRounds.map((round) => [round.round, round.findings]));
+
   const seen = new Set<number>();
-  return rounds.map((round) => {
+  return rounds.map((round, index) => {
     const repeat = seen.has(round.round);
     seen.add(round.round);
+    const own = logged[index] ?? zeroFindingCounts();
+    const fromGithub =
+      !roundsWithLogFindings.has(round.round) && lastReview.get(round.round) === index
+        ? githubByRound.get(round.round)
+        : undefined;
     return {
       round: round.round,
       repeat,
@@ -181,7 +209,7 @@ function buildTimeline(rounds: readonly LogRoundRecord[]): readonly RoundTimelin
       filesChanged: round.filesChanged,
       insertions: round.insertions,
       deletions: round.deletions,
-      findings: findingsFromLog(round.findings),
+      findings: fromGithub ?? own,
     };
   });
 }
@@ -203,9 +231,13 @@ function buildTimelineFromGithub(rounds: TaskDevRecord["rounds"]): readonly Roun
 
 function buildTicket(task: TaskDevRecord, logTask: LogTaskRecord | undefined): TicketView {
   // The log's timeline, with times, wins whenever it has rounds for the ticket.
-  const fromLog = logTask !== undefined && logTask.rounds.length > 0;
+  const timeline =
+    logTask !== undefined && logTask.rounds.length > 0
+      ? buildTimeline(logTask.rounds, task.rounds)
+      : buildTimelineFromGithub(task.rounds);
+  // The ticket's numbers are its rows': its problems their sum, its rounds every review in them.
   let findings = zeroFindingCounts();
-  for (const round of task.rounds) findings = addFindingCounts(findings, round.findings);
+  for (const entry of timeline) findings = addFindingCounts(findings, entry.findings);
 
   let tokensIn = 0;
   let tokensOut = 0;
@@ -242,9 +274,9 @@ function buildTicket(task: TaskDevRecord, logTask: LogTaskRecord | undefined): T
     tokensIn,
     tokensOut,
     findings,
-    roundCount: task.rounds.length,
-    rounds: task.rounds.map((round) => ({ round: round.round, outcome: round.outcome })),
-    timeline: fromLog ? buildTimeline(logTask.rounds) : buildTimelineFromGithub(task.rounds),
+    roundCount: timeline.length,
+    rounds: timeline.map((entry) => ({ round: entry.round, outcome: entry.outcome })),
+    timeline,
     running: logTask?.running ?? false,
     recovered: logTask?.recovered ?? false,
     paused: logTask?.paused ?? false,
@@ -262,7 +294,11 @@ export function buildDevLogView(github: GithubDevelopmentRecord, log?: LogDevelo
   const logByIssue = new Map(log?.tasks.map((task) => [task.issue, task]) ?? []);
   const tickets = github.tasks.map((task) => buildTicket(task, logByIssue.get(task.issue)));
 
-  const reviewedTickets = github.tasks.filter((task) => task.rounds.length > 0).length;
+  // The headline is the sum of the tickets, as each ticket is the sum of its rows.
+  const reviewedTickets = tickets.filter((ticket) => ticket.roundCount > 0).length;
+  const secondRoundTickets = tickets.filter((ticket) => ticket.roundCount >= 2).length;
+  let findings = zeroFindingCounts();
+  for (const ticket of tickets) findings = addFindingCounts(findings, ticket.findings);
 
   const workingNow: WorkingNow[] = [];
   for (const ticket of tickets) {
@@ -290,10 +326,10 @@ export function buildDevLogView(github: GithubDevelopmentRecord, log?: LogDevelo
     },
     headline: {
       medianTicketMs: totals.medianTaskMs,
-      secondRoundTickets: totals.secondRoundTasks,
+      secondRoundTickets,
       reviewedTickets,
-      findings: totals.findings,
-      findingsTotal: SEVERITIES.reduce((sum, severity) => sum + totals.findings[severity], 0),
+      findings,
+      findingsTotal: SEVERITIES.reduce((sum, severity) => sum + findings[severity], 0),
       typicalFiles: totals.typicalSize.filesChanged,
       typicalLines:
         totals.typicalSize.insertions !== undefined && totals.typicalSize.deletions !== undefined

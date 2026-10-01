@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clearDevRecordCache, readDevRecord } from "#/server/vinaya/dev-record.functions.ts";
+import { clearDevRecordCache, readDevRecord, SKIPPED_ISSUES } from "#/server/vinaya/dev-record.functions.ts";
 
 /** Mimics the endpoint's real `content-type: application/x-ndjson` body: one object per line. */
 function ndjsonResponse(lines: readonly unknown[], status = 200): Response {
@@ -24,6 +24,19 @@ function gateEnvelope(seq: number) {
       outcome: "pass",
     },
   };
+}
+
+function issueEnvelope(seq: number, issue: number, event: string, fields: Record<string, unknown> = {}) {
+  return {
+    seq,
+    status: "ok",
+    event: { meta: { ts: `2026-09-01T00:00:0${seq}Z` }, subject: { issue }, kind: "dev_review_loop", event, ...fields },
+  };
+}
+
+function issueGateEnvelope(seq: number, issue: number) {
+  const gate = gateEnvelope(seq);
+  return { ...gate, event: { ...gate.event, subject: { issue }, outcome: "fail" } };
 }
 
 function requestedAfter(url: unknown): string | null {
@@ -51,6 +64,27 @@ describe("readDevRecord", () => {
 
     expect(requestedAfter(fetchMock.mock.calls[0]?.[0])).toBe("0");
     expect(result).toEqual({ ok: true, data: { tasks: [], guardrails: { checks: 1, runs: 1, stopped: 0 } } });
+  });
+
+  it("leaves every skipped Issue's events out of the tickets and the guardrail totals", async () => {
+    expect([...SKIPPED_ISSUES]).toEqual([65, 75, 78, 80]);
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        ndjsonResponse([
+          issueEnvelope(1, 75, "round_started", { round: 1 }),
+          issueEnvelope(2, 75, "round_ended", { round: 1, outcome: "green" }),
+          issueGateEnvelope(3, 80),
+          issueEnvelope(4, 82, "round_started", { round: 1 }),
+          gateEnvelope(5),
+        ]),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await readDevRecord();
+
+    expect(result.ok && result.data.tasks.map((task) => task.issue)).toEqual([82]);
+    expect(result.ok && result.data.guardrails).toEqual({ checks: 1, runs: 1, stopped: 0 });
   });
 
   it("asks only for events after the last one held on the next read", async () => {

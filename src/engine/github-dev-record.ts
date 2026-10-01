@@ -503,11 +503,10 @@ export function foldGithubTasks(
 /* ------------------------------- Merging the round record ------------------------------- */
 
 /**
- * A task's Vinaya round record, reduced to one summary per distinct round number: content
- * (findings, outcome, confidence, size) from the round's last occurrence, time summed across
- * every occurrence — the same "a round reviewed again after a human ruling counts once toward the
- * task's rounds" rule the GitHub reviewer-summary tables already follow, but time reflects the
- * real work both occurrences cost.
+ * A task's Vinaya round record, reduced to one summary per distinct round number: outcome and
+ * confidence from the round's last occurrence, findings and time summed across every occurrence —
+ * the same "a round reviewed again after a human ruling is one row" shape the GitHub
+ * reviewer-summary tables follow, but every review's findings and time still count.
  */
 function reduceLogRounds(rounds: readonly LogRoundRecord[]): {
   readonly rounds: readonly RoundSummary[];
@@ -522,7 +521,7 @@ function reduceLogRounds(rounds: readonly LogRoundRecord[]): {
     if (round.developerMs !== undefined) developerMs = (developerMs ?? 0) + round.developerMs;
     if (round.reviewerMs !== undefined) reviewerMs = (reviewerMs ?? 0) + round.reviewerMs;
 
-    const findings = zeroFindingCounts();
+    const findings = { ...(byNumber.get(round.round)?.findings ?? zeroFindingCounts()) };
     for (const finding of round.findings) {
       if (isSeverity(finding.severity)) findings[finding.severity]++;
     }
@@ -542,15 +541,18 @@ function isSeverity(value: string): value is Severity {
   return (SEVERITIES as readonly string[]).includes(value);
 }
 
+function hasFindings(findings: FindingCounts): boolean {
+  return SEVERITIES.some((severity) => findings[severity] > 0);
+}
+
 /**
  * Replace each task's GitHub-estimated round timing with the Vinaya round record's, when the log
- * has one for that task's issue (O2). Each round itself, though, stays the GitHub reviewers'
- * summary table's row for that same round number when one exists: the log's own `findings` list
- * uses a severity scale that doesn't always map onto this app's seven severities (see
- * `isSeverity`), and an unmapped or empty list must never zero out counts the table already
- * carries (O6). A round the table never saw — the log-only, GitHub-unreachable path
- * `DegradedLogRecord` renders — keeps its log-derived round, its only source. A task the log never
- * saw keeps its GitHub-derived rounds and its first-commit-to-last-verdict span as `timeMs`.
+ * has one for that task's issue (O2). A round's findings are the log's whenever the log recorded
+ * any for it: GitHub's reviewer table misses rounds (no row for a round the loop never summarised,
+ * a duplicated row whose last copy is all dashes), so its row stands in only for a round the log
+ * has no findings for — an empty list, or one on a scale none of this app's seven severities name.
+ * A task the log never saw keeps its GitHub-derived rounds and its first-commit-to-last-verdict
+ * span as `timeMs`.
  */
 export function mergeRoundRecords(
   githubTasks: readonly TaskDevRecord[],
@@ -564,7 +566,9 @@ export function mergeRoundRecords(
 
     const reduced = reduceLogRounds(logTask.rounds);
     const githubRoundsByNumber = new Map(task.rounds.map((round) => [round.round, round]));
-    const rounds = reduced.rounds.map((round) => githubRoundsByNumber.get(round.round) ?? round);
+    const rounds = reduced.rounds.map((round) =>
+      hasFindings(round.findings) ? round : (githubRoundsByNumber.get(round.round) ?? round),
+    );
     const timeMs =
       reduced.developerMs !== undefined || reduced.reviewerMs !== undefined
         ? (reduced.developerMs ?? 0) + (reduced.reviewerMs ?? 0)

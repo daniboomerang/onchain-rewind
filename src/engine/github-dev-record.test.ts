@@ -440,9 +440,9 @@ describe("mergeRoundRecords", () => {
     ];
     const [merged] = mergeRoundRecords([githubTask], logTasks);
     expect(merged?.rounds).toHaveLength(1);
-    // Findings still come from the GitHub table's round 1 row, unaffected by which log occurrence is last.
+    // Every review's findings count, not only the last occurrence's.
     expect(merged?.rounds[0]?.findings.blocker).toBe(1);
-    expect(merged?.rounds[0]?.findings.minor).toBe(0);
+    expect(merged?.rounds[0]?.findings.minor).toBe(1);
     // Time reflects both sessions actually spent.
     expect(merged?.developerMs).toBe(420_000);
     expect(merged?.reviewerMs).toBe(840_000);
@@ -488,6 +488,27 @@ describe("mergeRoundRecords", () => {
     ]);
     expect(merged?.developerMs).toBe(300_000);
     expect(merged?.reviewerMs).toBe(600_000);
+  });
+
+  it("takes a round's findings from the log over a GitHub row that lost them", () => {
+    // A duplicated table row whose last copy is all dashes reads as zero findings on GitHub.
+    const dashedRow: TaskDevRecord = {
+      ...githubTask,
+      rounds: [{ round: 1, findings: { blocker: 0, major: 0, minor: 0, critical: 0, high: 0, medium: 0, low: 0 } }],
+    };
+    const logTasks: LogTaskRecord[] = [
+      {
+        issue: 35,
+        rounds: [{ ...logRound(1, 300_000, 600_000, "major"), outcome: "changes_requested" }],
+        resumed: false,
+        paused: false,
+        recovered: false,
+        running: false,
+      },
+    ];
+    const [merged] = mergeRoundRecords([dashedRow], logTasks);
+    expect(merged?.rounds[0]?.findings.major).toBe(1);
+    expect(merged?.rounds[0]?.outcome).toBe("changes_requested");
   });
 
   it("keeps the log's own findings for a round the GitHub table never saw (the GitHub-unreachable path)", () => {

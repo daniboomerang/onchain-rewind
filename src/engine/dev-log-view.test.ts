@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { buildDegradedLogView, buildDevLogView, findingsByReviewer } from "#/engine/dev-log-view.ts";
-import type { RoundRecord as LogRoundRecord, TaskRecord as LogTaskRecord } from "#/engine/dev-record.ts";
+import {
+  foldDevelopmentRecord,
+  type RoundRecord as LogRoundRecord,
+  type TaskRecord as LogTaskRecord,
+  type RawLogEnvelope,
+} from "#/engine/dev-record.ts";
 import type { DevelopmentRecord as GithubDevelopmentRecord, TaskDevRecord } from "#/engine/github-dev-record.ts";
 
 function task(overrides: Partial<TaskDevRecord> = {}): TaskDevRecord {
@@ -133,6 +138,156 @@ describe("buildDevLogView", () => {
       medium: 0,
       low: 0,
     });
+  });
+
+  it("counts the log's capitalised severities on the round they were raised in", () => {
+    const meta = (ts: string) => ({ ts, run_id: "run-1", host: "host-a" });
+    const envelopes = [
+      {
+        seq: 1,
+        status: "ok",
+        event: {
+          meta: meta("2026-09-01T10:00:00Z"),
+          subject: { issue: 22 },
+          kind: "dev_review_loop",
+          event: "round_started",
+          round: 1,
+        },
+      },
+      {
+        seq: 2,
+        status: "ok",
+        event: {
+          meta: meta("2026-09-01T10:01:00Z"),
+          subject: { issue: 22 },
+          kind: "dev_review_loop",
+          event: "verdicts_read",
+          findings: [
+            { id: "f1", severity: "MAJOR", severity_scale: "code", policy_treatment: "block" },
+            { id: "f2", severity: "BLOCKER", severity_scale: "code", policy_treatment: "block" },
+            { id: "f3", severity: "HIGH", severity_scale: "security", policy_treatment: "block" },
+          ],
+        },
+      },
+      {
+        seq: 3,
+        status: "ok",
+        event: {
+          meta: meta("2026-09-01T10:02:00Z"),
+          subject: { issue: 22 },
+          kind: "dev_review_loop",
+          event: "round_ended",
+          round: 1,
+          outcome: "changes_requested",
+        },
+      },
+    ] as RawLogEnvelope[];
+
+    const view = buildDevLogView(github([task()]), foldDevelopmentRecord(envelopes));
+    expect(view.tickets[0]?.timeline[0]?.findings).toEqual({ ...logFindings(), blocker: 1, major: 1, high: 1 });
+  });
+
+  it("makes a ticket's problems the sum of its rows, and the headline the sum of its tickets", () => {
+    const view = buildDevLogView(
+      github([
+        task({
+          issue: 1,
+          // GitHub's table lost round 1's findings (an all-dash copy) and never summarised round 2.
+          rounds: [{ round: 1, findings: logFindings(), outcome: "changes_requested" }],
+        }),
+        task({ issue: 2, rounds: [{ round: 1, findings: { ...logFindings(), low: 2 }, outcome: "green" }] }),
+      ]),
+      {
+        tasks: [
+          logTask({
+            issue: 1,
+            rounds: [
+              logRound({
+                outcome: "changes_requested",
+                findings: [{ id: "f1", severity: "major", severityScale: "code", policyTreatment: "block" }],
+              }),
+              logRound({
+                round: 2,
+                outcome: "changes_requested",
+                findings: [{ id: "f2", severity: "high", severityScale: "security", policyTreatment: "block" }],
+              }),
+              logRound({ round: 3, outcome: "green" }),
+            ],
+          }),
+        ],
+        guardrails: { checks: 0, runs: 0, stopped: 0 },
+      },
+    );
+    const [first, second] = view.tickets;
+    expect(first?.findings).toEqual({ ...logFindings(), major: 1, high: 1 });
+    expect(second?.findings).toEqual({ ...logFindings(), low: 2 });
+    expect(view.headline.findings).toEqual({ ...logFindings(), major: 1, high: 1, low: 2 });
+    expect(view.headline.findingsTotal).toBe(4);
+  });
+
+  it("takes GitHub's row only for a round the log has no findings for, once, on its last review", () => {
+    const view = buildDevLogView(
+      github([
+        task({
+          rounds: [
+            { round: 1, findings: { ...logFindings(), blocker: 5 }, outcome: "changes_requested" },
+            { round: 2, findings: { ...logFindings(), minor: 3 }, outcome: "green" },
+          ],
+        }),
+      ]),
+      {
+        tasks: [
+          logTask({
+            rounds: [
+              logRound({
+                outcome: "changes_requested",
+                findings: [{ id: "f1", severity: "major", severityScale: "code", policyTreatment: "block" }],
+              }),
+              logRound({ round: 2, outcome: "changes_requested" }),
+              logRound({ round: 2, outcome: "green" }),
+            ],
+          }),
+        ],
+        guardrails: { checks: 0, runs: 0, stopped: 0 },
+      },
+    );
+    const timeline = view.tickets[0]?.timeline ?? [];
+    expect(timeline.map((entry) => entry.findings)).toEqual([
+      { ...logFindings(), major: 1 },
+      logFindings(),
+      { ...logFindings(), minor: 3 },
+    ]);
+    expect(view.tickets[0]?.findings).toEqual({ ...logFindings(), major: 1, minor: 3 });
+  });
+
+  it("counts every review, re-reviews included, in a ticket's rounds and the second-rounds headline", () => {
+    const view = buildDevLogView(
+      github([
+        task({ issue: 1, rounds: [{ round: 1, findings: logFindings(), outcome: "green" }] }),
+        task({ issue: 2, rounds: [{ round: 1, findings: logFindings(), outcome: "green" }] }),
+        task({ issue: 3 }),
+      ]),
+      {
+        tasks: [
+          logTask({
+            issue: 1,
+            rounds: [
+              logRound({ outcome: "changes_requested" }),
+              logRound({ round: 2, outcome: "changes_requested" }),
+              logRound({ round: 2, outcome: "green" }),
+            ],
+          }),
+        ],
+        guardrails: { checks: 0, runs: 0, stopped: 0 },
+      },
+    );
+    const [rereviewed, single] = view.tickets;
+    expect(rereviewed?.roundCount).toBe(3);
+    expect(rereviewed?.rounds).toHaveLength(rereviewed?.timeline.length ?? -1);
+    expect(rereviewed?.rounds.map((r) => r.outcome)).toEqual(["changes_requested", "changes_requested", "green"]);
+    expect(single?.roundCount).toBe(1);
+    expect(view.headline.secondRoundTickets).toBe(1);
+    expect(view.headline.reviewedTickets).toBe(2);
   });
 
   it("reports a running ticket as the developer's or the reviewers', by status", () => {

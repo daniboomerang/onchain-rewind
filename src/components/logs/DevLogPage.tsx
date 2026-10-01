@@ -508,9 +508,11 @@ function TicketRow({ ticket: t, scaleMs }: { ticket: TicketView; scaleMs: number
         ) : (
           <>
             <span className="flex items-center gap-1.5" role="img" aria-label={plural(t.rounds.length, "round")}>
-              {t.rounds.map((r) => (
+              {t.rounds.map((r, index) => (
                 <span
-                  key={r.round}
+                  // A re-review repeats its round number, so the review's place is its identity.
+                  // biome-ignore lint/suspicious/noArrayIndexKey: the list is append-only and never reordered.
+                  key={index}
                   title={`Round ${r.round}: ${r.outcome ? r.outcome.replace("_", " ") : "in progress"}`}
                   className={`size-2.5 rounded-full ${r.outcome === "green" ? "bg-positive" : r.outcome === "changes_requested" ? "bg-notice" : "bg-fg-subtle"}`}
                 />

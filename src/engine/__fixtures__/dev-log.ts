@@ -14,8 +14,8 @@ export const normalDevLog: DevLogView = {
     medianTicketMs: 42 * MINUTE,
     secondRoundTickets: 1,
     reviewedTickets: 4,
-    findings: { blocker: 1, major: 3, minor: 5, critical: 0, high: 1, medium: 2, low: 1 },
-    findingsTotal: 13,
+    findings: { blocker: 1, major: 3, minor: 5, critical: 0, high: 1, medium: 1, low: 1 },
+    findingsTotal: 12,
     typicalFiles: 4,
     typicalLines: 180,
     tokensIn: 3_200_000,
@@ -48,8 +48,11 @@ export const normalDevLog: DevLogView = {
       tokensIn: 980_000,
       tokensOut: 120_000,
       findings: { blocker: 1, major: 1, minor: 2, critical: 0, high: 0, medium: 0, low: 0 },
-      roundCount: 1,
-      rounds: [{ round: 1, outcome: "green" }],
+      roundCount: 2,
+      rounds: [
+        { round: 1, outcome: "changes_requested" },
+        { round: 1, outcome: "green" },
+      ],
       timeline: [
         {
           round: 1,
