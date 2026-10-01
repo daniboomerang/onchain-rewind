@@ -55,13 +55,15 @@ describe("StateMessage", () => {
 
   it.each([
     ["github_limited", "Ticket details are catching up"],
-    ["log_unavailable", "Round detail is missing for now"],
-    ["unreachable", "couldn't be reached"],
+    ["log_unavailable", "Timing data is temporarily unavailable"],
+    ["unreachable", "Timing data is temporarily unavailable"],
   ] as const)("%s reads calmly, says it refreshes on its own and names no server internal", (state, headline) => {
     render(<StateMessage state={state} />);
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent(headline);
     expect(alert).toHaveTextContent("refreshes on its own");
+    if (state !== "github_limited")
+      expect(alert).toHaveTextContent(/every ticket, round and finding below is complete/i);
     expect(alert.textContent).not.toMatch(
       /TOKEN|token|credential|header|Authorization|rate limit|\b(401|403|429|500)\b/,
     );
@@ -163,6 +165,55 @@ describe("DevLogRecord", () => {
   });
 });
 
+describe("DevLogRecord — rounds always show", () => {
+  const rebuiltTitle = "The GitHub record of every task becomes a development record";
+
+  // The same ticket as GitHub alone rebuilds it when the Vinaya log is down: rounds, no time.
+  function githubOnly(): typeof normalDevLog {
+    return {
+      ...normalDevLog,
+      timeSplit: undefined,
+      guardrails: undefined,
+      tickets: normalDevLog.tickets.map((t) => ({
+        ...t,
+        timeline: t.timeline.map(({ developerMs, reviewerMs, filesChanged, insertions, deletions, ...round }) => round),
+      })),
+    };
+  }
+
+  it("shows a ticket's rounds open, saying time isn't available and inventing none", () => {
+    render(<DevLogRecord view={githubOnly()} />);
+    const details = screen.getByText(rebuiltTitle).closest("details");
+    expect(details).toHaveAttribute("open");
+    expect(screen.getAllByText("Time isn't available for this round.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Time per round isn't available/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Developer \d+ min/)).not.toBeInTheDocument();
+  });
+
+  it("keeps a ticket with no rounds a plain row", () => {
+    render(<DevLogRecord view={githubOnly()} />);
+    const planned = screen.getByText("A twelfth demo wallet replaces one that stopped producing a good story");
+    expect(planned.closest("details")).toBeNull();
+  });
+
+  it("keeps a closed ticket closed across a refresh, and an open one open", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<DevLogRecord view={githubOnly()} />);
+    const summary = screen.getByText(rebuiltTitle).closest("summary");
+    if (!summary) throw new Error("summary not found");
+
+    await user.click(summary);
+    expect(screen.getByText(rebuiltTitle).closest("details")).not.toHaveAttribute("open");
+
+    rerender(<DevLogRecord view={githubOnly()} />);
+    expect(screen.getByText(rebuiltTitle).closest("details")).not.toHaveAttribute("open");
+
+    await user.click(screen.getByText(rebuiltTitle).closest("summary") as HTMLElement);
+    rerender(<DevLogRecord view={githubOnly()} />);
+    expect(screen.getByText(rebuiltTitle).closest("details")).toHaveAttribute("open");
+  });
+});
+
 describe("DegradedLogRecord", () => {
   it("shows guardrails, round activity and the live line from the Vinaya log alone, with no ticket titles", () => {
     render(<DegradedLogRecord view={degradedDevLog} />);
@@ -238,7 +289,7 @@ describe("DevLogPage — a missing VINAYA_LOG_READ_TOKEN never fails silently", 
     renderPage();
 
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("Round detail is missing for now");
+    expect(alert).toHaveTextContent("Timing data is temporarily unavailable");
     expect(document.body.textContent).not.toContain("VINAYA_LOG_READ_TOKEN");
     // The ticket list itself still rendered — a missing token degrades the page, it doesn't blank it.
     expect(screen.getByText("Onchain Rewind v1: demo-ready")).toBeInTheDocument();
@@ -298,7 +349,9 @@ describe("DevLogPage — the development snapshot paints first, then the live re
     vi.mocked(getDevRecord).mockReset();
   });
 
-  function renderPage(withSnapshot: typeof snapshot | null) {
+  function renderPage(
+    withSnapshot: { takenAt: string; github: typeof snapshot.github; log?: typeof snapshot.log } | null,
+  ) {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>
@@ -307,6 +360,30 @@ describe("DevLogPage — the development snapshot paints first, then the live re
     );
     return client;
   }
+
+  it("paints a snapshot taken without the Vinaya log like a failed log read, with its tickets and no guardrails", () => {
+    vi.mocked(getGithubDevRecord).mockReturnValue(new Promise(() => {}));
+    vi.mocked(getDevRecord).mockReturnValue(new Promise(() => {}));
+
+    renderPage({ takenAt: snapshot.takenAt, github: snapshot.github });
+
+    expect(screen.getByText("A ticket as the build read it")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Saved copy as of");
+    expect(screen.queryByText("Reading the project record…")).not.toBeInTheDocument();
+    expect(screen.queryByText(/From the Vinaya log, as of the saved copy/)).not.toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Timing data is temporarily unavailable");
+  });
+
+  it("fills in the log's data, and drops the message, once the live log answers", async () => {
+    vi.mocked(getGithubDevRecord).mockResolvedValue(liveGithub);
+    vi.mocked(getDevRecord).mockResolvedValue({ ok: true, data: logRecord(false) });
+
+    renderPage({ takenAt: snapshot.takenAt, github: snapshot.github });
+
+    expect(await screen.findByText("The same ticket, read live")).toBeInTheDocument();
+    expect(screen.getByText(/Live from the Vinaya log/)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 
   it("paints the snapshot with its as-of line and no loader while the live reads are pending", () => {
     vi.mocked(getGithubDevRecord).mockReturnValue(new Promise(() => {}));

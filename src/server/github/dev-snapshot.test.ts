@@ -23,12 +23,17 @@ describe("parseDevSnapshot", () => {
     expect(parseDevSnapshot(snapshot)).toBe(snapshot);
   });
 
+  it("accepts a snapshot taken without the Vinaya log, and refuses a malformed log", () => {
+    const github = { takenAt: "2026-09-30T17:52:56.295Z", github: githubRecord };
+    expect(parseDevSnapshot(github)).toBe(github);
+    expect(parseDevSnapshot({ ...github, log: {} })).toBeUndefined();
+  });
+
   it("refuses anything else", () => {
     expect(parseDevSnapshot(undefined)).toBeUndefined();
     expect(parseDevSnapshot({})).toBeUndefined();
     expect(parseDevSnapshot({ takenAt: "not a date", github: githubRecord, log: logRecord })).toBeUndefined();
     expect(parseDevSnapshot({ takenAt: "2026-09-30T17:52:56.295Z", github: {}, log: logRecord })).toBeUndefined();
-    expect(parseDevSnapshot({ takenAt: "2026-09-30T17:52:56.295Z", github: githubRecord })).toBeUndefined();
   });
 });
 

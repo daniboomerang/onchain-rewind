@@ -82,15 +82,45 @@ describe("writeDevSnapshot", () => {
     }
   });
 
-  it("writes nothing and never reads GitHub when the Vinaya log has no read token", async () => {
-    vi.mocked(readDevRecord).mockRejectedValue(new Error("VINAYA_LOG_READ_TOKEN is not set: …"));
+  it("writes the snapshot from GitHub alone when the Vinaya log has no read token", async () => {
+    vi.mocked(readDevRecord).mockRejectedValue(new Error(`VINAYA_LOG_READ_TOKEN is not set ${FAKE_LOG_TOKEN}`));
+    vi.mocked(readGithubDevRecord).mockResolvedValue({ ok: true, data: githubRecord });
 
     const attempt = await writeDevSnapshot(path);
 
-    expect(attempt).toEqual({ ok: false, source: "Vinaya log", status: "read threw before answering" });
+    expect(attempt.ok).toBe(true);
+    const written = readFileSync(path, "utf8");
+    const parsed = parseDevSnapshot(JSON.parse(written));
+    expect(parsed?.github).toEqual(githubRecord);
+    expect(parsed?.log).toBeUndefined();
+    expect(Object.keys(JSON.parse(written)).sort()).toEqual(["github", "takenAt"]);
+    expect(buildLog()).toBe(
+      "dev snapshot: written from GitHub alone, 1 tickets, Vinaya log (read threw before answering)",
+    );
+    expect(buildLog()).not.toContain(FAKE_LOG_TOKEN);
+    expect(written).not.toContain(FAKE_LOG_TOKEN);
+  });
+
+  it("writes the snapshot from GitHub alone when the Vinaya log answers not ok", async () => {
+    vi.mocked(readDevRecord).mockResolvedValue({ ok: false, error: "unauthorized" });
+    vi.mocked(readGithubDevRecord).mockResolvedValue({ ok: true, data: githubRecord });
+
+    const attempt = await writeDevSnapshot(path);
+
+    expect(attempt.ok).toBe(true);
+    expect(parseDevSnapshot(JSON.parse(readFileSync(path, "utf8")))?.log).toBeUndefined();
+    expect(buildLog()).toBe("dev snapshot: written from GitHub alone, 1 tickets, Vinaya log (unauthorized)");
+  });
+
+  it("writes nothing when GitHub cannot be read, even though the log can", async () => {
+    vi.mocked(readDevRecord).mockResolvedValue({ ok: true, data: logRecord });
+    vi.mocked(readGithubDevRecord).mockResolvedValue({ ok: false, error: "unreachable" });
+
+    const attempt = await writeDevSnapshot(path);
+
+    expect(attempt).toEqual({ ok: false, source: "GitHub", status: "unreachable" });
     expect(existsSync(path)).toBe(false);
-    expect(readGithubDevRecord).not.toHaveBeenCalled();
-    expect(buildLog()).toBe("dev snapshot: not written, Vinaya log (read threw before answering)");
+    expect(buildLog()).toBe("dev snapshot: not written, GitHub (unreachable)");
   });
 
   it("removes a stale snapshot and logs only the source and status when GitHub is rate limited", async () => {

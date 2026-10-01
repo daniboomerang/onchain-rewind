@@ -55,12 +55,12 @@ const STATE_MESSAGE: Record<LoadState, { headline: string; body: string } | unde
     body: "Ticket titles, status, size and pull requests are missing below for a few minutes. Round activity from the Vinaya log, where available, still shows. This refreshes on its own every few seconds.",
   },
   log_unavailable: {
-    headline: "Round detail is missing for now",
-    body: "Round-by-round detail and the guardrail totals are missing below. Everything GitHub gives still shows. This refreshes on its own every few seconds.",
+    headline: "Timing data is temporarily unavailable",
+    body: "Every ticket, round and finding below is complete. Only the time per round and the guardrail totals are missing for now. This refreshes on its own every few seconds.",
   },
   unreachable: {
-    headline: "Part of the development log couldn't be reached",
-    body: "Some of what's below — ticket detail, or round activity and guardrails — may be missing until it can. This refreshes on its own every few seconds.",
+    headline: "Timing data is temporarily unavailable",
+    body: "Every ticket, round and finding below is complete. Only the time per round and the guardrail totals are missing for now. This refreshes on its own every few seconds.",
   },
 };
 
@@ -207,6 +207,8 @@ function DevLogData({ snapshot }: { snapshot: DevSnapshot | null }) {
       <>
         <RecordSource savedAt={snapshot.takenAt} liveFailed={liveFailed} />
         <DevLogRecord view={saved} saved />
+        {/* A snapshot taken without the log reads like a failed live log read, until the log answers. */}
+        {!snapshot.log && !log && <StateMessage state={vinayaProblem ?? "log_unavailable"} />}
       </>
     );
   }
@@ -458,6 +460,9 @@ function TicketRow({ ticket: t, scaleMs }: { ticket: TicketView; scaleMs: number
   const status = STATUS[t.status];
   const byReviewer = findingsByReviewer(t.findings);
   const expandable = t.timeline.length > 0;
+  // Held here, not left to a static `open` attribute: React re-applies that on every render, so the
+  // 5-second refresh would reopen a row a reader closed. Open until the reader says otherwise.
+  const [open, setOpen] = useState(true);
 
   const summary = (
     <div className="grid grid-cols-[minmax(0,3fr)_110px_100px_130px_minmax(0,2fr)_130px] gap-4 px-5 py-4 max-lg:grid-cols-2 max-sm:grid-cols-1">
@@ -572,11 +577,13 @@ function TicketRow({ ticket: t, scaleMs }: { ticket: TicketView; scaleMs: number
     return <li className="border-b border-border last:border-b-0">{summary}</li>;
   }
 
+  // Time is the Vinaya log's alone: a timeline rebuilt from GitHub's summaries carries none.
+  const timed = t.timeline.some((r) => r.developerMs !== undefined || r.reviewerMs !== undefined);
   const activeMs = t.timeline.reduce((sum, r) => sum + (r.developerMs ?? 0) + (r.reviewerMs ?? 0), 0);
 
   return (
     <li className="border-b border-border last:border-b-0">
-      <details className="group" open>
+      <details className="group" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
         <summary className="relative cursor-pointer list-none [&::-webkit-details-marker]:hidden">
           {summary}
           <ChevronIcon className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-fg-subtle transition-transform duration-(--duration-fast) ease-out group-open:rotate-180 motion-reduce:transition-none" />
@@ -584,7 +591,10 @@ function TicketRow({ ticket: t, scaleMs }: { ticket: TicketView; scaleMs: number
         <div className="flex flex-col gap-4 px-5 pb-5">
           <RoundTimeline timeline={t.timeline} scaleMs={scaleMs} humanRulings={t.humanRulingsCount} />
           <p className="text-label text-fg-subtle">
-            {plural(t.timeline.length, "round")} · {minutes(activeMs)} of developer and reviewer time.{" "}
+            {plural(t.timeline.length, "round")} ·{" "}
+            {timed
+              ? `${minutes(activeMs)} of developer and reviewer time.`
+              : "Time per round isn't available: the Vinaya log has no record of this ticket's rounds."}{" "}
             {t.recovered && "The loop recovered from a platform failure on its own. "}
             {t.paused && "A human paused the loop at least once."}
           </p>
