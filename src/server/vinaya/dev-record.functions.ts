@@ -9,8 +9,23 @@
  */
 
 import { createServerFn } from "@tanstack/react-start";
-import { type DevelopmentRecord, foldDevelopmentRecord, type RawLogEnvelope } from "#/engine/dev-record.ts";
+import {
+  type DevelopmentRecord,
+  foldDevelopmentRecord,
+  type IssueReplacement,
+  type RawLogEnvelope,
+} from "#/engine/dev-record.ts";
 import { fetchLogEventsSince, LogTokenMissingError, type VinayaLogResult } from "#/server/vinaya/log-client.ts";
+
+/**
+ * The Issues cancelled and cut again, each beside the Issue that replaced it: the log recorded
+ * their rounds under the old number, so the fold reads them under the new one. Only these are
+ * folded; every other ticket is matched by its own Issue number.
+ */
+export const REPLACED_ISSUES: readonly IssueReplacement[] = [
+  { replaced: 65, by: 73 }, // /dev-stats explains itself
+  { replaced: 75, by: 78 }, // /dev-stats always shows every ticket's rounds
+];
 
 let heldEvents: RawLogEnvelope[] = [];
 let heldRecord: DevelopmentRecord | undefined;
@@ -51,7 +66,7 @@ async function refresh(): Promise<VinayaLogResult<DevelopmentRecord>> {
   const lastSeq = result.data.at(-1)?.seq;
   if (lastSeq !== undefined) cursor = lastSeq;
 
-  heldRecord = foldDevelopmentRecord(heldEvents);
+  heldRecord = foldDevelopmentRecord(heldEvents, REPLACED_ISSUES);
   return { ok: true, data: heldRecord };
 }
 

@@ -94,14 +94,27 @@ export function foldGuardrailTotals(envelopes: readonly RawLogEnvelope[]): Guard
   return { checks: checkNames.size, runs, stopped };
 }
 
-/** Every task the log has review-loop events for, ordered by issue number. */
-export function foldTaskRecords(envelopes: readonly RawLogEnvelope[]): readonly TaskRecord[] {
+/** A cancelled Issue and the Issue cut to replace it: the replacing task carries both Issues' history. */
+export type IssueReplacement = { readonly replaced: number; readonly by: number };
+
+/**
+ * Every task the log has review-loop events for, ordered by issue number. An Issue named as
+ * `replaced` has its events read under the Issue that replaced it, and gets no record of its own.
+ * The log's events are never edited: the fold re-keys them in memory only, so each recorded round
+ * is read once, and a round number both Issues recorded repeats like a resumed task's (`resumed`).
+ */
+export function foldTaskRecords(
+  envelopes: readonly RawLogEnvelope[],
+  replacements: readonly IssueReplacement[] = [],
+): readonly TaskRecord[] {
   const ordered = orderEvents(envelopes);
+  const replacedBy = new Map(replacements.map(({ replaced, by }) => [replaced, by]));
   const byIssue = new Map<number, RawLogEvent[]>();
   for (const event of ordered) {
     if (event.kind === "gate" || event.kind === "usage") continue;
-    const issue = asNumber(event.subject.issue);
-    if (issue === undefined) continue;
+    const recorded = asNumber(event.subject.issue);
+    if (recorded === undefined) continue;
+    const issue = replacedBy.get(recorded) ?? recorded;
     const events = byIssue.get(issue);
     if (events) events.push(event);
     else byIssue.set(issue, [event]);
@@ -116,8 +129,11 @@ export type DevelopmentRecord = {
 };
 
 /** The whole development record: every task's round-by-round history, and the guardrail totals. */
-export function foldDevelopmentRecord(envelopes: readonly RawLogEnvelope[]): DevelopmentRecord {
-  return { tasks: foldTaskRecords(envelopes), guardrails: foldGuardrailTotals(envelopes) };
+export function foldDevelopmentRecord(
+  envelopes: readonly RawLogEnvelope[],
+  replacements: readonly IssueReplacement[] = [],
+): DevelopmentRecord {
+  return { tasks: foldTaskRecords(envelopes, replacements), guardrails: foldGuardrailTotals(envelopes) };
 }
 
 /** Order by `meta.ts`, ties by `seq` — events from different machines arrive out of order. */
