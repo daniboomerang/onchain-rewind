@@ -458,6 +458,9 @@ function TicketRow({ ticket: t, scaleMs }: { ticket: TicketView; scaleMs: number
   const status = STATUS[t.status];
   const byReviewer = findingsByReviewer(t.findings);
   const expandable = t.timeline.length > 0;
+  // Held here, not left to a static `open` attribute: React re-applies that on every render, so the
+  // 5-second refresh would reopen a row a reader closed. Open until the reader says otherwise.
+  const [open, setOpen] = useState(true);
 
   const summary = (
     <div className="grid grid-cols-[minmax(0,3fr)_110px_100px_130px_minmax(0,2fr)_130px] gap-4 px-5 py-4 max-lg:grid-cols-2 max-sm:grid-cols-1">
@@ -578,7 +581,7 @@ function TicketRow({ ticket: t, scaleMs }: { ticket: TicketView; scaleMs: number
 
   return (
     <li className="border-b border-border last:border-b-0">
-      <details className="group" open>
+      <details className="group" open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
         <summary className="relative cursor-pointer list-none [&::-webkit-details-marker]:hidden">
           {summary}
           <ChevronIcon className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-fg-subtle transition-transform duration-(--duration-fast) ease-out group-open:rotate-180 motion-reduce:transition-none" />

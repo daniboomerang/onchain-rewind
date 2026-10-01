@@ -193,6 +193,23 @@ describe("DevLogRecord — rounds always show", () => {
     const planned = screen.getByText("A twelfth demo wallet replaces one that stopped producing a good story");
     expect(planned.closest("details")).toBeNull();
   });
+
+  it("keeps a closed ticket closed across a refresh, and an open one open", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<DevLogRecord view={githubOnly()} />);
+    const summary = screen.getByText(rebuiltTitle).closest("summary");
+    if (!summary) throw new Error("summary not found");
+
+    await user.click(summary);
+    expect(screen.getByText(rebuiltTitle).closest("details")).not.toHaveAttribute("open");
+
+    rerender(<DevLogRecord view={githubOnly()} />);
+    expect(screen.getByText(rebuiltTitle).closest("details")).not.toHaveAttribute("open");
+
+    await user.click(screen.getByText(rebuiltTitle).closest("summary") as HTMLElement);
+    rerender(<DevLogRecord view={githubOnly()} />);
+    expect(screen.getByText(rebuiltTitle).closest("details")).toHaveAttribute("open");
+  });
 });
 
 describe("DegradedLogRecord", () => {
