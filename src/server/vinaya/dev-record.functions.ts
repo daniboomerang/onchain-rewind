@@ -10,7 +10,7 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { type DevelopmentRecord, foldDevelopmentRecord, type RawLogEnvelope } from "#/engine/dev-record.ts";
-import { fetchLogEventsSince, type VinayaLogResult } from "#/server/vinaya/log-client.ts";
+import { fetchLogEventsSince, LogTokenMissingError, type VinayaLogResult } from "#/server/vinaya/log-client.ts";
 
 let heldEvents: RawLogEnvelope[] = [];
 let heldRecord: DevelopmentRecord | undefined;
@@ -32,7 +32,19 @@ export async function readDevRecord(): Promise<VinayaLogResult<DevelopmentRecord
 }
 
 async function refresh(): Promise<VinayaLogResult<DevelopmentRecord>> {
-  const result = await fetchLogEventsSince<RawLogEnvelope>(cursor);
+  let result: VinayaLogResult<readonly RawLogEnvelope[]>;
+  try {
+    result = await fetchLogEventsSince<RawLogEnvelope>(cursor);
+  } catch (error) {
+    // A server function's thrown message reaches the browser, so nothing is thrown past here: the
+    // page gets a typed failure and the detail stays in this log — a fixed line, never the error.
+    console.error(
+      error instanceof LogTokenMissingError
+        ? "vinaya log read not attempted: VINAYA_LOG_READ_TOKEN is not set"
+        : "vinaya log read failed before answering",
+    );
+    return heldRecord ? { ok: true, data: heldRecord } : { ok: false, error: "unauthorized" };
+  }
   if (!result.ok) return heldRecord ? { ok: true, data: heldRecord } : result;
 
   heldEvents.push(...result.data);
