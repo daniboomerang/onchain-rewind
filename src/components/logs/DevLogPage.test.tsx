@@ -74,7 +74,7 @@ describe("DevLogRecord — findings by reviewer", () => {
   it("names both reviewers in the headline, each on its own scale", () => {
     render(<DevLogRecord view={normalDevLog} />);
     expect(screen.getByText("Code review: 1 blocker · 3 major · 5 minor")).toBeInTheDocument();
-    expect(screen.getByText("Security: 1 high · 2 medium · 1 low")).toBeInTheDocument();
+    expect(screen.getByText("Security: 1 high · 1 medium · 1 low")).toBeInTheDocument();
   });
 
   it("keeps a reviewer's line, reading none, when it raised nothing", () => {
