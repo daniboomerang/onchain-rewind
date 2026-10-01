@@ -163,6 +163,38 @@ describe("DevLogRecord", () => {
   });
 });
 
+describe("DevLogRecord — rounds always show", () => {
+  const rebuiltTitle = "The GitHub record of every task becomes a development record";
+
+  // The same ticket as GitHub alone rebuilds it when the Vinaya log is down: rounds, no time.
+  function githubOnly(): typeof normalDevLog {
+    return {
+      ...normalDevLog,
+      timeSplit: undefined,
+      guardrails: undefined,
+      tickets: normalDevLog.tickets.map((t) => ({
+        ...t,
+        timeline: t.timeline.map(({ developerMs, reviewerMs, filesChanged, insertions, deletions, ...round }) => round),
+      })),
+    };
+  }
+
+  it("shows a ticket's rounds open, saying time isn't available and inventing none", () => {
+    render(<DevLogRecord view={githubOnly()} />);
+    const details = screen.getByText(rebuiltTitle).closest("details");
+    expect(details).toHaveAttribute("open");
+    expect(screen.getAllByText("Time isn't available for this round.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Time per round isn't available/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Developer \d+ min/)).not.toBeInTheDocument();
+  });
+
+  it("keeps a ticket with no rounds a plain row", () => {
+    render(<DevLogRecord view={githubOnly()} />);
+    const planned = screen.getByText("A twelfth demo wallet replaces one that stopped producing a good story");
+    expect(planned.closest("details")).toBeNull();
+  });
+});
+
 describe("DegradedLogRecord", () => {
   it("shows guardrails, round activity and the live line from the Vinaya log alone, with no ticket titles", () => {
     render(<DegradedLogRecord view={degradedDevLog} />);

@@ -572,6 +572,8 @@ function TicketRow({ ticket: t, scaleMs }: { ticket: TicketView; scaleMs: number
     return <li className="border-b border-border last:border-b-0">{summary}</li>;
   }
 
+  // Time is the Vinaya log's alone: a timeline rebuilt from GitHub's summaries carries none.
+  const timed = t.timeline.some((r) => r.developerMs !== undefined || r.reviewerMs !== undefined);
   const activeMs = t.timeline.reduce((sum, r) => sum + (r.developerMs ?? 0) + (r.reviewerMs ?? 0), 0);
 
   return (
@@ -584,7 +586,10 @@ function TicketRow({ ticket: t, scaleMs }: { ticket: TicketView; scaleMs: number
         <div className="flex flex-col gap-4 px-5 pb-5">
           <RoundTimeline timeline={t.timeline} scaleMs={scaleMs} humanRulings={t.humanRulingsCount} />
           <p className="text-label text-fg-subtle">
-            {plural(t.timeline.length, "round")} · {minutes(activeMs)} of developer and reviewer time.{" "}
+            {plural(t.timeline.length, "round")} ·{" "}
+            {timed
+              ? `${minutes(activeMs)} of developer and reviewer time.`
+              : "Time per round isn't available: the Vinaya log has no record of this ticket's rounds."}{" "}
             {t.recovered && "The loop recovered from a platform failure on its own. "}
             {t.paused && "A human paused the loop at least once."}
           </p>

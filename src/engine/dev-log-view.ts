@@ -8,7 +8,8 @@
  * module. GitHub's tasks carry one summary per distinct round (a round reviewed again after a
  * human ruling collapses to its latest state, ADR-0004), so a round-by-round timeline with real
  * repeats can only come from the Vinaya log's own, unreduced round record — matched here by issue
- * number. A ticket the log never saw keeps its GitHub-derived counts and shows no timeline.
+ * number. A ticket the log has no rounds for gets a timeline rebuilt from GitHub's summaries —
+ * the same rounds, outcomes, findings and confidence, with no time, which only the log measures.
  */
 
 import type {
@@ -84,7 +85,8 @@ export type RoundTimelineEntry = {
   readonly developerMs?: number;
   readonly reviewerMs?: number;
   readonly outcome?: "changes_requested" | "green";
-  readonly confidence?: { readonly value: number; readonly reason: string };
+  /** `reason` is the log's own; GitHub's reviewer summary carries the figure alone. */
+  readonly confidence?: { readonly value: number; readonly reason?: string };
   readonly filesChanged?: number;
   readonly insertions?: number;
   readonly deletions?: number;
@@ -117,7 +119,7 @@ export type TicketView = {
   readonly roundCount: number;
   /** One entry per distinct round, its final outcome — for a compact round-by-round glance. */
   readonly rounds: readonly { readonly round: number; readonly outcome?: string }[];
-  /** The round-by-round timeline, from the Vinaya log. Empty when the log never saw this ticket. */
+  /** The round-by-round timeline: the Vinaya log's own when it has the ticket, else rebuilt from GitHub's summaries. Empty only when the ticket has no rounds. */
   readonly timeline: readonly RoundTimelineEntry[];
   readonly running: boolean;
   readonly recovered: boolean;
@@ -184,7 +186,24 @@ function buildTimeline(rounds: readonly LogRoundRecord[]): readonly RoundTimelin
   });
 }
 
+/**
+ * One entry per distinct round from GitHub's reviewer summaries, for a ticket the Vinaya log has
+ * no rounds for. Time, size and the log's confidence reason are the log's alone, so they stay
+ * unset rather than guessed.
+ */
+function buildTimelineFromGithub(rounds: TaskDevRecord["rounds"]): readonly RoundTimelineEntry[] {
+  return rounds.map((round) => ({
+    round: round.round,
+    repeat: false,
+    outcome: round.outcome === "green" || round.outcome === "changes_requested" ? round.outcome : undefined,
+    confidence: round.confidence === undefined ? undefined : { value: round.confidence },
+    findings: round.findings,
+  }));
+}
+
 function buildTicket(task: TaskDevRecord, logTask: LogTaskRecord | undefined): TicketView {
+  // The log's timeline, with times, wins whenever it has rounds for the ticket.
+  const fromLog = logTask !== undefined && logTask.rounds.length > 0;
   let findings = zeroFindingCounts();
   for (const round of task.rounds) findings = addFindingCounts(findings, round.findings);
 
@@ -225,7 +244,7 @@ function buildTicket(task: TaskDevRecord, logTask: LogTaskRecord | undefined): T
     findings,
     roundCount: task.rounds.length,
     rounds: task.rounds.map((round) => ({ round: round.round, outcome: round.outcome })),
-    timeline: logTask ? buildTimeline(logTask.rounds) : [],
+    timeline: fromLog ? buildTimeline(logTask.rounds) : buildTimelineFromGithub(task.rounds),
     running: logTask?.running ?? false,
     recovered: logTask?.recovered ?? false,
     paused: logTask?.paused ?? false,

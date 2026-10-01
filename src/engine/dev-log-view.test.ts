@@ -24,6 +24,10 @@ function logRound(overrides: Partial<LogRoundRecord> = {}): LogRoundRecord {
   return { round: 1, findings: [], ...overrides };
 }
 
+function logFindings() {
+  return { blocker: 0, major: 0, minor: 0, critical: 0, high: 0, medium: 0, low: 0 };
+}
+
 function github(tasks: readonly TaskDevRecord[]): GithubDevelopmentRecord {
   return {
     tasks,
@@ -47,10 +51,51 @@ describe("buildDevLogView", () => {
     expect(view.milestone.ticketsMerged).toBe(1);
   });
 
-  it("has no timeline when the Vinaya log never saw a ticket", () => {
+  it("has no timeline for a ticket with no rounds, whether or not the log saw it", () => {
     const view = buildDevLogView(github([task()]));
     expect(view.tickets[0]?.timeline).toEqual([]);
     expect(view.tickets[0]?.running).toBe(false);
+    const withLog = buildDevLogView(github([task()]), {
+      tasks: [logTask()],
+      guardrails: { runs: 0, checks: 0, stopped: 0 },
+    });
+    expect(withLog.tickets[0]?.timeline).toEqual([]);
+  });
+
+  it("rebuilds the timeline from GitHub's round summaries when the log has no entry, with no time", () => {
+    const findings = { blocker: 1, major: 0, minor: 2, critical: 0, high: 0, medium: 0, low: 0 };
+    const view = buildDevLogView(
+      github([
+        task({
+          rounds: [
+            { round: 1, findings, confidence: 80, outcome: "changes_requested" },
+            { round: 2, findings: { ...findings, blocker: 0 }, outcome: "green" },
+          ],
+        }),
+      ]),
+    );
+    const ticket = view.tickets[0];
+    expect(ticket?.timeline.map((r) => [r.round, r.outcome, r.repeat])).toEqual([
+      [1, "changes_requested", false],
+      [2, "green", false],
+    ]);
+    expect(ticket?.timeline[0]?.confidence).toEqual({ value: 80 });
+    expect(ticket?.timeline[0]?.findings).toEqual(findings);
+    for (const entry of ticket?.timeline ?? []) {
+      expect(entry.developerMs).toBeUndefined();
+      expect(entry.reviewerMs).toBeUndefined();
+    }
+  });
+
+  it("keeps the log's own timeline, times included, when the log has the ticket's rounds", () => {
+    const view = buildDevLogView(
+      github([task({ rounds: [{ round: 1, findings: logFindings(), outcome: "green" }] })]),
+      {
+        tasks: [logTask({ rounds: [logRound({ developerMs: 60_000, reviewerMs: 30_000, outcome: "green" })] })],
+        guardrails: { runs: 0, checks: 0, stopped: 0 },
+      },
+    );
+    expect(view.tickets[0]?.timeline[0]?.developerMs).toBe(60_000);
   });
 
   it("marks a round that appears twice in the log's own record as a repeat", () => {
