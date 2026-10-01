@@ -6,9 +6,10 @@ import {
   buildDevLogView,
   type DegradedLogView,
   type DevLogView,
+  findingsByReviewer,
   type TicketView,
 } from "../../engine/dev-log-view";
-import { SEVERITIES, type TaskStatus } from "../../engine/github-dev-record";
+import type { TaskStatus } from "../../engine/github-dev-record";
 import { getGithubDevRecord } from "../../server/github/dev-record.functions";
 import type { DevSnapshot } from "../../server/github/dev-snapshot";
 import { getDevRecord } from "../../server/vinaya/dev-record.functions";
@@ -43,21 +44,23 @@ const SEVERITY_TONE: Record<string, string> = {
   low: "bg-surface-raised text-fg-subtle",
 };
 
-export type LoadState = "loading" | "rate_limited" | "token_rejected" | "unreachable";
+export type LoadState = "loading" | "github_limited" | "log_unavailable" | "unreachable";
 
+// What a visitor reads: what is missing and that the page refreshes on its own. Never a variable,
+// a token, a status or a server error — those go to the server log (`.claude/rules/tanstack-start.md`).
 const STATE_MESSAGE: Record<LoadState, { headline: string; body: string } | undefined> = {
   loading: undefined,
-  rate_limited: {
-    headline: "GitHub's rate limit was hit",
-    body: "Ticket titles, status, size and pull requests need GitHub and are missing below until the limit resets. Set GITHUB_TOKEN on the server to raise it, or wait a few minutes. Round activity from the Vinaya log, where available, still shows.",
+  github_limited: {
+    headline: "Ticket details are catching up",
+    body: "Ticket titles, status, size and pull requests are missing below for a few minutes. Round activity from the Vinaya log, where available, still shows. This refreshes on its own every few seconds.",
   },
-  token_rejected: {
-    headline: "The Vinaya log rejected its token",
-    body: "VINAYA_LOG_READ_TOKEN on the server is missing or no longer valid, so round-by-round detail and the guardrail totals are missing below until it's fixed. Everything GitHub gives still shows.",
+  log_unavailable: {
+    headline: "Round detail is missing for now",
+    body: "Round-by-round detail and the guardrail totals are missing below. Everything GitHub gives still shows. This refreshes on its own every few seconds.",
   },
   unreachable: {
     headline: "Part of the development log couldn't be reached",
-    body: "GitHub or the Vinaya log didn't answer, so some of what's below — ticket detail, or round activity and guardrails — may be missing until it does. This refreshes on its own every few seconds.",
+    body: "Some of what's below — ticket detail, or round activity and guardrails — may be missing until it can. This refreshes on its own every few seconds.",
   },
 };
 
@@ -220,8 +223,9 @@ function DevLogData({ snapshot }: { snapshot: DevSnapshot | null }) {
     );
   }
 
-  if (github.data && !github.data.ok) {
-    const githubProblem: LoadState = github.data.error === "rate_limited" ? "rate_limited" : "unreachable";
+  if (github.isError || (github.data && !github.data.ok)) {
+    const githubProblem: LoadState =
+      github.data?.ok === false && github.data.error === "rate_limited" ? "github_limited" : "unreachable";
     return (
       <>
         {degraded && <DegradedLogRecord view={degraded} />}
@@ -236,16 +240,15 @@ function DevLogData({ snapshot }: { snapshot: DevSnapshot | null }) {
 
 /**
  * The one state the Vinaya read can be in worth telling the visitor about, or `null` when it's
- * fine. `getDevRecord` only ever throws for one reason (`log-client.ts`'s own missing-token
- * check — every other failure it meets, network or upstream, comes back as a typed `unreachable`
- * or `unauthorized` result instead) — so a query that errored without ever producing a result is
- * that one thrown case, read here as "token rejected" the same as the typed `unauthorized` result.
- * Guardrails and the round-by-round timeline both need this read; the ticket list and headline
- * numbers don't, so this never blocks the page the way a failed GitHub read does.
+ * fine. A query that errored without a result (`getDevRecord` throwing) and a typed `unauthorized`
+ * read the same: the log's round detail is missing, and the page says only that. Its message is
+ * never read — the detail is in the server log. Guardrails and the round-by-round timeline both
+ * need this read; the ticket list and headline numbers don't, so this never blocks the page the
+ * way a failed GitHub read does.
  */
 function vinayaState(vinaya: { data?: VinayaLogResult<unknown>; isError: boolean }): LoadState | null {
-  if (vinaya.isError) return "token_rejected";
-  if (vinaya.data && !vinaya.data.ok) return vinaya.data.error === "unauthorized" ? "token_rejected" : "unreachable";
+  if (vinaya.isError) return "log_unavailable";
+  if (vinaya.data && !vinaya.data.ok) return vinaya.data.error === "unauthorized" ? "log_unavailable" : "unreachable";
   return null;
 }
 
@@ -311,10 +314,7 @@ export function DevLogRecord({ view, saved = false }: { view: DevLogView; saved?
     1,
     ...view.tickets.flatMap((t) => t.timeline.map((r) => (r.developerMs ?? 0) + (r.reviewerMs ?? 0))),
   );
-  const severityLine =
-    SEVERITIES.filter((s) => headline.findings[s] > 0)
-      .map((s) => `${headline.findings[s]} ${s}`)
-      .join(" · ") || "none";
+  const reviewerLines = findingsByReviewer(headline.findings);
 
   return (
     <>
@@ -362,7 +362,16 @@ export function DevLogRecord({ view, saved = false }: { view: DevLogView; saved?
           index={4}
           label="Problems caught"
           value={String(headline.findingsTotal)}
-          note={`Raised by reviewers before merge: ${severityLine}.`}
+          note={
+            <>
+              Raised by the two reviewers before merge:
+              {reviewerLines.map((line) => (
+                <span key={line.reviewer} className="block">
+                  {line.reviewer}: {line.raised.map((r) => `${r.count} ${r.severity}`).join(" · ") || "none"}
+                </span>
+              ))}
+            </>
+          }
         />
         <Stat
           index={5}
@@ -390,8 +399,9 @@ export function DevLogRecord({ view, saved = false }: { view: DevLogView; saved?
           <h2 className="font-display text-title">Ticket by ticket</h2>
           <p className="text-small text-fg-muted">
             <strong className="font-medium text-fg">Rounds</strong> is how many times the developer and reviewers went
-            back and forth. <strong className="font-medium text-fg">Problems</strong> are what the reviewers raised, by
-            severity — not every problem stops a merge; some are recorded and fixed later.
+            back and forth. <strong className="font-medium text-fg">Problems</strong> are what each reviewer, code
+            review and security, raised, by severity — not every problem stops a merge; some are recorded and fixed
+            later.
           </p>
         </div>
         <ul className="flex flex-col rounded-2xl border border-border bg-surface">
@@ -427,7 +437,7 @@ function Progress({ value, label }: { value: number; label: string }) {
   );
 }
 
-function Stat({ index, label, value, note }: { index: number; label: string; value: string; note: string }) {
+function Stat({ index, label, value, note }: { index: number; label: string; value: string; note: ReactNode }) {
   return (
     <Reveal index={index} className="flex flex-col gap-2 rounded-2xl border border-border bg-surface p-5">
       <p className="font-mono text-label text-fg-subtle uppercase">{label}</p>
@@ -446,7 +456,7 @@ const Cell = ({ label, children }: { label: string; children: ReactNode }) => (
 
 function TicketRow({ ticket: t, scaleMs }: { ticket: TicketView; scaleMs: number }) {
   const status = STATUS[t.status];
-  const problems = SEVERITIES.filter((s) => t.findings[s] > 0);
+  const byReviewer = findingsByReviewer(t.findings);
   const expandable = t.timeline.length > 0;
 
   const summary = (
@@ -522,13 +532,23 @@ function TicketRow({ ticket: t, scaleMs }: { ticket: TicketView; scaleMs: number
       <Cell label="Problems">
         {t.rounds.length === 0 ? (
           <span className="text-fg-subtle">—</span>
-        ) : problems.length === 0 ? (
-          <span className="text-fg-muted">None raised</span>
         ) : (
-          <span className="flex flex-wrap gap-1.5">
-            {problems.map((s) => (
-              <span key={s} className={`rounded-full px-2 py-0.5 text-label ${SEVERITY_TONE[s]}`}>
-                {t.findings[s]} {s}
+          <span className="flex flex-col gap-1">
+            {byReviewer.map((line) => (
+              <span key={line.reviewer} className="flex flex-wrap items-center gap-1.5">
+                <span className="text-label text-fg-subtle">{line.reviewer}:</span>
+                {line.raised.length === 0 ? (
+                  <span className="text-label text-fg-muted">none</span>
+                ) : (
+                  line.raised.map((r) => (
+                    <span
+                      key={r.severity}
+                      className={`rounded-full px-2 py-0.5 text-label ${SEVERITY_TONE[r.severity]}`}
+                    >
+                      {r.count} {r.severity}
+                    </span>
+                  ))
+                )}
               </span>
             ))}
           </span>
