@@ -135,6 +135,77 @@ describe("buildDevLogView", () => {
     });
   });
 
+  describe("a round's findings fall back to GitHub's summary for the same round", () => {
+    const githubRow = (round: number, findings: Partial<ReturnType<typeof logFindings>>) => ({
+      round,
+      findings: { ...logFindings(), ...findings },
+      outcome: "changes_requested",
+    });
+    const log = (tasks: readonly LogTaskRecord[]) => ({ tasks, guardrails: { checks: 0, runs: 0, stopped: 0 } });
+
+    it("uses the GitHub row when the log's list is empty", () => {
+      const view = buildDevLogView(
+        github([task({ rounds: [githubRow(1, { blocker: 1, major: 2 })] })]),
+        log([logTask({ rounds: [logRound({ round: 1 })] })]),
+      );
+      expect(view.tickets[0]?.timeline[0]?.findings.blocker).toBe(1);
+      expect(view.tickets[0]?.timeline[0]?.findings.major).toBe(2);
+    });
+
+    it("uses the GitHub row when the log's severities are not recognised", () => {
+      const view = buildDevLogView(
+        github([task({ rounds: [githubRow(1, { major: 1 })] })]),
+        log([
+          logTask({
+            rounds: [
+              logRound({
+                round: 1,
+                findings: [{ id: "f", severity: "p1", severityScale: "other", policyTreatment: "block" }],
+              }),
+            ],
+          }),
+        ]),
+      );
+      expect(view.tickets[0]?.timeline[0]?.findings.major).toBe(1);
+    });
+
+    it("keeps the log's findings over GitHub's when the log has some", () => {
+      const view = buildDevLogView(
+        github([task({ rounds: [githubRow(1, { blocker: 3 })] })]),
+        log([
+          logTask({
+            rounds: [
+              logRound({
+                round: 1,
+                findings: [{ id: "f", severity: "minor", severityScale: "code", policyTreatment: "advisory" }],
+              }),
+            ],
+          }),
+        ]),
+      );
+      expect(view.tickets[0]?.timeline[0]?.findings.minor).toBe(1);
+      expect(view.tickets[0]?.timeline[0]?.findings.blocker).toBe(0);
+    });
+
+    it("keeps nothing raised for a round with neither source", () => {
+      const view = buildDevLogView(github([task()]), log([logTask({ rounds: [logRound({ round: 1 })] })]));
+      expect(view.tickets[0]?.timeline[0]?.findings).toEqual(logFindings());
+    });
+
+    it("makes the header equal the sum of the round rows when every round has a GitHub row", () => {
+      const view = buildDevLogView(
+        github([task({ rounds: [githubRow(1, { blocker: 1, major: 2 }), githubRow(2, { minor: 3 })] })]),
+        log([logTask({ rounds: [logRound({ round: 1 }), logRound({ round: 2 }), logRound({ round: 2 })] })]),
+      );
+      const ticket = view.tickets[0];
+      const sum = logFindings();
+      for (const entry of ticket?.timeline ?? []) {
+        for (const severity of Object.keys(sum) as (keyof typeof sum)[]) sum[severity] += entry.findings[severity];
+      }
+      expect(sum).toEqual(ticket?.findings);
+    });
+  });
+
   it("reports a running ticket as the developer's or the reviewers', by status", () => {
     const view = buildDevLogView(
       github([task({ issue: 1, status: "being_built" }), task({ issue: 2, status: "in_review" })]),

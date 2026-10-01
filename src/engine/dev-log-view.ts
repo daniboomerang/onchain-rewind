@@ -166,11 +166,27 @@ export type DevLogView = {
   readonly tickets: readonly TicketView[];
 };
 
-function buildTimeline(rounds: readonly LogRoundRecord[]): readonly RoundTimelineEntry[] {
+function hasFindings(counts: FindingCounts): boolean {
+  return SEVERITIES.some((severity) => counts[severity] > 0);
+}
+
+/**
+ * A round's findings are the log's own list when it names any the page recognises, else the ones
+ * GitHub's reviewer summary records for the same round number, as the ticket's header counts them.
+ * Only a number's last occurrence falls back, so a re-reviewed round is never counted twice.
+ */
+function buildTimeline(
+  rounds: readonly LogRoundRecord[],
+  githubRounds: TaskDevRecord["rounds"],
+): readonly RoundTimelineEntry[] {
   const seen = new Set<number>();
-  return rounds.map((round) => {
+  const lastIndex = new Map(rounds.map((round, index) => [round.round, index]));
+  const githubByNumber = new Map(githubRounds.map((round) => [round.round, round]));
+  return rounds.map((round, index) => {
     const repeat = seen.has(round.round);
     seen.add(round.round);
+    const fromLog = findingsFromLog(round.findings);
+    const fallback = lastIndex.get(round.round) === index ? githubByNumber.get(round.round)?.findings : undefined;
     return {
       round: round.round,
       repeat,
@@ -181,7 +197,7 @@ function buildTimeline(rounds: readonly LogRoundRecord[]): readonly RoundTimelin
       filesChanged: round.filesChanged,
       insertions: round.insertions,
       deletions: round.deletions,
-      findings: findingsFromLog(round.findings),
+      findings: hasFindings(fromLog) || fallback === undefined ? fromLog : fallback,
     };
   });
 }
@@ -244,7 +260,7 @@ function buildTicket(task: TaskDevRecord, logTask: LogTaskRecord | undefined): T
     findings,
     roundCount: task.rounds.length,
     rounds: task.rounds.map((round) => ({ round: round.round, outcome: round.outcome })),
-    timeline: fromLog ? buildTimeline(logTask.rounds) : buildTimelineFromGithub(task.rounds),
+    timeline: fromLog ? buildTimeline(logTask.rounds, task.rounds) : buildTimelineFromGithub(task.rounds),
     running: logTask?.running ?? false,
     recovered: logTask?.recovered ?? false,
     paused: logTask?.paused ?? false,
@@ -332,7 +348,7 @@ export type DegradedLogView = {
 export function buildDegradedLogView(log: LogDevelopmentRecord): DegradedLogView {
   const tickets: DegradedTicket[] = log.tasks
     .filter((task) => task.rounds.length > 0 || task.running)
-    .map((task) => ({ issue: task.issue, timeline: buildTimeline(task.rounds), running: task.running }))
+    .map((task) => ({ issue: task.issue, timeline: buildTimeline(task.rounds, []), running: task.running }))
     .sort((a, b) => a.issue - b.issue);
 
   let developerMs = 0;
